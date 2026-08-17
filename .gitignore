@@ -1,6 +1,7 @@
 # Node/Next.js
 frontend/node_modules/
 frontend/.next/
+.env.local
 
 # Python
 backend/.venv/
