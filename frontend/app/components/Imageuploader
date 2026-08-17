@@ -1,0 +1,23 @@
+"use client";
+import { CldUploadWidget } from "next-cloudinary";
+
+export default function ImageUploader() {
+  return (
+    <CldUploadWidget
+      onUpload={(result) => {
+        console.log("Uploaded Image URL:", result?.info?.secure_url);
+        alert("Upload Successful! Check console for URL.");
+      }}
+    >
+      {({ open }) => (
+        <button
+          type="button"
+          onClick={() => open()}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Upload Outfit Photo
+        </button>
+      )}
+    </CldUploadWidget>
+  );
+}

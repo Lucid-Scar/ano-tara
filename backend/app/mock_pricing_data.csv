@@ -1,0 +1,10 @@
+Location,Month,Demand_Level,Rainfall_mm,Price_PHP
+Baguio,December,High,30.5,4500
+Baguio,August,Low,905.0,1800
+Baguio,April,Medium,105.0,2800
+Boracay,April,High,45.0,7500
+Boracay,August,Low,432.0,3000
+Boracay,December,Medium,180.0,5000
+Siargao,September,High,160.0,5500
+Siargao,January,Low,550.0,2200
+Siargao,May,Medium,120.0,3500
