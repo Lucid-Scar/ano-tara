@@ -1,0 +1,3 @@
+0 Warm-Weather
+1 Cold-Weather
+2 Rain-Weather

@@ -1,2 +1,8 @@
-fastapi==0.116.1
-uvicorn==0.35.0
+fastapi
+uvicorn
+pydantic
+tensorflow==2.19.0
+tf-keras
+Pillow
+numpy==1.26.4
+requests
