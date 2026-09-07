@@ -14,6 +14,7 @@ export default function Footer() {
             </p>
           </div>
 
+
           <div>
             <h4 className="mb-4 font-bold text-slate-900">Explore</h4>
             <ul className="space-y-3 text-sm text-slate-500">
