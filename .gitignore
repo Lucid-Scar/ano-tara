@@ -10,3 +10,6 @@ backend/data/weather_history.csv
 backend/data/activity_suitability.csv
 __pycache__/
 *.pyc
+backend/env/
+*.pyc
+.env
