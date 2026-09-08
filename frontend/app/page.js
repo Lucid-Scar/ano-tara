@@ -5,6 +5,8 @@ import Footer from "./footer/Footer";
 
 export default function Home() {
   const [guests, setGuests] = useState(3);
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
 
   const handleMinus = (e) => {
     e.preventDefault();
@@ -15,6 +17,8 @@ export default function Home() {
     e.preventDefault();
     setGuests((prev) => prev + 1);
   };
+
+  const searchUrl = `/destinations?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`;
 
   return (
     <main className="min-h-screen bg-[#FAFAFA]">
@@ -33,8 +37,8 @@ export default function Home() {
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-3">
-            <Link href="/" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
-              Log in
+            <Link href="/final-planner" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
+              Planner
             </Link>
             <Link href="/" className="flex items-center gap-2 rounded-md bg-white px-5 py-2 text-sm font-bold text-red-500 shadow-sm transition hover:bg-gray-100">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -61,12 +65,12 @@ export default function Home() {
           <div className="flex-[3] flex items-center w-full px-4 py-2 sm:border-r sm:border-slate-300 hover:bg-gray-50 rounded-2xl transition-colors cursor-pointer">
             <div className="flex-1">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Check in</p>
-              <input type="date" className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" />
+              <input type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" />
             </div>
             <div className="w-px h-8 bg-slate-300 mx-3"></div>
             <div className="flex-1">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Check out</p>
-              <input type="date" className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" />
+              <input type="date" value={checkOut} onChange={(event) => setCheckOut(event.target.value)} className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" />
             </div>
           </div>
 
@@ -86,7 +90,7 @@ export default function Home() {
           </div>
 
           <div className="flex-none w-full sm:w-auto mt-2 sm:mt-0 pl-2">
-            <Link href="/destinations" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b9f0c8] px-8 py-4 sm:py-5 shadow-sm transition hover:scale-105 active:scale-95 text-teal-950">
+            <Link href={searchUrl} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b9f0c8] px-8 py-4 sm:py-5 shadow-sm transition hover:scale-105 active:scale-95 text-teal-950">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               <span className="font-bold text-lg hidden sm:block">Search</span>
             </Link>

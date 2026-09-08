@@ -19,3 +19,43 @@ body {
 * {
   box-sizing: border-box;
 }
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  body {
+    background: white;
+  }
+
+  .planner-shell {
+    padding: 0;
+    background: white;
+  }
+
+  .planner-shell > div {
+    max-width: none;
+  }
+
+  .planner-controls,
+  .planner-shell form,
+  .planner-shell header .planner-controls,
+  .planner-shell > div > section:last-child {
+    display: none !important;
+  }
+
+  .planner-document {
+    width: 100%;
+  }
+
+  .planner-title {
+    break-after: avoid;
+  }
+
+  .planner-document article {
+    break-inside: avoid;
+    border: 1px solid #d9dee7;
+    box-shadow: none;
+  }
+}

@@ -4,6 +4,8 @@ import Link from "next/link";
 import Footer from "../footer/Footer";
 import { MOCK_DESTINATIONS } from "./mockDestinations";
 
+const destinationImages = MOCK_DESTINATIONS.map((destination) => destination.image);
+
 function DestinationCard({ destination }) {
   return (
     <Link href={`/specific-destinations?id=${destination.id}`} className="group overflow-hidden rounded-2xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
@@ -32,6 +34,20 @@ export default function DestinationsPage() {
   const [checkOut, setCheckOut] = useState("");
 
   useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const storedTrip = window.localStorage.getItem("anoTaraTrip");
+    let stored = {};
+    try {
+      stored = storedTrip ? JSON.parse(storedTrip) : {};
+    } catch {
+      window.localStorage.removeItem("anoTaraTrip");
+    }
+    if (query.get("checkIn")) setCheckIn(query.get("checkIn"));
+    else if (stored.targetDates?.[0]) setCheckIn(stored.targetDates[0]);
+    if (query.get("checkOut")) setCheckOut(query.get("checkOut"));
+    if (query.get("guests")) setGuests(Number(query.get("guests")) || 1);
+    else if (stored.guests) setGuests(stored.guests);
+
     fetch("http://localhost:8000/destinations")
       .then((response) => response.json())
       .then((data) => {
@@ -166,7 +182,7 @@ export default function DestinationsPage() {
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {destinations.map((destination) => (
-            <DestinationCard key={destination.id} destination={destination} />
+            <DestinationCard key={destination.id} destination={{ ...destination, image: destination.image || destinationImages[destinations.indexOf(destination)] }} />
           ))}
         </div>
       </main>
