@@ -4,6 +4,8 @@ import Link from "next/link";
 import Footer from "../footer/Footer";
 import { MOCK_DESTINATIONS } from "./mockDestinations";
 
+const destinationImages = MOCK_DESTINATIONS.map((destination) => destination.image);
+
 function DestinationCard({ destination }) {
   return (
     <Link href={`/specific-destinations?id=${destination.id}`} className="group overflow-hidden rounded-2xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
@@ -26,12 +28,26 @@ function DestinationCard({ destination }) {
 export default function DestinationsPage() {
   const [guests, setGuests] = useState(3);
   const [destinations, setDestinations] = useState(MOCK_DESTINATIONS);
+  const [tripReady, setTripReady] = useState(false);
   
   // Date Range State
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
-  const [checkOut, setCheckOut] = useState("");
 
   useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const storedTrip = window.localStorage.getItem("anoTaraTrip");
+    let stored = {};
+    try {
+      stored = storedTrip ? JSON.parse(storedTrip) : {};
+    } catch {
+      window.localStorage.removeItem("anoTaraTrip");
+    }
+    if (query.get("date")) setCheckIn(query.get("date"));
+    else if (query.get("checkIn")) setCheckIn(query.get("checkIn"));
+    else if (stored.targetDates?.[0]) setCheckIn(stored.targetDates[0]);
+    if (query.get("guests")) setGuests(Number(query.get("guests")) || 1);
+    else if (stored.guests) setGuests(stored.guests);
+
     fetch("http://localhost:8000/destinations")
       .then((response) => response.json())
       .then((data) => {
@@ -43,7 +59,14 @@ export default function DestinationsPage() {
         // Keep the mock cards visible while the backend is unavailable.
         setDestinations(MOCK_DESTINATIONS);
       });
+    setTripReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!tripReady) return;
+    const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, targetDates: checkIn ? [checkIn] : [], guests }));
+  }, [checkIn, guests, tripReady]);
 
   const handleMinus = (e) => {
     e.preventDefault();
@@ -65,9 +88,7 @@ export default function DestinationsPage() {
     });
   };
 
-  const displayRange = checkIn && checkOut 
-    ? `${formatDate(checkIn)} - ${formatDate(checkOut)}` 
-    : formatDate(checkIn) || "Select Dates";
+  const displayRange = formatDate(checkIn) || "Select date";
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fefdfd] text-slate-900">
@@ -131,25 +152,16 @@ export default function DestinationsPage() {
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-gray-200 pb-6">
           <div>
             <h1 className="text-xl font-medium text-gray-900 mb-4">
-              10 experiences between <span className="text-[#4a8b8b] font-bold">{displayRange}</span> for {guests} Guests
+              {destinations.length} experiences on <span className="text-[#4a8b8b] font-bold">{displayRange}</span> for {guests} Guests
             </h1>
             
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 font-medium w-16">Check In:</span>
+                <span className="text-sm text-gray-500 font-medium w-24">Travel date:</span>
                 <input 
                   type="date" 
                   value={checkIn}
                   onChange={(e) => setCheckIn(e.target.value)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] transition-colors cursor-pointer"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 font-medium w-16 sm:w-auto">Check Out:</span>
-                <input 
-                  type="date" 
-                  value={checkOut}
-                  onChange={(e) => setCheckOut(e.target.value)}
                   className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] transition-colors cursor-pointer"
                 />
               </div>
@@ -166,7 +178,7 @@ export default function DestinationsPage() {
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {destinations.map((destination) => (
-            <DestinationCard key={destination.id} destination={destination} />
+            <DestinationCard key={destination.id} destination={{ ...destination, image: destination.image || destinationImages[destinations.indexOf(destination) % destinationImages.length] }} />
           ))}
         </div>
       </main>

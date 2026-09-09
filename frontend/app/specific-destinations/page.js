@@ -25,10 +25,10 @@ function NearbyCard({ image, name }) {
 
 export default function SpecificDestinationsPage() {
   const [guests, setGuests] = useState(1); 
+  const [tripReady, setTripReady] = useState(false);
   
-  // Date Range and Time State
+  // The MLR is calculated for one travel date, not a stay range.
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
-  const [checkOut, setCheckOut] = useState("");
   const [selectedTime, setSelectedTime] = useState("10:00");
   
   // CSV / MLR State Management
@@ -37,6 +37,12 @@ export default function SpecificDestinationsPage() {
   const [destinationDetails, setDestinationDetails] = useState({
     ...MOCK_DESTINATIONS[0],
   });
+  const [selectedActivity, setSelectedActivity] = useState("Island hopping");
+  const activities = [
+    { name: "Island hopping", type: "outdoor" },
+    { name: "Local food tour", type: "indoor" },
+    { name: "Heritage visit", type: "indoor" },
+  ];
 
   const handleMinus = (e) => {
     e.preventDefault();
@@ -58,11 +64,24 @@ export default function SpecificDestinationsPage() {
     });
   };
 
-  const displayRange = checkIn && checkOut 
-    ? `${formatDate(checkIn)} - ${formatDate(checkOut)}` 
-    : formatDate(checkIn) || "Select Dates";
+  const displayRange = formatDate(checkIn) || "Select date";
 
   useEffect(() => {
+    const storedTrip = window.localStorage.getItem("anoTaraTrip");
+    if (storedTrip) {
+      try {
+        const trip = JSON.parse(storedTrip);
+        if (trip.targetDates?.[0]) setCheckIn(trip.targetDates[0]);
+        if (trip.guests) setGuests(trip.guests);
+      } catch {
+        window.localStorage.removeItem("anoTaraTrip");
+      }
+    }
+    setTripReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!tripReady) return;
     const destinationId = new URLSearchParams(window.location.search).get("id") || "destination-1";
     const mockDestination = MOCK_DESTINATIONS.find((destination) => destination.id === destinationId) || MOCK_DESTINATIONS[0];
     setDestinationDetails(mockDestination);
@@ -82,7 +101,7 @@ export default function SpecificDestinationsPage() {
         });
         const price = await priceResponse.json();
         if (destinationResponse.ok && destination.id) {
-          setDestinationDetails(destination);
+          setDestinationDetails((current) => ({ ...current, ...destination }));
         }
         if (priceResponse.ok && price.status === "success") {
           setPredictedPrice(price.price.toLocaleString());
@@ -94,7 +113,33 @@ export default function SpecificDestinationsPage() {
     };
 
     loadDestination();
-  }, [guests, checkIn, checkOut]);
+  }, [guests, checkIn, tripReady]);
+
+  useEffect(() => {
+    if (!tripReady) return;
+    const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, targetDates: [checkIn], guests }));
+  }, [checkIn, guests, tripReady]);
+
+  const addToPlanner = () => {
+    const storedTrip = window.localStorage.getItem("anoTaraTrip");
+    let trip = { activities: [], targetDates: [checkIn], mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests };
+    try {
+      if (storedTrip) trip = { ...trip, ...JSON.parse(storedTrip) };
+    } catch {
+      window.localStorage.removeItem("anoTaraTrip");
+    }
+    const activity = activities.find((item) => item.name === selectedActivity);
+    const selected = { ...activity, destination: destinationDetails.name, guests };
+    if (!trip.activities.some((item) => item.name === selected.name && item.destination === selected.destination)) {
+      trip.activities = [...trip.activities, selected];
+    }
+    trip.targetDates = [checkIn];
+    trip.guests = guests;
+    trip.mlrPrice = Number(predictedPrice.replace(/,/g, "")) || 2999;
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify(trip));
+    window.location.href = "/final-planner";
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
@@ -201,33 +246,24 @@ export default function SpecificDestinationsPage() {
                   <div className="mt-3 space-y-1 text-xs text-gray-500">
                     <p>Base price: PHP {pricingDetails.base_price.toLocaleString()}</p>
                     <p>{pricingDetails.month} · {pricingDetails.season}</p>
-                    <p>Weather: {pricingDetails.weather.average_temperature}°C · {pricingDetails.weather.average_rainfall} mm rain</p>
+                    {pricingDetails.weather ? <p>Weather: {pricingDetails.weather.average_temperature}°C · {pricingDetails.weather.average_rainfall} mm rain</p> : null}
                   </div>
                 ) : null}
               </div>
 
               <div className="mb-6 grid w-full grid-cols-1 gap-6">
                 
-                {/* Date Range Inputs */}
+                {/* The MLR uses a single selected travel date. */}
                 <div>
                   <label className="block text-sm font-bold text-slate-900 mb-2">When are you going?</label>
                   <div className="flex flex-col gap-3">
                     <div className="flex gap-2">
                       <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2 hover:border-gray-400 transition-colors cursor-pointer">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">IN</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase">DATE</span>
                         <input 
                           type="date" 
                           value={checkIn}
                           onChange={(e) => setCheckIn(e.target.value)}
-                          className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-700 outline-none cursor-pointer"
-                        />
-                      </div>
-                      <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2 hover:border-gray-400 transition-colors cursor-pointer">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">OUT</span>
-                        <input 
-                          type="date" 
-                          value={checkOut}
-                          onChange={(e) => setCheckOut(e.target.value)}
                           className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-700 outline-none cursor-pointer"
                         />
                       </div>
@@ -266,7 +302,15 @@ export default function SpecificDestinationsPage() {
                 </div>
               </div>
 
-              <button className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#58a573] hover:bg-[#4d9064] px-8 py-3.5 text-base font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 mb-6">
+              <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {activities.map((activity) => (
+                  <button type="button" key={activity.name} onClick={() => setSelectedActivity(activity.name)} className={`rounded-xl border px-3 py-2 text-left text-xs ${selectedActivity === activity.name ? "border-[#58a573] bg-[#eef9f1]" : "border-gray-200"}`}>
+                    <span className="block font-bold">{activity.name}</span>
+                    <span className="uppercase text-gray-500">{activity.type}</span>
+                  </button>
+                ))}
+              </div>
+              <button onClick={addToPlanner} type="button" className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#58a573] hover:bg-[#4d9064] px-8 py-3.5 text-base font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 mb-6">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line>
                 </svg>

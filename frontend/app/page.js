@@ -5,6 +5,7 @@ import Footer from "./footer/Footer";
 
 export default function Home() {
   const [guests, setGuests] = useState(3);
+  const [checkIn, setCheckIn] = useState("");
 
   const handleMinus = (e) => {
     e.preventDefault();
@@ -14,6 +15,17 @@ export default function Home() {
   const handlePlus = (e) => {
     e.preventDefault();
     setGuests((prev) => prev + 1);
+  };
+
+  const searchUrl = `/destinations?date=${checkIn}&guests=${guests}`;
+
+  const saveTripSearch = () => {
+    const existing = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({
+      ...existing,
+      targetDates: checkIn ? [checkIn] : [],
+      guests,
+    }));
   };
 
   return (
@@ -33,8 +45,11 @@ export default function Home() {
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-3">
-            <Link href="/" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
-              Log in
+            <Link href="/predict-outfit" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
+              Outfit Planner
+            </Link>
+            <Link href="/final-planner" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
+              Planner
             </Link>
             <Link href="/" className="flex items-center gap-2 rounded-md bg-white px-5 py-2 text-sm font-bold text-red-500 shadow-sm transition hover:bg-gray-100">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -60,13 +75,8 @@ export default function Home() {
           
           <div className="flex-[3] flex items-center w-full px-4 py-2 sm:border-r sm:border-slate-300 hover:bg-gray-50 rounded-2xl transition-colors cursor-pointer">
             <div className="flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Check in</p>
-              <input type="date" className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" />
-            </div>
-            <div className="w-px h-8 bg-slate-300 mx-3"></div>
-            <div className="flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Check out</p>
-              <input type="date" className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" />
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Travel date</p>
+              <input type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" />
             </div>
           </div>
 
@@ -86,7 +96,7 @@ export default function Home() {
           </div>
 
           <div className="flex-none w-full sm:w-auto mt-2 sm:mt-0 pl-2">
-            <Link href="/destinations" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b9f0c8] px-8 py-4 sm:py-5 shadow-sm transition hover:scale-105 active:scale-95 text-teal-950">
+            <Link onClick={saveTripSearch} href={searchUrl} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b9f0c8] px-8 py-4 sm:py-5 shadow-sm transition hover:scale-105 active:scale-95 text-teal-950">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               <span className="font-bold text-lg hidden sm:block">Search</span>
             </Link>
@@ -140,6 +150,45 @@ export default function Home() {
           <Link href="/all-experiences" className="rounded-lg border-2 border-red-400 px-8 py-3 font-semibold text-red-500 transition hover:bg-red-50">
             View All Experiences
           </Link>
+        </div>
+      </section>
+
+      {/* --- OUTFIT PLANNER CTA --- */}
+      <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+        <div className="overflow-hidden rounded-3xl bg-[#eef6f1] shadow-sm">
+          <div className="grid items-center gap-8 lg:grid-cols-2">
+            <div className="px-8 py-12 sm:px-12">
+              <h2 className="font-serif text-4xl font-black tracking-wide text-slate-900 sm:text-5xl">
+                Ano? Tara?
+              </h2>
+              <p className="mt-4 max-w-md text-base leading-relaxed text-slate-600 sm:text-lg">
+                Try our outfit matcher to see if your outfit is fit for the day and destination you want to go!
+              </p>
+              <Link
+                href="/predict-outfit"
+                className="mt-8 inline-flex rounded-full bg-[#b9f0c8] px-8 py-3.5 font-bold text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:brightness-95"
+              >
+                Try Outfit Matcher
+              </Link>
+            </div>
+            <div className="grid grid-cols-3 gap-2 p-4 sm:gap-3 sm:p-6 lg:min-h-[320px]">
+              <img
+                src="https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=600&q=80"
+                alt="Casual shirts on a rack"
+                className="h-40 w-full rounded-2xl object-cover sm:h-full sm:min-h-[280px]"
+              />
+              <img
+                src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=600&q=80"
+                alt="Travel-ready clothing flat lay"
+                className="h-40 w-full rounded-2xl object-cover sm:h-full sm:min-h-[280px]"
+              />
+              <img
+                src="https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=600&q=80"
+                alt="Layered coat and outfit pieces"
+                className="h-40 w-full rounded-2xl object-cover sm:h-full sm:min-h-[280px]"
+              />
+            </div>
+          </div>
         </div>
       </section>
 

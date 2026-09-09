@@ -7,7 +7,6 @@ import Header from "./header/Header";
 export default function Home() {
   const [guests, setGuests] = useState(3);
   const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -29,7 +28,7 @@ export default function Home() {
   };
 
   // Prepares the query string so the data connects to the next page
-  const searchUrl = `/destinations?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`;
+  const searchUrl = `/destinations?date=${checkIn}&guests=${guests}`;
 
   return (
     <main className="min-h-screen bg-[#FAFAFA]">
@@ -77,21 +76,11 @@ export default function Home() {
           
           <div className="flex-[3] flex items-center w-full px-4 py-2 sm:border-r sm:border-slate-300 hover:bg-gray-50 rounded-2xl transition-colors cursor-pointer">
             <div className="flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Check in</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Travel date</p>
               <input 
                 type="date" 
                 value={checkIn}
                 onChange={(e) => setCheckIn(e.target.value)}
-                className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" 
-              />
-            </div>
-            <div className="w-px h-8 bg-slate-300 mx-3"></div>
-            <div className="flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Check out</p>
-              <input 
-                type="date" 
-                value={checkOut}
-                onChange={(e) => setCheckOut(e.target.value)}
                 className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" 
               />
             </div>
