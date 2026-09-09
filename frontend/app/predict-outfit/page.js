@@ -1,139 +1,266 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import ImageUploader from "../../components/ImageUploader";
 
-export default function OotdPage() {
-  const [uploadedImage, setUploadedImage] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [analysisResult, setAnalysisResult] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+const adviceByWeather = {
+  Sunny: "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
+  Rainy: "Bring a rain jacket or umbrella, quick-dry clothes, and waterproof shoes.",
+  Cloudy: "Comfortable layers and a light jacket are the safest choice.",
+};
 
-  const handleImageSelect = async (imageDataUrl, selectedFileName) => {
-    setUploadedImage(imageDataUrl);
-    setFileName(selectedFileName || "");
-    setAnalysisResult(null);
-    setErrorMessage("");
-    setIsAnalyzing(true);
+const FALLBACK_DESTINATIONS = [
+  { id: "el-nido", name: "El Nido Panaginip", hotel_type: "Resort Hotel" },
+  { id: "boracay", name: "Boracay", hotel_type: "Resort Hotel" },
+  { id: "cebu", name: "Cebu City", hotel_type: "City Hotel" },
+  { id: "baguio", name: "Baguio City", hotel_type: "City Hotel" },
+  { id: "davao", name: "Davao City", hotel_type: "City Hotel" },
+  { id: "manila", name: "Manila", hotel_type: "City Hotel" },
+];
 
-    try {
-      const response = await fetch("http://localhost:8000/predict-outfit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ image_base64: imageDataUrl }),
+/** Map CNN labels to forecast conditions they fit. Cold/cloudy also covers sunny days with wind or a cool breeze. */
+function outfitExpectation(categoryOrSuitability) {
+  const raw = String(categoryOrSuitability || "").toLowerCase().replace(/-/g, " ");
+  if (raw.includes("rain")) {
+    return { conditions: ["Rainy"], phrase: "rainy weather" };
+  }
+  if (raw.includes("warm") || raw.includes("hot")) {
+    return { conditions: ["Sunny"], phrase: "sunny, warm weather" };
+  }
+  if (raw.includes("cold") || raw.includes("cool") || raw.includes("cloud")) {
+    return {
+      conditions: ["Cloudy", "Sunny"],
+      phrase: "cool or cloudy weather, including sunny days with strong wind or a cool breeze",
+    };
+  }
+  return { conditions: [], phrase: "this trip's weather" };
+}
+
+export default function OutfitPlannerPage() {
+  const [destinations, setDestinations] = useState(FALLBACK_DESTINATIONS);
+  const [destination, setDestination] = useState("");
+  const [hotelType, setHotelType] = useState("Resort Hotel");
+  const [date, setDate] = useState("");
+  const [weather, setWeather] = useState(null);
+  const [image, setImage] = useState("");
+  const [result, setResult] = useState(null);
+  const [message, setMessage] = useState("");
+  const [loadingWeather, setLoadingWeather] = useState(false);
+  const [loadingOutfit, setLoadingOutfit] = useState(false);
+
+  useEffect(() => {
+    const trip = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    const selectedDate = trip.targetDates?.[0] || new Date().toISOString().split("T")[0];
+    setDate(selectedDate);
+
+    const savedPlace = trip.activities?.[0]?.destination || trip.destination || "";
+    fetch("http://localhost:8000/destinations")
+      .then((response) => response.json())
+      .then((data) => {
+        const list = Array.isArray(data.destinations) && data.destinations.length ? data.destinations : FALLBACK_DESTINATIONS;
+        setDestinations(list);
+        const match = list.find((item) => item.name === savedPlace) || list[0];
+        if (match) {
+          setDestination(match.name);
+          setHotelType(match.hotel_type || "Resort Hotel");
+        }
+      })
+      .catch(() => {
+        setDestinations(FALLBACK_DESTINATIONS);
+        const match = FALLBACK_DESTINATIONS.find((item) => item.name === savedPlace) || FALLBACK_DESTINATIONS[0];
+        setDestination(match.name);
+        setHotelType(match.hotel_type || "Resort Hotel");
       });
+  }, []);
 
+  const onPlaceChange = (name) => {
+    setDestination(name);
+    setWeather(null);
+    setResult(null);
+    const match = destinations.find((item) => item.name === name);
+    if (match?.hotel_type) setHotelType(match.hotel_type);
+  };
+
+  const getWeather = async () => {
+    if (!destination || !date) {
+      setMessage("Choose a place and date first.");
+      return;
+    }
+    setLoadingWeather(true);
+    setMessage("");
+    try {
+      const response = await fetch("http://localhost:8000/predict-price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ check_in: date, guests: 1, hotel_type: hotelType }),
+      });
       const data = await response.json();
-      if (!response.ok || data?.status === "error") {
-        throw new Error(data?.message || "Prediction failed");
-      }
-
-      setAnalysisResult(data);
+      if (!response.ok) throw new Error(data.detail || "Could not get the weather baseline.");
+      setWeather({
+        condition: data.weather.condition,
+        temperature: data.weather.average_temperature,
+        rainfall: data.weather.average_rainfall,
+        source: data.source,
+      });
     } catch (error) {
-      setErrorMessage(error?.message || "Failed to analyze outfit.");
+      setMessage(error.message || "Could not get weather.");
     } finally {
-      setIsAnalyzing(false);
+      setLoadingWeather(false);
     }
   };
 
+  const analyzeOutfit = async (dataUrl) => {
+    setImage(dataUrl);
+    setResult(null);
+    setMessage("");
+    if (!destination) {
+      setMessage("Choose a place before uploading an outfit.");
+      return;
+    }
+    if (!weather) {
+      setMessage("Choose a date and check its predicted weather before uploading an outfit.");
+      return;
+    }
+    setLoadingOutfit(true);
+    try {
+      const response = await fetch("http://localhost:8000/predict-outfit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: dataUrl }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.status === "error") throw new Error(data.message || "Outfit prediction failed.");
+      const expectation = outfitExpectation(data.detected_category || data.weather_suitability);
+      const matches = expectation.conditions.includes(weather.condition);
+      setResult({
+        ...data,
+        matches,
+        outfitPhrase: expectation.phrase,
+        advice: adviceByWeather[weather.condition],
+      });
+    } catch (error) {
+      setMessage(error.message || "Could not analyze outfit.");
+    } finally {
+      setLoadingOutfit(false);
+    }
+  };
+
+  const addToPlanner = () => {
+    if (!result || !weather) return;
+    const trip = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    window.localStorage.setItem(
+      "anoTaraTrip",
+      JSON.stringify({
+        ...trip,
+        destination,
+        targetDates: [date],
+        outfit: {
+          destination,
+          date,
+          weather: weather.condition,
+          category: result.detected_category,
+          confidence: result.confidence_score,
+          matches: result.matches,
+          advice: result.advice,
+        },
+      }),
+    );
+    window.location.href = "/final-planner";
+  };
+
   return (
-    <main className="min-h-screen bg-white px-3 pb-10 pt-3 sm:px-6 sm:pt-6">
-      <section className="mx-auto max-w-6xl overflow-hidden rounded-[0.35rem] bg-white shadow-[0_20px_55px_rgba(15,23,42,0.12)]">
-        <div
-          className="flex h-20 items-center justify-between px-4 sm:px-6"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(66,91,109,0.65), rgba(66,91,109,0.65)), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          <p className="rounded-full bg-white/90 px-3 py-1 text-base font-black italic text-slate-900">ano tara?</p>
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-sm font-semibold text-white hover:underline">
-              Home
-            </Link>
-            <span className="text-3xl text-slate-900" aria-hidden="true">
-              o
-            </span>
-          </div>
-        </div>
-
-        <div className="grid gap-8 px-5 py-8 sm:px-8 lg:grid-cols-[1.15fr_0.85fr_0.85fr] lg:items-start">
+    <main className="min-h-screen bg-[#f5f7fa] px-4 py-5 text-slate-900 sm:px-8">
+      <div className="mx-auto max-w-5xl">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
           <div>
-            <h1 className="text-3xl font-black uppercase tracking-tight text-slate-900 sm:text-6xl">Ano Tara? OOTD</h1>
-            <p className="mt-4 max-w-xl text-xl leading-relaxed text-slate-900 sm:text-5xl sm:leading-snug">
-              outfit Picker || Upload your outfit and we&apos;ll match for you
-            </p>
+            <Link href="/" className="text-sm font-semibold text-slate-500 hover:text-slate-900">
+              Back to home
+            </Link>
+            <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-6xl">Outfit Planner</h1>
+            <p className="mt-2 text-slate-600">Pick a place and date, then see if your outfit matches the weather.</p>
+          </div>
+          <Link href="/final-planner" className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50">
+            Final planner
+          </Link>
+        </header>
 
-            <div className="mt-7 flex items-center gap-3">
-              <ImageUploader onSelect={handleImageSelect} label="UPLOAD" className="px-10 py-4 text-2xl sm:text-4xl" />
-              {fileName ? <span className="text-sm text-slate-500">{fileName}</span> : null}
-            </div>
+        <div className="mt-8 grid gap-8 lg:grid-cols-2">
+          <div className="space-y-8">
+            <section className="rounded-2xl bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold">1. Where do you plan to go?</h2>
+              <select
+                value={destination}
+                onChange={(event) => onPlaceChange(event.target.value)}
+                className="mt-4 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 font-medium"
+              >
+                {!destination ? <option value="">Select a destination</option> : null}
+                {destinations.map((item) => (
+                  <option key={item.id || item.name} value={item.name}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </section>
 
-            <div className="mt-8 max-w-xl rounded-[1.2rem] bg-white p-5 shadow-[0_14px_30px_rgba(15,23,42,0.18)] sm:p-8">
-              <p className="text-3xl text-slate-800 sm:text-5xl">Files</p>
-              <div className="mt-5 flex min-h-56 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                {uploadedImage ? (
-                  <img src={uploadedImage} alt="Uploaded clothing preview" className="h-full max-h-64 w-full rounded-xl object-contain" />
-                ) : (
-                  <p className="text-center text-2xl italic text-slate-300 sm:text-4xl">No uploaded files</p>
-                )}
-              </div>
-
-              {isAnalyzing ? <p className="mt-4 text-sm font-medium text-sky-700">Analyzing outfit...</p> : null}
-
-              {errorMessage ? (
-                <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div>
-              ) : null}
-
-              {analysisResult ? (
-                <div className="mt-4 rounded-xl bg-slate-900 p-4 text-white">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Prediction</p>
-                  <p className="mt-2 text-xl font-bold">{analysisResult.weather_suitability || "No weather label"}</p>
-                  <p className="mt-2 text-sm text-slate-200">{analysisResult.message || "Prediction completed."}</p>
-                  <p className="mt-2 text-sm text-slate-300">
-                    Detected category: {analysisResult.detected_category || "Unknown"}
+            <section className="rounded-2xl bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold">2. Which date do you plan to go?</h2>
+              <input
+                type="date"
+                value={date}
+                onChange={(event) => {
+                  setDate(event.target.value);
+                  setWeather(null);
+                  setResult(null);
+                }}
+                className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-3 font-medium"
+              />
+              <button
+                onClick={getWeather}
+                disabled={!destination || !date || loadingWeather}
+                className="mt-4 w-full rounded-xl bg-[#b9f0c8] px-4 py-3 font-bold disabled:opacity-60"
+              >
+                {loadingWeather ? "Checking weather..." : "Check predicted weather"}
+              </button>
+              {weather ? (
+                <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="font-bold">
+                    {destination}: {weather.condition}
                   </p>
-                  <p className="text-sm text-slate-300">Confidence: {analysisResult.confidence_score || "N/A"}</p>
+                  <p className="mt-1 text-sm">
+                    {weather.temperature}°C average · {weather.rainfall} mm rain
+                  </p>
+                  <p className="mt-2 text-sm">{adviceByWeather[weather.condition]}</p>
                 </div>
               ) : null}
+            </section>
+          </div>
+
+          <section className="rounded-2xl bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-bold">3. Upload your outfit to know if it is the perfect match</h2>
+            <div className="mt-5">
+              <ImageUploader onSelect={analyzeOutfit} label="Upload outfit" />
             </div>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/destinations" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                Open destinations
-              </Link>
-              <Link
-                href="/specific-destinations"
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Open specific destinations
-              </Link>
-            </div>
-          </div>
-
-          <div className="hidden lg:block">
-            <img
-              src="https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?auto=format&fit=crop&w=900&q=80"
-              alt="Clothing look 1"
-              className="h-[470px] w-full rounded-2xl object-cover shadow-[0_16px_34px_rgba(15,23,42,0.24)]"
-            />
-          </div>
-
-          <div className="hidden lg:block">
-            <img
-              src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"
-              alt="Clothing look 2"
-              className="h-[470px] w-full rounded-2xl object-cover shadow-[0_16px_34px_rgba(15,23,42,0.24)]"
-            />
-          </div>
+            {image ? <img src={image} alt="Outfit preview" className="mt-5 h-56 w-full rounded-xl object-contain bg-slate-50" /> : null}
+            {loadingOutfit ? <p className="mt-4 text-sm text-slate-500">CNN is analyzing your outfit...</p> : null}
+            {result ? (
+              <div className={`mt-5 rounded-xl p-4 ${result.matches ? "bg-emerald-50 text-emerald-950" : "bg-amber-50 text-amber-950"}`}>
+                <p className="font-bold">
+                  {result.matches ? `Your outfit is a match for ${destination}.` : `Your outfit would not be a match for ${destination}.`}
+                </p>
+                <p className="mt-2 text-sm">
+                  The destination is expected to be {weather.condition.toLowerCase()}, while your outfit is suited for {result.outfitPhrase}.
+                </p>
+                <p className="mt-2 text-sm">{result.advice}</p>
+                <button onClick={addToPlanner} className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">
+                  Add this to final planner
+                </button>
+              </div>
+            ) : null}
+            {message ? <p className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{message}</p> : null}
+          </section>
         </div>
-      </section>
+      </div>
     </main>
   );
 }

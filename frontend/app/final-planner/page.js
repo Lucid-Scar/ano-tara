@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const defaultDates = "2026-09-12\n2026-09-13\n2026-09-14";
+const defaultDate = new Date().toISOString().split("T")[0];
 
 const weatherStyles = {
   Sunny: "border-amber-200 bg-amber-50 text-amber-900",
@@ -12,10 +12,11 @@ const weatherStyles = {
 };
 
 export default function FinalPlannerPage() {
-  const [dates, setDates] = useState("2026-09-12\n2026-09-13\n2026-09-14");
+  const [dates, setDates] = useState(defaultDate);
   const [mlrPrice, setMlrPrice] = useState("2999");
   const [guests, setGuests] = useState(1);
   const [activities, setActivities] = useState([]);
+  const [outfit, setOutfit] = useState(null);
   const [planner, setPlanner] = useState(null);
   const [savedPlanners, setSavedPlanners] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -23,26 +24,55 @@ export default function FinalPlannerPage() {
 
   useEffect(() => {
     const savedTrip = window.localStorage.getItem("anoTaraTrip");
+    try {
+      const saved = JSON.parse(window.localStorage.getItem("anoTaraSavedPlanners") || "[]");
+      setSavedPlanners(Array.isArray(saved) ? saved : []);
+    } catch {
+      window.localStorage.removeItem("anoTaraSavedPlanners");
+    }
     if (!savedTrip) return;
 
     try {
       const trip = JSON.parse(savedTrip);
-      setActivities(Array.isArray(trip.activities) ? trip.activities : []);
-      setDates(Array.isArray(trip.targetDates) && trip.targetDates.length ? trip.targetDates.join("\n") : defaultDates);
+      setActivities(Array.isArray(trip.activities) ? trip.activities.map((activity) => ({ ...activity, guests: Number(activity.guests) || Number(trip.guests) || 1 })) : []);
+      setDates(Array.isArray(trip.targetDates) && trip.targetDates.length ? trip.targetDates[0] : defaultDate);
       if (typeof trip.mlrPrice === "number") setMlrPrice(String(trip.mlrPrice));
       if (typeof trip.guests === "number") setGuests(trip.guests);
+      setOutfit(trip.outfit || null);
     } catch {
       window.localStorage.removeItem("anoTaraTrip");
     }
   }, []);
 
+  const saveTrip = (nextActivities, nextDate = dates) => {
+    const current = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...current, activities: nextActivities, targetDates: nextDate ? [nextDate] : [], guests: Number(guests) || 1, mlrPrice: Number(mlrPrice) || 0 }));
+  };
+
+  const removeActivity = (index) => {
+    const nextActivities = activities.filter((_, activityIndex) => activityIndex !== index);
+    setActivities(nextActivities); saveTrip(nextActivities); setPlanner(null);
+  };
+
+  const changeActivityGuests = (index, change) => {
+    const nextActivities = activities.map((activity, activityIndex) => activityIndex === index ? { ...activity, guests: Math.max(1, (Number(activity.guests) || 1) + change) } : activity);
+    setActivities(nextActivities); saveTrip(nextActivities); setPlanner(null);
+  };
+
+  const printAndSavePlanner = () => {
+    if (!planner) return;
+    const saved = [planner, ...savedPlanners];
+    window.localStorage.setItem("anoTaraSavedPlanners", JSON.stringify(saved));
+    setSavedPlanners(saved);
+    setActivities([]);
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ targetDates: [dates], guests, activities: [], mlrPrice: Number(mlrPrice) || 0 }));
+    window.print();
+  };
+
   const generatePlanner = async (event) => {
     event.preventDefault();
     setErrorMessage("");
-    const targetDates = dates
-      .split(/[\n,]+/)
-      .map((date) => date.trim())
-      .filter(Boolean);
+    const targetDates = [dates.trim()].filter(Boolean);
 
     if (!targetDates.length) {
       setErrorMessage("Add at least one target date.");
@@ -68,9 +98,8 @@ export default function FinalPlannerPage() {
       if (!data?.itinerary || !data?.total_estimated_price || !data?.destination_totals) {
         throw new Error("The backend returned an incomplete planner response. Restart the backend and try again.");
       }
-      const newPlanner = { ...data, createdAt: new Date().toLocaleString() };
+      const newPlanner = { ...data, outfit, createdAt: new Date().toLocaleString() };
       setPlanner(newPlanner);
-      setSavedPlanners((currentPlanners) => [newPlanner, ...currentPlanners]);
     } catch (error) {
       setErrorMessage(error?.message || "Could not connect to the backend.");
     } finally {
@@ -90,7 +119,7 @@ export default function FinalPlannerPage() {
             <p className="mt-2 max-w-2xl text-base text-slate-600">A print-ready trip plan arranged by forecast, activity type, and estimated cost.</p>
           </div>
           <div className="planner-controls flex items-center gap-3">
-            <button type="button" onClick={() => window.print()} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50">
+            <button type="button" disabled={!planner} onClick={printAndSavePlanner} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
               Print planner
             </button>
             <span className="rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white">Decision Tree</span>
@@ -101,13 +130,12 @@ export default function FinalPlannerPage() {
           <form onSubmit={generatePlanner} className="planner-controls rounded-2xl bg-white p-5 shadow-sm sm:p-7">
             <h2 className="text-xl font-bold">Selected trip details</h2>
             <label className="mt-6 block text-sm font-semibold text-slate-700">
-              Target dates
-              <textarea
+              Travel date
+              <input
+                type="date"
                 value={dates}
-                onChange={(event) => setDates(event.target.value)}
-                rows={4}
+                onChange={(event) => { setDates(event.target.value); saveTrip(activities, event.target.value); setPlanner(null); }}
                 className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 font-medium outline-none focus:border-slate-900"
-                placeholder="One date per line"
               />
             </label>
 
@@ -116,16 +144,23 @@ export default function FinalPlannerPage() {
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Clicked activities</h3>
                 <Link href="/destinations" className="text-sm font-bold text-slate-700 hover:underline">Choose more</Link>
               </div>
-              <p className="mt-4 text-sm text-slate-500">{guests} guest{guests === 1 ? "" : "s"} included in this trip input.</p>
+              <p className="mt-4 text-sm text-slate-500">Set guests per activity below. Estimates use each activity's guest count.</p>
               <div className="mt-3 space-y-2">
                 {activities.map((activity, index) => (
-                  <div key={`${activity.name}-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
-                    <span className="min-w-0 truncate text-sm font-medium">{activity.name}</span>
-                    <span className="shrink-0 text-xs font-bold uppercase text-slate-500">{activity.type} • {activity.destination}</span>
+                  <div key={`${activity.name}-${activity.destination}-${index}`} className="rounded-xl bg-slate-50 px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate text-sm font-medium">{activity.name}</span>
+                      <button type="button" onClick={() => removeActivity(index)} className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50" aria-label={`Remove ${activity.name}`}>Remove</button>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold uppercase text-slate-500">
+                      <span>{activity.type} · {activity.destination}</span>
+                      <span className="flex items-center gap-2 normal-case text-slate-700"><button type="button" onClick={() => changeActivityGuests(index, -1)} className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-300">−</button>{activity.guests} guest{activity.guests === 1 ? "" : "s"}<button type="button" onClick={() => changeActivityGuests(index, 1)} className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-300">+</button></span>
+                    </div>
                   </div>
                 ))}
               </div>
               {!activities.length ? <p className="mt-3 rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">Choose activities from a destination page first.</p> : null}
+              {outfit ? <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950"><p className="font-bold">Outfit plan: {outfit.matches ? "Match" : "Needs adjustment"}</p><p className="mt-1">{outfit.category} for {outfit.weather.toLowerCase()} weather. {outfit.advice}</p></div> : null}
             </div>
 
             <button type="submit" disabled={isLoading || !activities.length} className="mt-7 w-full rounded-xl bg-[#b9f0c8] px-4 py-3 text-base font-black text-slate-900 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60">
@@ -158,6 +193,7 @@ export default function FinalPlannerPage() {
                   <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs uppercase tracking-wider text-slate-500">Trip estimate</p><p className="mt-1 text-2xl font-black">PHP {Number(planner.total_estimated_price.min).toLocaleString()}–{Number(planner.total_estimated_price.max).toLocaleString()}</p></div>
                   <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs uppercase tracking-wider text-slate-500">Activities</p><p className="mt-1 text-2xl font-black">{activities.length}</p></div>
                 </div>
+                {planner.outfit ? <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950"><p className="font-bold">Outfit recommendation: {planner.outfit.matches ? "Match" : "Needs adjustment"}</p><p className="mt-1">{planner.outfit.category} · expected {planner.outfit.weather.toLowerCase()} weather. {planner.outfit.advice}</p></div> : null}
                 {planner.decision_tree ? (
                   <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
                     <div className="flex flex-wrap items-center justify-between gap-2">

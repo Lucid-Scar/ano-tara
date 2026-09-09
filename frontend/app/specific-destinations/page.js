@@ -25,10 +25,10 @@ function NearbyCard({ image, name }) {
 
 export default function SpecificDestinationsPage() {
   const [guests, setGuests] = useState(1); 
+  const [tripReady, setTripReady] = useState(false);
   
-  // Date Range and Time State
+  // The MLR is calculated for one travel date, not a stay range.
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
-  const [checkOut, setCheckOut] = useState("");
   const [selectedTime, setSelectedTime] = useState("10:00");
   
   // CSV / MLR State Management
@@ -64,11 +64,24 @@ export default function SpecificDestinationsPage() {
     });
   };
 
-  const displayRange = checkIn && checkOut 
-    ? `${formatDate(checkIn)} - ${formatDate(checkOut)}` 
-    : formatDate(checkIn) || "Select Dates";
+  const displayRange = formatDate(checkIn) || "Select date";
 
   useEffect(() => {
+    const storedTrip = window.localStorage.getItem("anoTaraTrip");
+    if (storedTrip) {
+      try {
+        const trip = JSON.parse(storedTrip);
+        if (trip.targetDates?.[0]) setCheckIn(trip.targetDates[0]);
+        if (trip.guests) setGuests(trip.guests);
+      } catch {
+        window.localStorage.removeItem("anoTaraTrip");
+      }
+    }
+    setTripReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!tripReady) return;
     const destinationId = new URLSearchParams(window.location.search).get("id") || "destination-1";
     const mockDestination = MOCK_DESTINATIONS.find((destination) => destination.id === destinationId) || MOCK_DESTINATIONS[0];
     setDestinationDetails(mockDestination);
@@ -100,7 +113,13 @@ export default function SpecificDestinationsPage() {
     };
 
     loadDestination();
-  }, [guests, checkIn, checkOut]);
+  }, [guests, checkIn, tripReady]);
+
+  useEffect(() => {
+    if (!tripReady) return;
+    const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, targetDates: [checkIn], guests }));
+  }, [checkIn, guests, tripReady]);
 
   const addToPlanner = () => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
@@ -111,12 +130,13 @@ export default function SpecificDestinationsPage() {
       window.localStorage.removeItem("anoTaraTrip");
     }
     const activity = activities.find((item) => item.name === selectedActivity);
-    const selected = { ...activity, destination: destinationDetails.name };
+    const selected = { ...activity, destination: destinationDetails.name, guests };
     if (!trip.activities.some((item) => item.name === selected.name && item.destination === selected.destination)) {
       trip.activities = [...trip.activities, selected];
     }
-    trip.targetDates = checkOut ? [checkIn, checkOut] : [checkIn];
+    trip.targetDates = [checkIn];
     trip.guests = guests;
+    trip.mlrPrice = Number(predictedPrice.replace(/,/g, "")) || 2999;
     window.localStorage.setItem("anoTaraTrip", JSON.stringify(trip));
     window.location.href = "/final-planner";
   };
@@ -233,26 +253,17 @@ export default function SpecificDestinationsPage() {
 
               <div className="mb-6 grid w-full grid-cols-1 gap-6">
                 
-                {/* Date Range Inputs */}
+                {/* The MLR uses a single selected travel date. */}
                 <div>
                   <label className="block text-sm font-bold text-slate-900 mb-2">When are you going?</label>
                   <div className="flex flex-col gap-3">
                     <div className="flex gap-2">
                       <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2 hover:border-gray-400 transition-colors cursor-pointer">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">IN</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase">DATE</span>
                         <input 
                           type="date" 
                           value={checkIn}
                           onChange={(e) => setCheckIn(e.target.value)}
-                          className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-700 outline-none cursor-pointer"
-                        />
-                      </div>
-                      <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2 hover:border-gray-400 transition-colors cursor-pointer">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">OUT</span>
-                        <input 
-                          type="date" 
-                          value={checkOut}
-                          onChange={(e) => setCheckOut(e.target.value)}
                           className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-700 outline-none cursor-pointer"
                         />
                       </div>
