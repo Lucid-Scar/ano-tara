@@ -1,6 +1,6 @@
 import csv
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -13,6 +13,11 @@ ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 def read_csv(filename):
     with (DATA_DIR / filename).open("r", newline="", encoding="utf-8") as file:
         return list(csv.DictReader(file))
+
+
+def destination_key(value):
+    """Create one comparison key for destination names from both source CSVs."""
+    return " ".join(value.strip().casefold().split())
 
 
 def weather_label(weather_code):
@@ -50,15 +55,23 @@ def fetch_weather_chunk(destination, start_date, end_date):
     daily = response.json()["daily"]
     rows = []
     for index, weather_date in enumerate(daily["time"]):
+        # Keep the daily mean temperature because the MLR uses one temperature value.
+        temperature_max = daily["temperature_2m_max"][index]
+        temperature_min = daily["temperature_2m_min"][index]
+        average_temperature = (temperature_max + temperature_min) / 2
+        weather_day = datetime.strptime(weather_date, "%Y-%m-%d").date()
         rows.append(
             {
                 "date": weather_date,
                 "destination": destination["destination"],
                 "weather_code": daily["weather_code"][index],
                 "weather_condition": weather_label(daily["weather_code"][index]),
-                "temperature_max_c": daily["temperature_2m_max"][index],
-                "temperature_min_c": daily["temperature_2m_min"][index],
+                "temperature_max_c": temperature_max,
+                "temperature_min_c": temperature_min,
+                "average_temperature_c": average_temperature,
                 "precipitation_mm": daily["precipitation_sum"][index],
+                # Friday, Saturday, and Sunday are treated as weekend demand days.
+                "is_weekend": int(weather_day.weekday() in {4, 5, 6}),
             }
         )
     return rows
@@ -115,25 +128,54 @@ def main():
             "weather_condition",
             "temperature_max_c",
             "temperature_min_c",
+            "average_temperature_c",
             "precipitation_mm",
+            "is_weekend",
         ],
     )
 
     suitability_rows = []
     activities_by_destination = {}
     for activity in activities:
-        activities_by_destination.setdefault(activity["destination"], []).append(activity)
+        key = destination_key(activity["destination"])
+        activities_by_destination.setdefault(key, []).append(activity)
+
+    # Validate the join before writing output so source activities cannot disappear.
+    destination_keys = {destination_key(row["destination"]) for row in destinations}
+    missing_activity_destinations = sorted(
+        {
+            activity["destination"]
+            for activity in activities
+            if destination_key(activity["destination"]) not in destination_keys
+        }
+    )
+    if missing_activity_destinations:
+        raise ValueError(
+            "Activities reference destinations missing from destinations.csv: "
+            + ", ".join(missing_activity_destinations)
+        )
 
     for weather in weather_rows:
-        for activity in activities_by_destination[weather["destination"]]:
+        # Use a normalized key so capitalization and extra spaces do not drop rows.
+        matching_activities = activities_by_destination.get(destination_key(weather["destination"]), [])
+        for activity in matching_activities:
             activity_type = activity["activity_type"]
             condition = weather["weather_condition"]
+            # Activity type maps to the same hotel categories used by the MLR.
+            hotel_type = "Resort Hotel" if activity_type == "outdoor" else "City Hotel"
+            hotel_is_resort = int(hotel_type == "Resort Hotel")
+            average_temperature = float(weather["average_temperature_c"])
+            rainfall = float(weather["precipitation_mm"] or 0)
             suitability_rows.append(
                 {
                     **weather,
                     "activity_name": activity["activity_name"],
                     "activity_type": activity_type,
                     "duration_hours": activity["duration_hours"],
+                    "hotel_type": hotel_type,
+                    "hotel_is_resort": hotel_is_resort,
+                    "hotel_temp": hotel_is_resort * average_temperature,
+                    "hotel_rain": hotel_is_resort * rainfall,
                     "activity_suitable": int(
                         (activity_type == "outdoor" and condition in {"Sunny", "Cloudy"})
                         or (activity_type == "indoor" and condition == "Rainy")
@@ -155,11 +197,31 @@ def main():
             "weather_condition",
             "temperature_max_c",
             "temperature_min_c",
+            "average_temperature_c",
             "precipitation_mm",
+            "is_weekend",
             "activity_suitable",
+            "hotel_type",
+            "hotel_is_resort",
+            "hotel_temp",
+            "hotel_rain",
             "decision_label_source",
         ],
     )
+    # Verify the Cartesian join produced one row for every activity and weather day.
+    weather_counts = {}
+    for weather in weather_rows:
+        key = destination_key(weather["destination"])
+        weather_counts[key] = weather_counts.get(key, 0) + 1
+    expected_rows = sum(
+        weather_counts.get(destination_key(activity["destination"]), 0)
+        for activity in activities
+    )
+    if len(suitability_rows) != expected_rows:
+        raise RuntimeError(
+            f"Suitability row integrity check failed: expected {expected_rows}, "
+            f"created {len(suitability_rows)}."
+        )
     print(f"Wrote {len(weather_rows)} weather rows to data/weather_history.csv")
     print(f"Wrote {len(suitability_rows)} labeled rows to data/activity_suitability.csv")
 

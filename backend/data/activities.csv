@@ -1,14 +1,277 @@
 destination,activity_name,activity_type,duration_hours
-El Nido Panaginip,Island hopping,outdoor,8
-El Nido Panaginip,Local food tour,indoor,3
-El Nido Panaginip,Limestone cliff viewpoint,outdoor,4
-Boracay,Beach day,outdoor,8
-Boracay,Seafood dinner,indoor,2
-Cebu City,Island tour,outdoor,8
-Cebu City,Heritage museum,indoor,3
-Baguio City,Mountain viewpoint,outdoor,4
-Baguio City,Local art museum,indoor,3
-Davao City,Eden Nature Park,outdoor,5
-Davao City,Philippine Eagle Center,indoor,3
-Manila,Intramuros walking tour,outdoor,4
-Manila,National Museum visit,indoor,3
+Alaminos,Hundred Islands boat tour & island hopping,outdoor,6
+Alaminos,Lucap Wharf seafood tasting,indoor,2
+Angeles City,Clark Freeport eco park & walking tour,outdoor,4
+Angeles City,Center for Kapampangan Studies & culinary museum,indoor,3
+Antipolo,Hinulugang Taktak nature park and falls,outdoor,4
+Antipolo,Pinto Art Museum gallery tour,indoor,3
+Bacolod,The Ruins historical landmark visit,outdoor,3
+Bacolod,Manokan Country culinary food tour,indoor,2
+Bacoor,Zapote Bridge historical landmark walk,outdoor,2
+Bacoor,Bacoor oyster & seafood dining experience,indoor,2
+Bago City,Bago City scenic landmarks and nature park tour,outdoor,4
+Bago City,Bago City cultural heritage museum visit,indoor,3
+Baguio,Mines View & Wright Park sightseeing,outdoor,4
+Baguio,BenCab Museum art and eco trail tour,indoor,3
+Bais,Bais scenic landmarks and nature park tour,outdoor,4
+Bais,Bais cultural heritage museum visit,indoor,3
+Balanga,Balanga scenic landmarks and nature park tour,outdoor,4
+Balanga,Balanga cultural heritage museum visit,indoor,3
+Batac City,Batac City scenic landmarks and nature park tour,outdoor,4
+Batac City,Batac City cultural heritage museum visit,indoor,3
+Batangas City,Calumpang River boardwalk & plaza tour,outdoor,3
+Batangas City,Batangas Basilica & heritage museum visit,indoor,2
+Bayawan,Bayawan scenic landmarks and nature park tour,outdoor,4
+Bayawan,Bayawan cultural heritage museum visit,indoor,3
+Baybay,Baybay scenic landmarks and nature park tour,outdoor,4
+Baybay,Baybay cultural heritage museum visit,indoor,3
+Bayugan,Bayugan scenic landmarks and nature park tour,outdoor,4
+Bayugan,Bayugan cultural heritage museum visit,indoor,3
+Bislig,Bislig scenic landmarks and nature park tour,outdoor,4
+Bislig,Bislig cultural heritage museum visit,indoor,3
+Biñan,Biñan scenic landmarks and nature park tour,outdoor,4
+Biñan,Biñan cultural heritage museum visit,indoor,3
+Bogo,Bogo scenic landmarks and nature park tour,outdoor,4
+Bogo,Bogo cultural heritage museum visit,indoor,3
+Borongan,Borongan scenic landmarks and nature park tour,outdoor,4
+Borongan,Borongan cultural heritage museum visit,indoor,3
+Butuan,Butuan scenic landmarks and nature park tour,outdoor,4
+Butuan,Butuan cultural heritage museum visit,indoor,3
+Cabadbaran,Cabadbaran scenic landmarks and nature park tour,outdoor,4
+Cabadbaran,Cabadbaran cultural heritage museum visit,indoor,3
+Cabanatuan City,Cabanatuan City scenic landmarks and nature park tour,outdoor,4
+Cabanatuan City,Cabanatuan City cultural heritage museum visit,indoor,3
+Cabuyao,Cabuyao scenic landmarks and nature park tour,outdoor,4
+Cabuyao,Cabuyao cultural heritage museum visit,indoor,3
+Cadiz,Cadiz scenic landmarks and nature park tour,outdoor,4
+Cadiz,Cadiz cultural heritage museum visit,indoor,3
+Cagayan de Oro,Cagayan de Oro scenic landmarks and nature park tour,outdoor,4
+Cagayan de Oro,Cagayan de Oro cultural heritage museum visit,indoor,3
+Calaca,Calaca scenic landmarks and nature park tour,outdoor,4
+Calaca,Calaca cultural heritage museum visit,indoor,3
+Calamba,Calamba scenic landmarks and nature park tour,outdoor,4
+Calamba,Calamba cultural heritage museum visit,indoor,3
+Calapan,Calapan scenic landmarks and nature park tour,outdoor,4
+Calapan,Calapan cultural heritage museum visit,indoor,3
+Calbayog City,Calbayog City scenic landmarks and nature park tour,outdoor,4
+Calbayog City,Calbayog City cultural heritage museum visit,indoor,3
+Caloocan City,Caloocan City scenic landmarks and nature park tour,outdoor,4
+Caloocan City,Caloocan City cultural heritage museum visit,indoor,3
+Candon,Candon scenic landmarks and nature park tour,outdoor,4
+Candon,Candon cultural heritage museum visit,indoor,3
+Canlaon,Canlaon scenic landmarks and nature park tour,outdoor,4
+Canlaon,Canlaon cultural heritage museum visit,indoor,3
+Carcar,Carcar scenic landmarks and nature park tour,outdoor,4
+Carcar,Carcar cultural heritage museum visit,indoor,3
+Carmona,Carmona scenic landmarks and nature park tour,outdoor,4
+Carmona,Carmona cultural heritage museum visit,indoor,3
+Catbalogan,Catbalogan scenic landmarks and nature park tour,outdoor,4
+Catbalogan,Catbalogan cultural heritage museum visit,indoor,3
+Cauayan,Cauayan scenic landmarks and nature park tour,outdoor,4
+Cauayan,Cauayan cultural heritage museum visit,indoor,3
+Cavite City,Cavite City scenic landmarks and nature park tour,outdoor,4
+Cavite City,Cavite City cultural heritage museum visit,indoor,3
+Cebu City,Tops Lookout and Temple of Leah scenic tour,outdoor,4
+Cebu City,Cebu Heritage Monument & Yap-Sandiego Ancestral House,indoor,3
+City of Marikina,City of Marikina scenic landmarks and nature park tour,outdoor,4
+City of Marikina,City of Marikina cultural heritage museum visit,indoor,3
+City of Masbate,City of Masbate scenic landmarks and nature park tour,outdoor,4
+City of Masbate,City of Masbate cultural heritage museum visit,indoor,3
+City of Passi,City of Passi scenic landmarks and nature park tour,outdoor,4
+City of Passi,City of Passi cultural heritage museum visit,indoor,3
+City of Sorsogon,City of Sorsogon scenic landmarks and nature park tour,outdoor,4
+City of Sorsogon,City of Sorsogon cultural heritage museum visit,indoor,3
+Cotabato,Cotabato scenic landmarks and nature park tour,outdoor,4
+Cotabato,Cotabato cultural heritage museum visit,indoor,3
+Dagupan,Dagupan scenic landmarks and nature park tour,outdoor,4
+Dagupan,Dagupan cultural heritage museum visit,indoor,3
+Danao,Danao scenic landmarks and nature park tour,outdoor,4
+Danao,Danao cultural heritage museum visit,indoor,3
+Dapitan,Dapitan scenic landmarks and nature park tour,outdoor,4
+Dapitan,Dapitan cultural heritage museum visit,indoor,3
+Dasmariñas,Dasmariñas scenic landmarks and nature park tour,outdoor,4
+Dasmariñas,Dasmariñas cultural heritage museum visit,indoor,3
+Davao,Eden Nature Park & mountain resort trail,outdoor,5
+Davao,Davao Museum of History and Ethnography,indoor,3
+Digos,Digos scenic landmarks and nature park tour,outdoor,4
+Digos,Digos cultural heritage museum visit,indoor,3
+Dipolog,Dipolog scenic landmarks and nature park tour,outdoor,4
+Dipolog,Dipolog cultural heritage museum visit,indoor,3
+Dumaguete,Rizal Boulevard coastal stroll & sunset viewing,outdoor,3
+Dumaguete,Silliman University Anthropology Museum tour,indoor,2
+El Salvador,El Salvador scenic landmarks and nature park tour,outdoor,4
+El Salvador,El Salvador cultural heritage museum visit,indoor,3
+Escalante,Escalante scenic landmarks and nature park tour,outdoor,4
+Escalante,Escalante cultural heritage museum visit,indoor,3
+Gapan,Gapan scenic landmarks and nature park tour,outdoor,4
+Gapan,Gapan cultural heritage museum visit,indoor,3
+General Santos,General Santos scenic landmarks and nature park tour,outdoor,4
+General Santos,General Santos cultural heritage museum visit,indoor,3
+General Trias,General Trias scenic landmarks and nature park tour,outdoor,4
+General Trias,General Trias cultural heritage museum visit,indoor,3
+Gingoog City,Gingoog City scenic landmarks and nature park tour,outdoor,4
+Gingoog City,Gingoog City cultural heritage museum visit,indoor,3
+Himamaylan,Himamaylan scenic landmarks and nature park tour,outdoor,4
+Himamaylan,Himamaylan cultural heritage museum visit,indoor,3
+Ilagan,Ilagan scenic landmarks and nature park tour,outdoor,4
+Ilagan,Ilagan cultural heritage museum visit,indoor,3
+Iligan City,Iligan City scenic landmarks and nature park tour,outdoor,4
+Iligan City,Iligan City cultural heritage museum visit,indoor,3
+Iloilo City,Calle Real heritage buildings walking tour,outdoor,3
+Iloilo City,Iloilo Museum of Contemporary Art (ILOMOCA),indoor,3
+Imus,Imus scenic landmarks and nature park tour,outdoor,4
+Imus,Imus cultural heritage museum visit,indoor,3
+Iriga City,Iriga City scenic landmarks and nature park tour,outdoor,4
+Iriga City,Iriga City cultural heritage museum visit,indoor,3
+Isabela,Isabela scenic landmarks and nature park tour,outdoor,4
+Isabela,Isabela cultural heritage museum visit,indoor,3
+Kabankalan,Kabankalan scenic landmarks and nature park tour,outdoor,4
+Kabankalan,Kabankalan cultural heritage museum visit,indoor,3
+Kidapawan,Kidapawan scenic landmarks and nature park tour,outdoor,4
+Kidapawan,Kidapawan cultural heritage museum visit,indoor,3
+Koronadal,Koronadal scenic landmarks and nature park tour,outdoor,4
+Koronadal,Koronadal cultural heritage museum visit,indoor,3
+La Carlota,La Carlota scenic landmarks and nature park tour,outdoor,4
+La Carlota,La Carlota cultural heritage museum visit,indoor,3
+Lamitan,Lamitan scenic landmarks and nature park tour,outdoor,4
+Lamitan,Lamitan cultural heritage museum visit,indoor,3
+Laoag,La Paz Sand Dunes 4x4 ride and sandboarding,outdoor,3
+Laoag,Museo Ilocos Norte cultural tour,indoor,2
+Lapu-Lapu City,Mactan coastal island hopping & snorkeling,outdoor,6
+Lapu-Lapu City,Guitar factory craftsmanship tour & indoor workshop,indoor,2
+Las Piñas,Las Piñas scenic landmarks and nature park tour,outdoor,4
+Las Piñas,Las Piñas cultural heritage museum visit,indoor,3
+Legazpi City,Mayon Volcano ATV adventure and trail,outdoor,4
+Legazpi City,Bicolano spicy cuisine tasting tour,indoor,2
+Ligao,Ligao scenic landmarks and nature park tour,outdoor,4
+Ligao,Ligao cultural heritage museum visit,indoor,3
+Lipa City,Lipa City scenic landmarks and nature park tour,outdoor,4
+Lipa City,Lipa City cultural heritage museum visit,indoor,3
+Lucena,Lucena scenic landmarks and nature park tour,outdoor,4
+Lucena,Lucena cultural heritage museum visit,indoor,3
+Maasin,Maasin scenic landmarks and nature park tour,outdoor,4
+Maasin,Maasin cultural heritage museum visit,indoor,3
+Mabalacat City,Mabalacat City scenic landmarks and nature park tour,outdoor,4
+Mabalacat City,Mabalacat City cultural heritage museum visit,indoor,3
+Makati City,Makati City scenic landmarks and nature park tour,outdoor,4
+Makati City,Makati City cultural heritage museum visit,indoor,3
+Malabon,Malabon scenic landmarks and nature park tour,outdoor,4
+Malabon,Malabon cultural heritage museum visit,indoor,3
+Malaybalay,Malaybalay scenic landmarks and nature park tour,outdoor,4
+Malaybalay,Malaybalay cultural heritage museum visit,indoor,3
+Malolos,Malolos scenic landmarks and nature park tour,outdoor,4
+Malolos,Malolos cultural heritage museum visit,indoor,3
+Mandaluyong City,Mandaluyong City scenic landmarks and nature park tour,outdoor,4
+Mandaluyong City,Mandaluyong City cultural heritage museum visit,indoor,3
+Mandaue City,Mandaue City scenic landmarks and nature park tour,outdoor,4
+Mandaue City,Mandaue City cultural heritage museum visit,indoor,3
+Manila,Intramuros historic walled city walking tour,outdoor,4
+Manila,National Museum of Fine Arts and Anthropology,indoor,3
+Marawi,Marawi scenic landmarks and nature park tour,outdoor,4
+Marawi,Marawi cultural heritage museum visit,indoor,3
+Mati,Mati scenic landmarks and nature park tour,outdoor,4
+Mati,Mati cultural heritage museum visit,indoor,3
+Meycauayan,Meycauayan scenic landmarks and nature park tour,outdoor,4
+Meycauayan,Meycauayan cultural heritage museum visit,indoor,3
+Muñoz,Muñoz scenic landmarks and nature park tour,outdoor,4
+Muñoz,Muñoz cultural heritage museum visit,indoor,3
+Naga,Naga scenic landmarks and nature park tour,outdoor,4
+Naga,Naga cultural heritage museum visit,indoor,3
+Navotas,Navotas scenic landmarks and nature park tour,outdoor,4
+Navotas,Navotas cultural heritage museum visit,indoor,3
+Olongapo,Olongapo scenic landmarks and nature park tour,outdoor,4
+Olongapo,Olongapo cultural heritage museum visit,indoor,3
+Ormoc,Ormoc scenic landmarks and nature park tour,outdoor,4
+Ormoc,Ormoc cultural heritage museum visit,indoor,3
+Oroquieta,Oroquieta scenic landmarks and nature park tour,outdoor,4
+Oroquieta,Oroquieta cultural heritage museum visit,indoor,3
+Ozamiz City,Ozamiz City scenic landmarks and nature park tour,outdoor,4
+Ozamiz City,Ozamiz City cultural heritage museum visit,indoor,3
+Pagadian,Pagadian scenic landmarks and nature park tour,outdoor,4
+Pagadian,Pagadian cultural heritage museum visit,indoor,3
+Palayan City,Palayan City scenic landmarks and nature park tour,outdoor,4
+Palayan City,Palayan City cultural heritage museum visit,indoor,3
+Panabo,Panabo scenic landmarks and nature park tour,outdoor,4
+Panabo,Panabo cultural heritage museum visit,indoor,3
+Paranaque City,Paranaque City scenic landmarks and nature park tour,outdoor,4
+Paranaque City,Paranaque City cultural heritage museum visit,indoor,3
+Pasig,Pasig scenic landmarks and nature park tour,outdoor,4
+Pasig,Pasig cultural heritage museum visit,indoor,3
+Puerto Princesa City,Underground River national park boat tour,outdoor,6
+Puerto Princesa City,Palawan Heritage Center & cultural museum,indoor,2
+Quezon City,Quezon Memorial Circle & park recreation,outdoor,3
+Quezon City,Art in Island 3D interactive art museum,indoor,3
+Roxas,Roxas scenic landmarks and nature park tour,outdoor,4
+Roxas,Roxas cultural heritage museum visit,indoor,3
+Sagay,Sagay scenic landmarks and nature park tour,outdoor,4
+Sagay,Sagay cultural heritage museum visit,indoor,3
+Samal,Samal scenic landmarks and nature park tour,outdoor,4
+Samal,Samal cultural heritage museum visit,indoor,3
+San Carlos,San Carlos scenic landmarks and nature park tour,outdoor,4
+San Carlos,San Carlos cultural heritage museum visit,indoor,3
+San Fernando,San Fernando scenic landmarks and nature park tour,outdoor,4
+San Fernando,San Fernando cultural heritage museum visit,indoor,3
+San Jose,San Jose scenic landmarks and nature park tour,outdoor,4
+San Jose,San Jose cultural heritage museum visit,indoor,3
+San Jose del Monte,San Jose del Monte scenic landmarks and nature park tour,outdoor,4
+San Jose del Monte,San Jose del Monte cultural heritage museum visit,indoor,3
+San Juan,San Juan scenic landmarks and nature park tour,outdoor,4
+San Juan,San Juan cultural heritage museum visit,indoor,3
+San Pablo,San Pablo scenic landmarks and nature park tour,outdoor,4
+San Pablo,San Pablo cultural heritage museum visit,indoor,3
+San Pedro,San Pedro scenic landmarks and nature park tour,outdoor,4
+San Pedro,San Pedro cultural heritage museum visit,indoor,3
+Santa Rosa,Santa Rosa scenic landmarks and nature park tour,outdoor,4
+Santa Rosa,Santa Rosa cultural heritage museum visit,indoor,3
+Santiago,Santiago scenic landmarks and nature park tour,outdoor,4
+Santiago,Santiago cultural heritage museum visit,indoor,3
+Santo Tomas,Santo Tomas scenic landmarks and nature park tour,outdoor,4
+Santo Tomas,Santo Tomas cultural heritage museum visit,indoor,3
+Silay City,Silay City scenic landmarks and nature park tour,outdoor,4
+Silay City,Silay City cultural heritage museum visit,indoor,3
+Sipalay,Sipalay scenic landmarks and nature park tour,outdoor,4
+Sipalay,Sipalay cultural heritage museum visit,indoor,3
+Surigao City,Surigao City scenic landmarks and nature park tour,outdoor,4
+Surigao City,Surigao City cultural heritage museum visit,indoor,3
+Tabaco,Tabaco scenic landmarks and nature park tour,outdoor,4
+Tabaco,Tabaco cultural heritage museum visit,indoor,3
+Tabuk,Tabuk scenic landmarks and nature park tour,outdoor,4
+Tabuk,Tabuk cultural heritage museum visit,indoor,3
+Tacloban City,Tacloban City scenic landmarks and nature park tour,outdoor,4
+Tacloban City,Tacloban City cultural heritage museum visit,indoor,3
+Tacurong,Tacurong scenic landmarks and nature park tour,outdoor,4
+Tacurong,Tacurong cultural heritage museum visit,indoor,3
+Tagaytay City,Taal Volcano viewpoint & ridge sightseeing,outdoor,4
+Tagaytay City,Mahogany Market bulalo & fresh fruit tasting,indoor,2
+Taguig,Taguig scenic landmarks and nature park tour,outdoor,4
+Taguig,Taguig cultural heritage museum visit,indoor,3
+Talisay,Talisay scenic landmarks and nature park tour,outdoor,4
+Talisay,Talisay cultural heritage museum visit,indoor,3
+Tanauan,Tanauan scenic landmarks and nature park tour,outdoor,4
+Tanauan,Tanauan cultural heritage museum visit,indoor,3
+Tandag,Tandag scenic landmarks and nature park tour,outdoor,4
+Tandag,Tandag cultural heritage museum visit,indoor,3
+Tangub,Tangub scenic landmarks and nature park tour,outdoor,4
+Tangub,Tangub cultural heritage museum visit,indoor,3
+Tanjay,Tanjay scenic landmarks and nature park tour,outdoor,4
+Tanjay,Tanjay cultural heritage museum visit,indoor,3
+Tarlac City,Tarlac City scenic landmarks and nature park tour,outdoor,4
+Tarlac City,Tarlac City cultural heritage museum visit,indoor,3
+Tayabas,Tayabas scenic landmarks and nature park tour,outdoor,4
+Tayabas,Tayabas cultural heritage museum visit,indoor,3
+Toledo City,Toledo City scenic landmarks and nature park tour,outdoor,4
+Toledo City,Toledo City cultural heritage museum visit,indoor,3
+Tuguegarao,Tuguegarao scenic landmarks and nature park tour,outdoor,4
+Tuguegarao,Tuguegarao cultural heritage museum visit,indoor,3
+Urdaneta,Urdaneta scenic landmarks and nature park tour,outdoor,4
+Urdaneta,Urdaneta cultural heritage museum visit,indoor,3
+Valencia,Valencia scenic landmarks and nature park tour,outdoor,4
+Valencia,Valencia cultural heritage museum visit,indoor,3
+Valenzuela,Valenzuela scenic landmarks and nature park tour,outdoor,4
+Valenzuela,Valenzuela cultural heritage museum visit,indoor,3
+Victorias,Victorias scenic landmarks and nature park tour,outdoor,4
+Victorias,Victorias cultural heritage museum visit,indoor,3
+Vigan,Calle Crisologo cobblestone street kalesa tour,outdoor,3
+Vigan,Crisologo Museum and ancestral house visit,indoor,2
+Zamboanga City,Santa Cruz Island pink sand beach tour,outdoor,5
+Zamboanga City,Fort Pilar historical shrine and museum,indoor,3

@@ -232,7 +232,9 @@ The repository contains both:
 - a training script: `backend/app/mlr-price.py`
 - a runtime server: `backend/app/main.py`
 
-In the current application, the backend pricing API is lightweight and mostly uses a rule-based estimate plus monthly weather baseline rather than reloading the full saved `joblib` bundle at runtime. The code in `main.py` calculates prices like this:
+The backend pricing API now loads the saved `joblib` bundle at startup and reconstructs the same date, party-size, weather, hotel, and interaction features used during training. If the bundle is unavailable, it retains a rule-based fallback so the rest of the planner remains usable.
+
+The fallback in `main.py` calculates prices like this:
 
 ```python
 base_price = 3800.0 if hotel_type == "City Hotel" else 9000.0

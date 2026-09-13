@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ImageUploader from "../../components/ImageUploader";
+import { MOCK_DESTINATIONS } from "../destinations/mockDestinations";
 
 const adviceByWeather = {
   Sunny: "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
@@ -10,14 +11,7 @@ const adviceByWeather = {
   Cloudy: "Comfortable layers and a light jacket are the safest choice.",
 };
 
-const FALLBACK_DESTINATIONS = [
-  { id: "el-nido", name: "El Nido Panaginip", hotel_type: "Resort Hotel" },
-  { id: "boracay", name: "Boracay", hotel_type: "Resort Hotel" },
-  { id: "cebu", name: "Cebu City", hotel_type: "City Hotel" },
-  { id: "baguio", name: "Baguio City", hotel_type: "City Hotel" },
-  { id: "davao", name: "Davao City", hotel_type: "City Hotel" },
-  { id: "manila", name: "Manila", hotel_type: "City Hotel" },
-];
+const FALLBACK_DESTINATIONS = MOCK_DESTINATIONS;
 
 /** Map CNN labels to forecast conditions they fit. Cold/cloudy also covers sunny days with wind or a cool breeze. */
 function outfitExpectation(categoryOrSuitability) {
@@ -53,6 +47,10 @@ export default function OutfitPlannerPage() {
     const trip = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
     const selectedDate = trip.targetDates?.[0] || new Date().toISOString().split("T")[0];
     setDate(selectedDate);
+
+    if (trip.outfit) {
+      if (trip.outfit.image) setImage(trip.outfit.image);
+    }
 
     const savedPlace = trip.activities?.[0]?.destination || trip.destination || "";
     fetch("http://localhost:8000/destinations")
@@ -90,19 +88,36 @@ export default function OutfitPlannerPage() {
     setLoadingWeather(true);
     setMessage("");
     try {
-      const response = await fetch("http://localhost:8000/predict-price", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ check_in: date, guests: 1, hotel_type: hotelType }),
-      });
+      const match = destinations.find((item) => item.name === destination);
+      const destId = match?.id || destination.toLowerCase().replace(/\s+/g, "-");
+      const response = await fetch(`http://localhost:8000/destinations/${destId}/forecast?date_str=${date}`);
       const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || "Could not get the weather baseline.");
-      setWeather({
-        condition: data.weather.condition,
-        temperature: data.weather.average_temperature,
-        rainfall: data.weather.average_rainfall,
-        source: data.source,
-      });
+      
+      if (response.ok && data.forecast) {
+        setWeather({
+          condition: data.forecast.condition,
+          temperature: data.forecast.average_temperature,
+          rainfall: data.forecast.precipitation_sum_mm,
+          source: data.forecast.source,
+          comparison: data.comparison?.summary,
+        });
+      } else {
+        // Fallback to predict-price endpoint
+        const priceResponse = await fetch("http://localhost:8000/predict-price", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ check_in: date, guests: 1, hotel_type: hotelType, destination_name: destination }),
+        });
+        const priceData = await priceResponse.json();
+        if (!priceResponse.ok) throw new Error(priceData.detail || "Could not get the weather forecast.");
+        setWeather({
+          condition: priceData.weather.condition,
+          temperature: priceData.weather.average_temperature,
+          rainfall: priceData.weather.average_rainfall,
+          source: priceData.source,
+          comparison: priceData.comparison?.summary,
+        });
+      }
     } catch (error) {
       setMessage(error.message || "Could not get weather.");
     } finally {
@@ -159,10 +174,14 @@ export default function OutfitPlannerPage() {
           destination,
           date,
           weather: weather.condition,
+          temperature: weather.temperature,
+          rainfall: weather.rainfall,
           category: result.detected_category,
           confidence: result.confidence_score,
           matches: result.matches,
+          outfitPhrase: result.outfitPhrase,
           advice: result.advice,
+          image: image || null,
         },
       }),
     );

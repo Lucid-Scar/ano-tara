@@ -8,3 +8,5 @@ numpy==1.26.4
 requests
 pandas
 scikit-learn
+joblib
+matplotlib

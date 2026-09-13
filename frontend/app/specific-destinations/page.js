@@ -13,12 +13,12 @@ const nearbyImages = [
   "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=900&q=80",
 ];
 
-function NearbyCard({ image, name }) {
+function NearbyCard({ destination }) {
   return (
-    <Link href="/destinations" className="group relative block h-52 overflow-hidden rounded-2xl shadow-sm">
-      <img src={image} alt={name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+    <Link href={`/specific-destinations?id=${destination.id}`} className="group relative block h-52 overflow-hidden rounded-2xl shadow-sm">
+      <img src={destination.image} alt={destination.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
-      <p className="absolute bottom-4 left-4 text-sm font-medium text-white">{name}</p>
+      <p className="absolute bottom-4 left-4 text-sm font-medium text-white">{destination.name}</p>
     </Link>
   );
 }
@@ -31,18 +31,21 @@ export default function SpecificDestinationsPage() {
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
   const [selectedTime, setSelectedTime] = useState("10:00");
   
-  // CSV / MLR State Management
+  // CSV / MLR / Open-Meteo Weather State Management
   const [predictedPrice, setPredictedPrice] = useState("...");
   const [pricingDetails, setPricingDetails] = useState(null);
+  const [weatherForecast, setWeatherForecast] = useState(null);
+  const [recommendedType, setRecommendedType] = useState("outdoor");
+  const [recommendationReason, setRecommendationReason] = useState("");
+  const [weatherComparison, setWeatherComparison] = useState(null);
+  
   const [destinationDetails, setDestinationDetails] = useState({
     ...MOCK_DESTINATIONS[0],
   });
-  const [selectedActivity, setSelectedActivity] = useState("Island hopping");
-  const activities = [
-    { name: "Island hopping", type: "outdoor" },
-    { name: "Local food tour", type: "indoor" },
-    { name: "Heritage visit", type: "indoor" },
-  ];
+  const [activityList, setActivityList] = useState([]);
+  const [selectedActivity, setSelectedActivity] = useState(
+    MOCK_DESTINATIONS[0]?.activities?.[0]?.name || "Scenic landmarks and nature park tour"
+  );
 
   const handleMinus = (e) => {
     e.preventDefault();
@@ -82,37 +85,92 @@ export default function SpecificDestinationsPage() {
 
   useEffect(() => {
     if (!tripReady) return;
-    const destinationId = new URLSearchParams(window.location.search).get("id") || "destination-1";
+    const searchParams = new URLSearchParams(window.location.search);
+    const destinationId = searchParams.get("id") || MOCK_DESTINATIONS[0]?.id || "alaminos";
+    const activityParam = searchParams.get("activity");
     const mockDestination = MOCK_DESTINATIONS.find((destination) => destination.id === destinationId) || MOCK_DESTINATIONS[0];
     setDestinationDetails(mockDestination);
 
-    const loadDestination = async () => {
+    const loadDestinationAndWeather = async () => {
       try {
         const destinationResponse = await fetch(`http://localhost:8000/destinations/${destinationId}`);
         const destination = await destinationResponse.json();
+        
+        // Fetch priority Open-Meteo forecast and activity recommendations
+        const forecastResponse = await fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${checkIn}`);
+        const forecastData = await forecastResponse.json();
+        
+        let acts = destination.activities || mockDestination.activities || [];
+        if (forecastResponse.ok && forecastData.activities && forecastData.activities.length > 0) {
+          acts = forecastData.activities;
+          setActivityList(forecastData.activities);
+          setWeatherForecast(forecastData.forecast);
+          setRecommendedType(forecastData.recommended_activity_type || "outdoor");
+          setRecommendationReason(forecastData.activity_recommendation_reason || "");
+          setWeatherComparison(forecastData.comparison || null);
+        } else {
+          // Fallback mock activity tagging
+          const isRainy = (destination.main_weather || "").toLowerCase().includes("rain");
+          acts = acts.map((a) => {
+            const isOutdoor = a.type === "outdoor";
+            const rec = isRainy ? !isOutdoor : isOutdoor;
+            return {
+              ...a,
+              hotel_type: isOutdoor ? "Resort Hotel" : "City Hotel",
+              recommended: rec,
+              locked: !rec,
+              lock_reason: `Locked: Recommended for ${isRainy ? "Rainy" : "Sunny/Cloudy"} weather only.`,
+            };
+          });
+          setActivityList(acts);
+        }
+
+        // Determine target selected activity
+        let targetActName = activityParam || selectedActivity;
+        const matchingAct = acts.find((a) => a.name === targetActName) || acts.find((a) => a.recommended) || acts[0];
+        if (matchingAct) {
+          targetActName = matchingAct.name;
+          setSelectedActivity(targetActName);
+        }
+
+        const chosenHotelType = matchingAct?.hotel_type || (matchingAct?.type === "outdoor" ? "Resort Hotel" : "City Hotel");
+
         const priceResponse = await fetch("http://localhost:8000/predict-price", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             check_in: checkIn || new Date().toISOString().split("T")[0],
             guests,
-            hotel_type: destination.hotel_type,
+            hotel_type: chosenHotelType,
+            destination_id: destinationId,
+            destination_name: destination.name,
           }),
         });
         const price = await priceResponse.json();
+
         if (destinationResponse.ok && destination.id) {
           setDestinationDetails((current) => ({ ...current, ...destination }));
         }
+
         if (priceResponse.ok && price.status === "success") {
           setPredictedPrice(price.price.toLocaleString());
           setPricingDetails(price);
         }
       } catch (error) {
-        console.warn("Using mock destination data because the backend is unavailable", error);
+        console.warn("Using fallback destination data because the backend is unavailable", error);
+        const acts = (mockDestination.activities || []).map((a) => ({
+          ...a,
+          hotel_type: a.type === "outdoor" ? "Resort Hotel" : "City Hotel",
+          recommended: a.type === "outdoor",
+          locked: a.type !== "outdoor",
+          lock_reason: a.type !== "outdoor" ? "Locked: Recommended for rainy weather only." : null,
+        }));
+        setActivityList(acts);
+        if (acts[0]) setSelectedActivity(acts[0].name);
       }
     };
 
-    loadDestination();
+    loadDestinationAndWeather();
   }, [guests, checkIn, tripReady]);
 
   useEffect(() => {
@@ -129,8 +187,15 @@ export default function SpecificDestinationsPage() {
     } catch {
       window.localStorage.removeItem("anoTaraTrip");
     }
-    const activity = activities.find((item) => item.name === selectedActivity);
-    const selected = { ...activity, destination: destinationDetails.name, guests };
+    const currentActivities = activityList.length > 0 ? activityList : (destinationDetails.activities || []);
+    const activity = currentActivities.find((item) => item.name === selectedActivity) || currentActivities[0];
+    const selected = {
+      ...activity,
+      destination: destinationDetails.name,
+      guests,
+      weather: weatherForecast?.condition || destinationDetails.main_weather || "Sunny",
+      weather_forecast: weatherForecast,
+    };
     if (!trip.activities.some((item) => item.name === selected.name && item.destination === selected.destination)) {
       trip.activities = [...trip.activities, selected];
     }
@@ -212,7 +277,7 @@ export default function SpecificDestinationsPage() {
               </div>
               
               <h1 className="text-4xl md:text-5xl font-black text-[#0f172a] mb-2 tracking-tight">
-                {destinationDetails.name}
+                {selectedActivity || destinationDetails.name}
               </h1>
               <p className="mb-8 text-lg leading-relaxed text-gray-700">
                 {destinationDetails.description}
@@ -246,7 +311,45 @@ export default function SpecificDestinationsPage() {
                   <div className="mt-3 space-y-1 text-xs text-gray-500">
                     <p>Base price: PHP {pricingDetails.base_price.toLocaleString()}</p>
                     <p>{pricingDetails.month} · {pricingDetails.season}</p>
-                    {pricingDetails.weather ? <p>Weather: {pricingDetails.weather.average_temperature}°C · {pricingDetails.weather.average_rainfall} mm rain</p> : null}
+                  </div>
+                ) : null}
+
+                {/* Weather Forecast & Recommendation Badge */}
+                {weatherForecast ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Destination Weather</span>
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                        weatherForecast.condition === 'Sunny'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                          : weatherForecast.condition === 'Rainy'
+                          ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                          : 'bg-slate-200 text-slate-800 border border-slate-300'
+                      }`}>
+                        <span>{weatherForecast.condition === 'Sunny' ? '☀️' : weatherForecast.condition === 'Rainy' ? '🌧️' : '⛅'}</span>
+                        {weatherForecast.condition}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex items-baseline justify-between text-xs text-slate-700 font-medium">
+                      <span>Temp: {weatherForecast.average_temperature}°C</span>
+                      <span>Rain: {weatherForecast.precipitation_sum_mm} mm ({weatherForecast.precipitation_probability}% prob)</span>
+                    </div>
+
+                    <div className="mt-2 rounded-xl bg-white p-2.5 border border-slate-100">
+                      <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
+                        {recommendedType === "outdoor" ? "Outdoor Activities Recommended" : "Indoor Activities Recommended"}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
+                        {recommendationReason}
+                      </p>
+                      {weatherComparison?.summary ? (
+                        <p className="mt-1.5 text-[10px] italic text-slate-400">
+                          {weatherComparison.summary}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -302,14 +405,6 @@ export default function SpecificDestinationsPage() {
                 </div>
               </div>
 
-              <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {activities.map((activity) => (
-                  <button type="button" key={activity.name} onClick={() => setSelectedActivity(activity.name)} className={`rounded-xl border px-3 py-2 text-left text-xs ${selectedActivity === activity.name ? "border-[#58a573] bg-[#eef9f1]" : "border-gray-200"}`}>
-                    <span className="block font-bold">{activity.name}</span>
-                    <span className="uppercase text-gray-500">{activity.type}</span>
-                  </button>
-                ))}
-              </div>
               <button onClick={addToPlanner} type="button" className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#58a573] hover:bg-[#4d9064] px-8 py-3.5 text-base font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 mb-6">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line>
@@ -336,8 +431,8 @@ export default function SpecificDestinationsPage() {
           <h2 className="mb-8 text-2xl font-black text-slate-800 italic">Destinations around it!</h2>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-            {nearbyImages.map((image, index) => (
-              <NearbyCard key={image} image={image} name={`Nearby place ${index + 1}`} />
+            {MOCK_DESTINATIONS.filter((d) => d.id !== destinationDetails.id).slice(0, 4).map((dest) => (
+              <NearbyCard key={dest.id} destination={dest} />
             ))}
           </div>
         </div>

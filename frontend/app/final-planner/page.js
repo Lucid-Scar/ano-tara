@@ -54,6 +54,16 @@ export default function FinalPlannerPage() {
     setActivities(nextActivities); saveTrip(nextActivities); setPlanner(null);
   };
 
+  const removeOutfit = () => {
+    setOutfit(null);
+    const current = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    delete current.outfit;
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify(current));
+    if (planner) {
+      setPlanner((prev) => (prev ? { ...prev, outfit: null } : null));
+    }
+  };
+
   const changeActivityGuests = (index, change) => {
     const nextActivities = activities.map((activity, activityIndex) => activityIndex === index ? { ...activity, guests: Math.max(1, (Number(activity.guests) || 1) + change) } : activity);
     setActivities(nextActivities); saveTrip(nextActivities); setPlanner(null);
@@ -89,6 +99,7 @@ export default function FinalPlannerPage() {
           raw_activities: activities,
           mlr_price: Number(mlrPrice),
           guests: Number(guests),
+          outfit: outfit || undefined,
         }),
       });
       const data = await response.json();
@@ -160,7 +171,66 @@ export default function FinalPlannerPage() {
                 ))}
               </div>
               {!activities.length ? <p className="mt-3 rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">Choose activities from a destination page first.</p> : null}
-              {outfit ? <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950"><p className="font-bold">Outfit plan: {outfit.matches ? "Match" : "Needs adjustment"}</p><p className="mt-1">{outfit.category} for {outfit.weather.toLowerCase()} weather. {outfit.advice}</p></div> : null}
+              
+              {/* Attached Outfit Card */}
+              {outfit ? (
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-slate-900 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {outfit.image ? (
+                        <img src={outfit.image} alt="Attached outfit" className="h-14 w-14 rounded-xl object-cover border border-emerald-300 bg-white shadow-sm" />
+                      ) : (
+                        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-200 text-2xl">👗</div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Attached Outfit</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                            outfit.matches ? "bg-emerald-200 text-emerald-900" : "bg-amber-200 text-amber-900"
+                          }`}>
+                            {outfit.matches ? "Weather Match" : "Needs adjustment"}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-sm font-bold text-slate-900">{outfit.category || "Selected Outfit"}</p>
+                        <p className="text-xs text-slate-600">{outfit.destination || "Trip"} · {outfit.weather} weather</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="mt-2.5 text-xs text-slate-600 leading-relaxed">{outfit.advice}</p>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-emerald-200/60 pt-2.5 text-xs">
+                    <Link href="/predict-outfit" className="font-bold text-emerald-800 hover:underline">
+                      Change / Try another outfit
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={removeOutfit}
+                      className="font-bold text-rose-600 hover:text-rose-800 hover:underline"
+                    >
+                      Remove outfit
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                      <span className="text-base">👗</span>
+                      <span>No outfit attached yet</span>
+                    </div>
+                    <Link
+                      href="/predict-outfit"
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-xs font-bold text-slate-800 hover:bg-slate-100 transition"
+                    >
+                      Predict outfit
+                    </Link>
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-slate-500">
+                    Test if your clothing matches your destination's predicted weather before finalizing.
+                  </p>
+                </div>
+              )}
             </div>
 
             <button type="submit" disabled={isLoading || !activities.length} className="mt-7 w-full rounded-xl bg-[#b9f0c8] px-4 py-3 text-base font-black text-slate-900 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60">
@@ -193,7 +263,51 @@ export default function FinalPlannerPage() {
                   <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs uppercase tracking-wider text-slate-500">Trip estimate</p><p className="mt-1 text-2xl font-black">PHP {Number(planner.total_estimated_price.min).toLocaleString()}–{Number(planner.total_estimated_price.max).toLocaleString()}</p></div>
                   <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs uppercase tracking-wider text-slate-500">Activities</p><p className="mt-1 text-2xl font-black">{activities.length}</p></div>
                 </div>
-                {planner.outfit ? <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950"><p className="font-bold">Outfit recommendation: {planner.outfit.matches ? "Match" : "Needs adjustment"}</p><p className="mt-1">{planner.outfit.category} · expected {planner.outfit.weather.toLowerCase()} weather. {planner.outfit.advice}</p></div> : null}
+                {/* Trip Outfit Recommendation in Planner Document */}
+                {(planner.outfit || outfit) ? (
+                  <div className="mt-5 rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Trip Outfit Match</span>
+                        <h3 className="mt-1 text-lg font-black text-slate-900">
+                          {(planner.outfit || outfit).category || "Predicted Outfit"}
+                        </h3>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                        (planner.outfit || outfit).matches ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-amber-100 text-amber-800 border border-amber-300"
+                      }`}>
+                        {(planner.outfit || outfit).matches ? "✓ Perfect Weather Match" : "⚠️ Needs Adjustment"}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex flex-col sm:flex-row gap-4 items-start">
+                      {(planner.outfit || outfit).image ? (
+                        <img
+                          src={(planner.outfit || outfit).image}
+                          alt="Trip Outfit"
+                          className="h-28 w-28 shrink-0 rounded-xl object-contain border border-slate-200 bg-slate-50 p-1"
+                        />
+                      ) : null}
+                      <div className="flex-1 text-sm text-slate-700 space-y-1.5">
+                        <p>
+                          <strong>Expected Weather:</strong> {(planner.outfit || outfit).weather} in {(planner.outfit || outfit).destination || "Destination"}
+                        </p>
+                        <p className="text-slate-600 leading-relaxed">
+                          {(planner.outfit || outfit).advice}
+                        </p>
+                        <div className="pt-1 flex items-center gap-3 text-xs">
+                          <Link href="/predict-outfit" className="font-bold text-emerald-700 hover:underline">
+                            Change outfit
+                          </Link>
+                          <button type="button" onClick={removeOutfit} className="font-bold text-rose-600 hover:underline">
+                            Remove from plan
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 {planner.decision_tree ? (
                   <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -222,25 +336,99 @@ export default function FinalPlannerPage() {
                           <h2 className="mt-1 text-xl font-black">{day.day}</h2>
                         </div>
                         <span className={`rounded-full border px-3 py-1 text-sm font-bold ${weatherStyles[day.expected_weather] || weatherStyles.Cloudy}`}>
+                          {day.expected_weather === "Sunny" ? "☀️ " : day.expected_weather === "Rainy" ? "🌧️ " : "⛅ "}
                           {day.expected_weather}
                         </span>
                       </div>
-                      <div className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-700">
-                        <p><strong>Forecast for {day.day}:</strong> {day.expected_weather} in {day.destination}.</p>
-                        {day.destination_forecasts?.length > 1 ? <div className="mt-2 space-y-1 text-xs text-slate-500">{day.destination_forecasts.map((destinationForecast) => <p key={destinationForecast.destination}><strong>{destinationForecast.destination}:</strong> {destinationForecast.forecast.condition}, {destinationForecast.forecast.temperature_min_c}–{destinationForecast.forecast.temperature_max_c}°C, {destinationForecast.forecast.precipitation_probability}% precipitation probability</p>)}</div> : null}
-                        {day.destination_forecasts?.length <= 1 && day.weather_forecast ? <p className="mt-1 text-xs text-slate-500">{day.weather_forecast.temperature_min_c}–{day.weather_forecast.temperature_max_c}°C • {day.weather_forecast.precipitation_probability}% precipitation probability • {day.weather_forecast.precipitation_sum_mm} mm expected precipitation</p> : null}
-                        {day.historical_weather ? <p className="mt-1 text-xs text-slate-500">Historical weather context: {day.historical_weather.dominant_condition} was the dominant condition over the past five years.</p> : null}
-                        <p className="mt-2">{day.outfit_advice}</p>
+
+                      {/* Forecast & 5-Year Historical Climate Comparison */}
+                      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-2 mb-3">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                            Forecast & Historical Climate Comparison · {day.destination}
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-500">
+                            Open-Meteo Priority
+                          </span>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {/* Live Open-Meteo Forecast */}
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold uppercase text-emerald-900">New Forecast (Open-Meteo)</span>
+                              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                {day.weather_forecast?.source || "Open-Meteo live"}
+                              </span>
+                            </div>
+                            <div className="mt-2 space-y-1 text-xs text-slate-700 font-medium">
+                              <p className="text-sm font-bold text-slate-900">
+                                {day.expected_weather} · {day.weather_forecast?.temperature_min_c ?? 24}°C – {day.weather_forecast?.temperature_max_c ?? 31}°C
+                              </p>
+                              <p>Precipitation probability: {day.weather_forecast?.precipitation_probability ?? 20}%</p>
+                              <p>Expected rainfall: <strong>{day.weather_forecast?.precipitation_sum_mm ?? 0} mm</strong></p>
+                            </div>
+                          </div>
+
+                          {/* 5-Year Historical Weather Reference */}
+                          <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold uppercase text-blue-900">5-Year Historical Climate</span>
+                              <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+                                {day.historical_weather?.source || "5-Year Archive"}
+                              </span>
+                            </div>
+                            <div className="mt-2 space-y-1 text-xs text-slate-700 font-medium">
+                              <p className="text-sm font-bold text-slate-900">
+                                Dominant: {day.historical_weather?.dominant_condition || "Cloudy"} · Avg {day.historical_weather?.average_temperature_c ?? 27.5}°C
+                              </p>
+                              <p>Historical average rainfall: <strong>{day.historical_weather?.average_rainfall_mm ?? 5} mm</strong></p>
+                              <p>Archive period: Past 5 years on this calendar date</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Comparison Analysis */}
+                        {day.comparison?.summary ? (
+                          <div className="mt-3 rounded-lg bg-white p-2.5 border border-slate-200 text-xs text-slate-700">
+                            <p><strong>Weather Comparison Insight:</strong> {day.comparison.summary}</p>
+                          </div>
+                        ) : null}
+
+                        <p className="mt-2.5 text-xs text-slate-600 italic">{day.outfit_advice}</p>
                       </div>
+
+                      {/* Scheduled Activities */}
                       <div className="mt-4">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Scheduled activities</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Scheduled activities (Cross-referenced with Weather)</p>
                         {day.scheduled_activities.length ? (
                           <ul className="mt-2 space-y-2">
                             {day.scheduled_activities.map((activity, activityIndex) => (
-                              <li key={`${day.day}-${activity.name}-${activityIndex}`} className="rounded-lg border border-slate-100 px-3 py-3 text-sm">
-                                <div className="flex items-start justify-between gap-3"><span className="font-semibold">{activity.name}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold uppercase text-slate-500">{activity.type}</span></div>
-                                <div className="mt-2 flex justify-between text-xs text-slate-500"><span>{activity.destination} • Forecast: {activity.weather || "Unavailable"}</span><span>PHP {Number(activity.price_range.min).toLocaleString()}–{Number(activity.price_range.max).toLocaleString()}</span></div>
-                                {activity.decision ? <p className="mt-2 text-xs italic text-slate-500">{activity.decision}</p> : null}
+                              <li key={`${day.day}-${activity.name}-${activityIndex}`} className={`rounded-lg border px-3 py-3 text-sm ${
+                                activity.hazard_flag ? "border-red-500 bg-red-50" : "border-slate-100 bg-slate-50/40"
+                              }`}>
+                                {activity.hazard_flag ? (
+                                  <div className="mb-2 rounded-md border border-red-500 bg-red-100 px-2 py-1 text-xs font-bold text-red-700">
+                                    ⚠️ SAFETY HAZARD: Outdoor activity scheduled during Rainy forecast.
+                                  </div>
+                                ) : null}
+                                <div className="flex items-start justify-between gap-3">
+                                  <span className="font-semibold">{activity.name}</span>
+                                  <span className={`rounded-full px-2 py-1 text-xs font-bold uppercase ${
+                                    activity.type === "outdoor" ? "bg-amber-100 text-amber-800" : "bg-sky-100 text-sky-800"
+                                  }`}>
+                                    {activity.type}
+                                  </span>
+                                </div>
+                                <div className="mt-2 flex justify-between text-xs text-slate-500">
+                                  <span>{activity.destination} • Forecast: {activity.weather || "Unavailable"}</span>
+                                  <span>PHP {Number(activity.price_range.min).toLocaleString()}–{Number(activity.price_range.max).toLocaleString()}</span>
+                                </div>
+                                {activity.decision ? (
+                                  <p className="mt-2 text-xs font-medium text-emerald-800 bg-emerald-50 px-2 py-1 rounded">
+                                    ✓ {activity.decision}
+                                  </p>
+                                ) : null}
                               </li>
                             ))}
                           </ul>

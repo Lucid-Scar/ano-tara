@@ -1,7 +1,139 @@
-destination,country,latitude,longitude,geocoding_name
-El Nido Panaginip,Philippines,11.1956,119.4128,El Nido Philippines
-Boracay,Philippines,11.9674,121.9248,Boracay Philippines
-Cebu City,Philippines,10.3157,123.8854,Cebu City Philippines
-Baguio City,Philippines,16.4023,120.5960,Baguio Philippines
-Davao City,Philippines,7.1907,125.4553,Davao City Philippines
-Manila,Philippines,14.5995,120.9842,Manila Philippines
+destination,country,latitude,longitude,geocoding_name,main_weather
+Alaminos,Philippines,16.1561,119.9811,Alaminos Philippines,Cloudy
+Angeles City,Philippines,15.15,120.5833,Angeles City Philippines,Cloudy
+Antipolo,Philippines,15.6181,121.19,Antipolo Philippines,Cloudy
+Bacolod,Philippines,12.2285,123.5085,Bacolod Philippines,Cloudy
+Bacoor,Philippines,14.459,120.929,Bacoor Philippines,Cloudy
+Bago City,Philippines,10.5333,122.8333,Bago City Philippines,Cloudy
+Baguio,Philippines,16.4164,120.5931,Baguio Philippines,Cloudy
+Bais,Philippines,9.5911,123.1228,Bais Philippines,Cloudy
+Balanga,Philippines,14.6761,120.5361,Balanga Philippines,Cloudy
+Batac City,Philippines,18.0554,120.5649,Batac City Philippines,Cloudy
+Batangas City,Philippines,13.75,121.05,Batangas City Philippines,Cloudy
+Bayawan,Philippines,9.3636,122.8011,Bayawan Philippines,Cloudy
+Baybay,Philippines,13.4083,123.7135,Baybay Philippines,Cloudy
+Bayugan,Philippines,8.7561,125.7675,Bayugan Philippines,Cloudy
+Bislig,Philippines,11.0725,125.0336,Bislig Philippines,Cloudy
+Biñan,Philippines,14.3427,121.0807,Biñan Philippines,Cloudy
+Bogo,Philippines,11.0517,124.0055,Bogo Philippines,Cloudy
+Borongan,Philippines,11.6081,125.4319,Borongan Philippines,Cloudy
+Butuan,Philippines,8.9492,125.5436,Butuan Philippines,Cloudy
+Cabadbaran,Philippines,9.1236,125.5344,Cabadbaran Philippines,Cloudy
+Cabanatuan City,Philippines,15.4833,120.9667,Cabanatuan City Philippines,Cloudy
+Cabuyao,Philippines,14.2726,121.1262,Cabuyao Philippines,Cloudy
+Cadiz,Philippines,10.9506,123.2856,Cadiz Philippines,Cloudy
+Cagayan de Oro,Philippines,8.4822,124.6472,Cagayan de Oro Philippines,Cloudy
+Calaca,Philippines,13.9324,120.8133,Calaca Philippines,Cloudy
+Calamba,Philippines,14.2117,121.1653,Calamba Philippines,Cloudy
+Calapan,Philippines,13.4117,121.1803,Calapan Philippines,Cloudy
+Calbayog City,Philippines,12.0667,124.6,Calbayog City Philippines,Cloudy
+Caloocan City,Philippines,14.65,120.9667,Caloocan City Philippines,Cloudy
+Candon,Philippines,17.1947,120.4517,Candon Philippines,Cloudy
+Canlaon,Philippines,10.3864,123.1964,Canlaon Philippines,Cloudy
+Carcar,Philippines,10.1061,123.6402,Carcar Philippines,Cloudy
+Carmona,Philippines,14.3132,121.0576,Carmona Philippines,Cloudy
+Catbalogan,Philippines,11.7753,124.8861,Catbalogan Philippines,Cloudy
+Cauayan,Philippines,16.9347,121.7725,Cauayan Philippines,Cloudy
+Cavite City,Philippines,14.4825,120.9169,Cavite City Philippines,Cloudy
+Cebu City,Philippines,10.3167,123.8907,Cebu City Philippines,Cloudy
+City of Marikina,Philippines,14.6333,121.1,City of Marikina Philippines,Cloudy
+City of Masbate,Philippines,12.3333,123.5833,City of Masbate Philippines,Cloudy
+City of Passi,Philippines,11.15,122.65,City of Passi Philippines,Cloudy
+City of Sorsogon,Philippines,12.9833,123.9833,City of Sorsogon Philippines,Cloudy
+Cotabato,Philippines,7.2236,124.2464,Cotabato Philippines,Cloudy
+Dagupan,Philippines,17.7061,121.5047,Dagupan Philippines,Cloudy
+Danao,Philippines,10.5208,124.0272,Danao Philippines,Cloudy
+Dapitan,Philippines,10.2706,123.9469,Dapitan Philippines,Cloudy
+Dasmariñas,Philippines,14.3294,120.9367,Dasmariñas Philippines,Cloudy
+Davao,Philippines,7.0731,125.6128,Davao Philippines,Cloudy
+Digos,Philippines,6.7497,125.3572,Digos Philippines,Cloudy
+Dipolog,Philippines,8.5894,123.3414,Dipolog Philippines,Cloudy
+Dumaguete,Philippines,9.3103,123.3081,Dumaguete Philippines,Cloudy
+El Salvador,Philippines,8.5631,124.5225,El Salvador Philippines,Cloudy
+Escalante,Philippines,10.8403,123.4992,Escalante Philippines,Cloudy
+Gapan,Philippines,15.3072,120.9464,Gapan Philippines,Cloudy
+General Santos,Philippines,6.1128,125.1717,General Santos Philippines,Cloudy
+General Trias,Philippines,14.3869,120.8817,General Trias Philippines,Cloudy
+Gingoog City,Philippines,8.8333,125.1167,Gingoog City Philippines,Cloudy
+Himamaylan,Philippines,10.0989,122.8706,Himamaylan Philippines,Cloudy
+Ilagan,Philippines,17.1485,121.8892,Ilagan Philippines,Cloudy
+Iligan City,Philippines,8.25,124.4,Iligan City Philippines,Cloudy
+Iloilo City,Philippines,10.75,122.55,Iloilo City Philippines,Cloudy
+Imus,Philippines,14.4297,120.9367,Imus Philippines,Cloudy
+Iriga City,Philippines,13.4167,123.4167,Iriga City Philippines,Cloudy
+Isabela,Philippines,10.2048,122.9888,Isabela Philippines,Cloudy
+Kabankalan,Philippines,9.9889,122.8122,Kabankalan Philippines,Cloudy
+Kidapawan,Philippines,7.0083,125.0894,Kidapawan Philippines,Cloudy
+Koronadal,Philippines,6.5031,124.8469,Koronadal Philippines,Cloudy
+La Carlota,Philippines,10.4233,122.9208,La Carlota Philippines,Cloudy
+Lamitan,Philippines,6.0872,125.7022,Lamitan Philippines,Cloudy
+Laoag,Philippines,18.1989,120.5936,Laoag Philippines,Cloudy
+Lapu-Lapu City,Philippines,10.3103,123.9494,Lapu-Lapu City Philippines,Cloudy
+Las Piñas,Philippines,14.4506,120.9828,Las Piñas Philippines,Cloudy
+Legazpi City,Philippines,13.1333,123.7333,Legazpi City Philippines,Cloudy
+Ligao,Philippines,13.2403,123.5325,Ligao Philippines,Cloudy
+Lipa City,Philippines,13.95,121.1667,Lipa City Philippines,Cloudy
+Lucena,Philippines,10.8794,122.5967,Lucena Philippines,Cloudy
+Maasin,Philippines,10.8925,122.4347,Maasin Philippines,Cloudy
+Mabalacat City,Philippines,15.2216,120.5736,Mabalacat City Philippines,Cloudy
+Makati City,Philippines,14.5503,121.0327,Makati City Philippines,Cloudy
+Malabon,Philippines,15.6361,119.9379,Malabon Philippines,Cloudy
+Malaybalay,Philippines,8.15,125.0833,Malaybalay Philippines,Cloudy
+Malolos,Philippines,14.8419,120.8117,Malolos Philippines,Cloudy
+Mandaluyong City,Philippines,14.5832,121.0409,Mandaluyong City Philippines,Cloudy
+Mandaue City,Philippines,10.3333,123.9333,Mandaue City Philippines,Cloudy
+Manila,Philippines,14.6042,120.9822,Manila Philippines,Cloudy
+Marawi,Philippines,7.9986,124.2928,Marawi Philippines,Cloudy
+Mati,Philippines,9.7339,125.4708,Mati Philippines,Cloudy
+Meycauayan,Philippines,14.7369,120.9608,Meycauayan Philippines,Cloudy
+Muñoz,Philippines,15.7161,120.9031,Muñoz Philippines,Cloudy
+Naga,Philippines,13.6192,123.1814,Naga Philippines,Cloudy
+Navotas,Philippines,14.6667,120.95,Navotas Philippines,Cloudy
+Olongapo,Philippines,14.8292,120.2828,Olongapo Philippines,Cloudy
+Ormoc,Philippines,11.0064,124.6075,Ormoc Philippines,Cloudy
+Oroquieta,Philippines,8.4858,123.8044,Oroquieta Philippines,Cloudy
+Ozamiz City,Philippines,8.15,123.8333,Ozamiz City Philippines,Cloudy
+Pagadian,Philippines,7.8257,123.437,Pagadian Philippines,Cloudy
+Palayan City,Philippines,15.55,121.0833,Palayan City Philippines,Cloudy
+Panabo,Philippines,7.3081,125.6842,Panabo Philippines,Cloudy
+Paranaque City,Philippines,14.4816,121.0175,Paranaque City Philippines,Cloudy
+Pasig,Philippines,14.587,121.065,Pasig Philippines,Cloudy
+Puerto Princesa City,Philippines,9.7333,118.7333,Puerto Princesa City Philippines,Cloudy
+Quezon City,Philippines,14.6333,121.0333,Quezon City Philippines,Cloudy
+Roxas,Philippines,17.1189,121.6201,Roxas Philippines,Cloudy
+Sagay,Philippines,10.9447,123.4242,Sagay Philippines,Cloudy
+Samal,Philippines,14.7678,120.5431,Samal Philippines,Cloudy
+San Carlos,Philippines,15.5448,120.8931,San Carlos Philippines,Cloudy
+San Fernando,Philippines,16.6159,120.3166,San Fernando Philippines,Cloudy
+San Jose,Philippines,17.8927,121.8712,San Jose Philippines,Cloudy
+San Jose del Monte,Philippines,14.8139,121.0453,San Jose del Monte Philippines,Cloudy
+San Juan,Philippines,17.7422,120.4583,San Juan Philippines,Cloudy
+San Pablo,Philippines,14.9696,120.6197,San Pablo Philippines,Cloudy
+San Pedro,Philippines,17.2,121.8833,San Pedro Philippines,Cloudy
+Santa Rosa,Philippines,15.4238,120.9378,Santa Rosa Philippines,Cloudy
+Santiago,Philippines,17.2939,120.4449,Santiago Philippines,Cloudy
+Santo Tomas,Philippines,17.3997,121.7645,Santo Tomas Philippines,Cloudy
+Silay City,Philippines,10.8,122.9667,Silay City Philippines,Cloudy
+Sipalay,Philippines,9.7519,122.4042,Sipalay Philippines,Cloudy
+Surigao City,Philippines,9.75,125.5,Surigao City Philippines,Cloudy
+Tabaco,Philippines,13.3586,123.7336,Tabaco Philippines,Cloudy
+Tabuk,Philippines,17.4189,121.4443,Tabuk Philippines,Cloudy
+Tacloban City,Philippines,11.25,125.0,Tacloban City Philippines,Cloudy
+Tacurong,Philippines,6.6925,124.6764,Tacurong Philippines,Cloudy
+Tagaytay City,Philippines,14.1059,120.9337,Tagaytay City Philippines,Cloudy
+Taguig,Philippines,14.5243,121.0792,Taguig Philippines,Cloudy
+Talisay,Philippines,14.1343,122.9226,Talisay Philippines,Cloudy
+Tanauan,Philippines,14.0863,121.1498,Tanauan Philippines,Cloudy
+Tandag,Philippines,9.0783,126.1986,Tandag Philippines,Cloudy
+Tangub,Philippines,10.6339,122.9306,Tangub Philippines,Cloudy
+Tanjay,Philippines,9.5153,123.1583,Tanjay Philippines,Cloudy
+Tarlac City,Philippines,15.4889,120.5986,Tarlac City Philippines,Cloudy
+Tayabas,Philippines,14.0289,121.5911,Tayabas Philippines,Cloudy
+Toledo City,Philippines,10.3833,123.6333,Toledo City Philippines,Cloudy
+Tuguegarao,Philippines,17.6131,121.7269,Tuguegarao Philippines,Cloudy
+Urdaneta,Philippines,15.9761,120.5711,Urdaneta Philippines,Cloudy
+Valencia,Philippines,11.1089,124.5725,Valencia Philippines,Cloudy
+Valenzuela,Philippines,14.7,120.9667,Valenzuela Philippines,Cloudy
+Victorias,Philippines,10.9,123.0778,Victorias Philippines,Cloudy
+Vigan,Philippines,17.5747,120.3869,Vigan Philippines,Cloudy
+Zamboanga City,Philippines,6.9135,122.0696,Zamboanga City Philippines,Cloudy

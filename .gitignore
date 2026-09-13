@@ -15,3 +15,9 @@ __pycache__/
 backend/env/
 *.pyc
 .env
+backend/app/hotel_bookings.csv
+backend/app/hourly_data_combined_2020_to_2023.csv
+backend/app/weather/202401_CombinedData.csv
+backend/app/weather/202402_CombinedData.csv
+backend/app/weather/202403_CombinedData.csv
+backend/app/weather
