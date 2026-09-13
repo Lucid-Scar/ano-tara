@@ -1,0 +1,79 @@
+{
+  "created_at_utc": "2026-09-13T15:48:31.191028+00:00",
+  "labels": [
+    "Warm-Weather",
+    "Cold-Weather",
+    "Rain-Weather"
+  ],
+  "samples_evaluated": 109,
+  "unreadable_images": [],
+  "accuracy": 0.7614678899082569,
+  "balanced_accuracy": 0.756265664160401,
+  "classification_report": {
+    "Warm-Weather": {
+      "precision": 0.72,
+      "recall": 0.9473684210526315,
+      "f1-score": 0.8181818181818182,
+      "support": 38.0
+    },
+    "Cold-Weather": {
+      "precision": 0.7692307692307693,
+      "recall": 0.5714285714285714,
+      "f1-score": 0.6557377049180327,
+      "support": 35.0
+    },
+    "Rain-Weather": {
+      "precision": 0.8181818181818182,
+      "recall": 0.75,
+      "f1-score": 0.782608695652174,
+      "support": 36.0
+    },
+    "accuracy": 0.7614678899082569,
+    "macro avg": {
+      "precision": 0.7691375291375292,
+      "recall": 0.756265664160401,
+      "f1-score": 0.7521760729173416,
+      "support": 109.0
+    },
+    "weighted avg": {
+      "precision": 0.7682350676846089,
+      "recall": 0.7614678899082569,
+      "f1-score": 0.7542719431790689,
+      "support": 109.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      36,
+      2,
+      0
+    ],
+    [
+      9,
+      20,
+      6
+    ],
+    [
+      5,
+      4,
+      27
+    ]
+  ],
+  "confusion_matrix_row_normalized": [
+    [
+      0.9473684210526315,
+      0.05263157894736842,
+      0.0
+    ],
+    [
+      0.2571428571428571,
+      0.5714285714285714,
+      0.17142857142857143
+    ],
+    [
+      0.1388888888888889,
+      0.1111111111111111,
+      0.75
+    ]
+  ]
+}

@@ -15,6 +15,11 @@ __pycache__/
 backend/env/
 *.pyc
 .env
+backend/app/cnn_test_images/Cold-Weather/Screenshot 2026-09-13 105645.png
+backend/app/cnn_test_images
+backend/app/weather/202401_CombinedData.csv
+backend/app/weather
+plot images
 backend/app/hotel_bookings.csv
 backend/app/hourly_data_combined_2020_to_2023.csv
 backend/app/weather/202401_CombinedData.csv

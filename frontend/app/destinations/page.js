@@ -1,8 +1,9 @@
 "use client";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
-import { MOCK_DESTINATIONS } from "./mockDestinations";
+
+const CARDS_PER_PAGE = 24;
 
 function ActivityDestinationCard({ item }) {
   return (
@@ -94,13 +95,14 @@ function ActivityDestinationCard({ item }) {
 
 export default function DestinationsPage() {
   const [guests, setGuests] = useState(3);
-  const [destinations, setDestinations] = useState(MOCK_DESTINATIONS);
+  const [destinations, setDestinations] = useState([]);
   const [tripReady, setTripReady] = useState(false);
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [weatherFilter, setWeatherFilter] = useState(null); // null | 'Sunny' | 'Rainy' | 'Cold'
+  const [visibleCardCount, setVisibleCardCount] = useState(CARDS_PER_PAGE);
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -117,17 +119,26 @@ export default function DestinationsPage() {
     if (query.get("guests")) setGuests(Number(query.get("guests")) || 1);
     else if (stored.guests) setGuests(stored.guests);
 
-    fetch("http://localhost:8000/destinations")
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.destinations?.length) {
-          setDestinations(data.destinations);
-        }
-      })
-      .catch(() => {
-        setDestinations(MOCK_DESTINATIONS);
-      });
+    let isMounted = true;
+
+    const loadDestinations = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/destinations");
+        const data = await response.json();
+        if (!response.ok || !data.destinations?.length) throw new Error("Destination data is unavailable.");
+        if (isMounted) setDestinations(data.destinations);
+      } catch {
+        const { MOCK_DESTINATIONS: fallbackDestinations } = await import("./mockDestinations");
+        if (isMounted) setDestinations(fallbackDestinations);
+      }
+    };
+
+    loadDestinations();
     setTripReady(true);
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -229,6 +240,12 @@ export default function DestinationsPage() {
       return true;
     });
   }, [allActivities, searchQuery, weatherFilter]);
+
+  const visibleActivities = filteredActivities.slice(0, visibleCardCount);
+
+  useEffect(() => {
+    setVisibleCardCount(CARDS_PER_PAGE);
+  }, [searchQuery, weatherFilter]);
 
   const toggleWeather = (weather) => {
     setWeatherFilter((prev) => (prev === weather ? null : weather));
@@ -422,9 +439,13 @@ export default function DestinationsPage() {
         {/* ACTIVITIES GRID */}
         {filteredActivities.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredActivities.map((item) => (
+            {visibleActivities.map((item) => (
               <ActivityDestinationCard key={item.id} item={item} />
             ))}
+          </div>
+        ) : destinations.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm">
+            <p className="text-sm font-medium text-slate-500">Loading destinations…</p>
           </div>
         ) : (
           <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm">
@@ -444,6 +465,18 @@ export default function DestinationsPage() {
             </button>
           </div>
         )}
+
+        {visibleActivities.length < filteredActivities.length ? (
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setVisibleCardCount((count) => count + CARDS_PER_PAGE)}
+              className="rounded-xl border border-[#4a8b8b] px-5 py-2.5 text-sm font-bold text-[#4a8b8b] transition hover:bg-teal-50"
+            >
+              Load more activities
+            </button>
+          </div>
+        ) : null}
 
       </main>
 

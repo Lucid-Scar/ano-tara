@@ -3,15 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ImageUploader from "../../components/ImageUploader";
-import { MOCK_DESTINATIONS } from "../destinations/mockDestinations";
 
 const adviceByWeather = {
   Sunny: "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
   Rainy: "Bring a rain jacket or umbrella, quick-dry clothes, and waterproof shoes.",
   Cloudy: "Comfortable layers and a light jacket are the safest choice.",
 };
-
-const FALLBACK_DESTINATIONS = MOCK_DESTINATIONS;
 
 /** Map CNN labels to forecast conditions they fit. Cold/cloudy also covers sunny days with wind or a cool breeze. */
 function outfitExpectation(categoryOrSuitability) {
@@ -32,7 +29,7 @@ function outfitExpectation(categoryOrSuitability) {
 }
 
 export default function OutfitPlannerPage() {
-  const [destinations, setDestinations] = useState(FALLBACK_DESTINATIONS);
+  const [destinations, setDestinations] = useState([]);
   const [destination, setDestination] = useState("");
   const [hotelType, setHotelType] = useState("Resort Hotel");
   const [date, setDate] = useState("");
@@ -44,7 +41,12 @@ export default function OutfitPlannerPage() {
   const [loadingOutfit, setLoadingOutfit] = useState(false);
 
   useEffect(() => {
-    const trip = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    let trip = {};
+    try {
+      trip = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    } catch {
+      window.localStorage.removeItem("anoTaraTrip");
+    }
     const selectedDate = trip.targetDates?.[0] || new Date().toISOString().split("T")[0];
     setDate(selectedDate);
 
@@ -53,23 +55,34 @@ export default function OutfitPlannerPage() {
     }
 
     const savedPlace = trip.activities?.[0]?.destination || trip.destination || "";
-    fetch("http://localhost:8000/destinations")
-      .then((response) => response.json())
-      .then((data) => {
-        const list = Array.isArray(data.destinations) && data.destinations.length ? data.destinations : FALLBACK_DESTINATIONS;
-        setDestinations(list);
-        const match = list.find((item) => item.name === savedPlace) || list[0];
-        if (match) {
-          setDestination(match.name);
-          setHotelType(match.hotel_type || "Resort Hotel");
-        }
-      })
-      .catch(() => {
-        setDestinations(FALLBACK_DESTINATIONS);
-        const match = FALLBACK_DESTINATIONS.find((item) => item.name === savedPlace) || FALLBACK_DESTINATIONS[0];
+    let isMounted = true;
+
+    const loadDestinations = async () => {
+      let list;
+
+      try {
+        const response = await fetch("http://localhost:8000/destinations");
+        const data = await response.json();
+        if (!response.ok || !Array.isArray(data.destinations) || !data.destinations.length) throw new Error("Destination data is unavailable.");
+        list = data.destinations;
+      } catch {
+        const { MOCK_DESTINATIONS } = await import("../destinations/mockDestinations");
+        list = MOCK_DESTINATIONS;
+      }
+
+      if (!isMounted) return;
+      setDestinations(list);
+      const match = list.find((item) => item.name === savedPlace) || list[0];
+      if (match) {
         setDestination(match.name);
         setHotelType(match.hotel_type || "Resort Hotel");
-      });
+      }
+    };
+
+    loadDestinations();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const onPlaceChange = (name) => {

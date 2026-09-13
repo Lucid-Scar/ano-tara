@@ -2,16 +2,20 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
-import { MOCK_DESTINATIONS } from "../destinations/mockDestinations";
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
 
-const nearbyImages = [
-  "https://images.unsplash.com/photo-1470214304380-aadaedcfff0b?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=900&q=80",
-];
+const FALLBACK_DESTINATION = {
+  id: "alaminos",
+  name: "Alaminos",
+  location: "Alaminos, Philippines",
+  country: "Philippines",
+  main_weather: "Sunny",
+  image: mainImage,
+  description: "Discover scenic attractions, cultural landmarks, and local experiences in Alaminos.",
+  activities: [],
+};
 
 function NearbyCard({ destination }) {
   return (
@@ -39,13 +43,10 @@ export default function SpecificDestinationsPage() {
   const [recommendationReason, setRecommendationReason] = useState("");
   const [weatherComparison, setWeatherComparison] = useState(null);
   
-  const [destinationDetails, setDestinationDetails] = useState({
-    ...MOCK_DESTINATIONS[0],
-  });
+  const [destinationDetails, setDestinationDetails] = useState(FALLBACK_DESTINATION);
   const [activityList, setActivityList] = useState([]);
-  const [selectedActivity, setSelectedActivity] = useState(
-    MOCK_DESTINATIONS[0]?.activities?.[0]?.name || "Scenic landmarks and nature park tour"
-  );
+  const [selectedActivity, setSelectedActivity] = useState("Scenic landmarks and nature park tour");
+  const [nearbyDestinations, setNearbyDestinations] = useState([]);
 
   const handleMinus = (e) => {
     e.preventDefault();
@@ -86,19 +87,26 @@ export default function SpecificDestinationsPage() {
   useEffect(() => {
     if (!tripReady) return;
     const searchParams = new URLSearchParams(window.location.search);
-    const destinationId = searchParams.get("id") || MOCK_DESTINATIONS[0]?.id || "alaminos";
+    const destinationId = searchParams.get("id") || FALLBACK_DESTINATION.id;
     const activityParam = searchParams.get("activity");
-    const mockDestination = MOCK_DESTINATIONS.find((destination) => destination.id === destinationId) || MOCK_DESTINATIONS[0];
-    setDestinationDetails(mockDestination);
+    let isMounted = true;
 
     const loadDestinationAndWeather = async () => {
+      const { MOCK_DESTINATIONS } = await import("../destinations/mockDestinations");
+      const mockDestination = MOCK_DESTINATIONS.find((destination) => destination.id === destinationId) || MOCK_DESTINATIONS[0] || FALLBACK_DESTINATION;
+      if (!isMounted) return;
+      setDestinationDetails(mockDestination);
+      setNearbyDestinations(MOCK_DESTINATIONS.filter((destination) => destination.id !== mockDestination.id).slice(0, 4));
+
       try {
-        const destinationResponse = await fetch(`http://localhost:8000/destinations/${destinationId}`);
-        const destination = await destinationResponse.json();
-        
         // Fetch priority Open-Meteo forecast and activity recommendations
-        const forecastResponse = await fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${checkIn}`);
+        const [destinationResponse, forecastResponse] = await Promise.all([
+          fetch(`http://localhost:8000/destinations/${destinationId}`),
+          fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${checkIn}`),
+        ]);
+        const destination = await destinationResponse.json();
         const forecastData = await forecastResponse.json();
+        if (!destinationResponse.ok) throw new Error("Destination data is unavailable.");
         
         let acts = destination.activities || mockDestination.activities || [];
         if (forecastResponse.ok && forecastData.activities && forecastData.activities.length > 0) {
@@ -148,11 +156,11 @@ export default function SpecificDestinationsPage() {
         });
         const price = await priceResponse.json();
 
-        if (destinationResponse.ok && destination.id) {
+        if (isMounted && destination.id) {
           setDestinationDetails((current) => ({ ...current, ...destination }));
         }
 
-        if (priceResponse.ok && price.status === "success") {
+        if (isMounted && priceResponse.ok && price.status === "success") {
           setPredictedPrice(price.price.toLocaleString());
           setPricingDetails(price);
         }
@@ -171,6 +179,9 @@ export default function SpecificDestinationsPage() {
     };
 
     loadDestinationAndWeather();
+    return () => {
+      isMounted = false;
+    };
   }, [guests, checkIn, tripReady]);
 
   useEffect(() => {
@@ -431,7 +442,7 @@ export default function SpecificDestinationsPage() {
           <h2 className="mb-8 text-2xl font-black text-slate-800 italic">Destinations around it!</h2>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-            {MOCK_DESTINATIONS.filter((d) => d.id !== destinationDetails.id).slice(0, 4).map((dest) => (
+            {nearbyDestinations.map((dest) => (
               <NearbyCard key={dest.id} destination={dest} />
             ))}
           </div>

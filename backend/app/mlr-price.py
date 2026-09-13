@@ -1,3 +1,5 @@
+import pandas as pd
+import matplotlib.pyplot as plt
 """Train and evaluate the Ano-Tara hotel price multiplier model.
 
 The script keeps feature creation in one place so training and runtime
