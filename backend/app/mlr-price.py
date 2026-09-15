@@ -31,7 +31,7 @@ REPORT_PATH = BASE_DIR / "model" / "mlr_evaluation_report.csv"
 PLOT_PATH = BASE_DIR / "model" / "mlr_evaluation_plot.png"
 
 # Keep the product's synthetic base prices in one shared configuration.
-BASE_PRICES = {"City Hotel": 3800.0, "Resort Hotel": 9000.0}
+BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
 # Convert the source ADR unit into the PHP unit used by the application.
 ADR_TO_PHP = 62.0
 # Make the train/test result reproducible for thesis and system evaluation.
@@ -307,3 +307,65 @@ def train_model() -> dict:
 if __name__ == "__main__":
     # Run with: python mlr-price.py.
     train_model()
+    
+import joblib
+import matplotlib.pyplot as plt
+import numpy as np
+
+# ==========================================
+# 1. LOAD MODEL & PRINT COEFFICIENTS
+# ==========================================
+bundle = joblib.load("model/price_model_bundle.joblib")
+model = bundle["model"]
+features = bundle["features"]
+
+print(f"Intercept (Beta 0): {model.intercept_:.6f}\n")
+
+print("Coefficients:")
+for feature, coef in zip(features, model.coef_):
+    print(f"{feature}: {coef:.6f}")
+
+# ==========================================
+# 2. GENERATE THE LINE PLOT
+# ==========================================
+def plot_actual_vs_predicted(actual_php, predicted_php, sample_size=100):
+    """
+    Generates a line plot comparing actual vs. predicted PHP hotel prices,
+    matching the 'Ano Tara?' UI screenshot styling.
+    """
+    # Slice the arrays to get the exact sample size (e.g., 100 bookings)
+    actual_sample = actual_php[:sample_size]
+    predicted_sample = predicted_php[:sample_size]
+    x_axis = np.arange(sample_size)
+
+    # Create the figure matching the widescreen aspect ratio
+    plt.figure(figsize=(14, 7))
+
+    # Plot Actual Prices (Black, solid line, 2px width)
+    plt.plot(x_axis, actual_sample, color='black', linestyle='-', linewidth=2, label='Actual Price (PHP)')
+
+    # Plot Predicted Prices (Red, dashed line, 2px width)
+    plt.plot(x_axis, predicted_sample, color='red', linestyle='--', linewidth=2, label='Predicted Price (PHP)')
+
+    # Add Titles and Labels
+    plt.title('Ano Tara? - Actual vs. Predicted Hotel Prices (Sample of 100 Bookings)', fontsize=14)
+    plt.xlabel('Booking Sample Index', fontsize=12)
+    plt.ylabel('Hotel Price (PHP)', fontsize=12)
+
+    # Add the light dotted grid background
+    plt.grid(True, linestyle=':', alpha=0.7)
+
+    # Add Legend in the upper right
+    plt.legend(fontsize=12, loc='upper right')
+
+    # Clean up layout, save, and display
+    plt.tight_layout()
+    plt.savefig('model/actual_vs_predicted_lineplot.png', dpi=180)
+    plt.show()
+
+# Convert logarithmic predictions back to PHP prices for the graph
+    actual_php_array = np.exp(y_test).to_numpy() * base_test.to_numpy()
+    predicted_php_array = np.exp(predicted_log) * base_test.to_numpy()
+
+    # Call the plotting function
+    plot_actual_vs_predicted(actual_php_array, predicted_php_array, sample_size=100)

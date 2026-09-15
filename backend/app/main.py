@@ -111,9 +111,9 @@ def predict_mlr_price(check_in: date, guests: int, hotel_type: str) -> tuple[flo
         model_input[month_feature] = 1.0
     model_input = model_input[bundle["features"]].astype(float)
 
-    # Equation: multiplier = exp(model(log_multiplier)); clamp only impossible low prices.
+    # Keep the configured base price as the minimum before applying demand effects.
     predicted_log_multiplier = float(bundle["model"].predict(model_input)[0])
-    multiplier = max(0.5, float(np.exp(predicted_log_multiplier)))
+    multiplier = max(1.0, float(np.exp(predicted_log_multiplier)))
     price = round(base_price * multiplier, 2)
     return price, multiplier, bundle.get("evaluation", {})
 
@@ -674,7 +674,7 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
 @app.post("/predict-price")
 def predict_price(payload: PricePayload):
     hotel_type = payload.hotel_type if payload.hotel_type in {"City Hotel", "Resort Hotel"} else "Resort Hotel"
-    base_price = 3800.0 if hotel_type == "City Hotel" else 9000.0
+    base_price = 5999.72 if hotel_type == "City Hotel" else 6625.63
     # Prefer the trained log-linear MLR and retain the old formula only as an offline fallback.
     try:
         price, multiplier, model_evaluation = predict_mlr_price(
