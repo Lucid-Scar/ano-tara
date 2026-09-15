@@ -8,7 +8,6 @@ import { useTravel } from "./TravelContext";
 export default function Home() {
   const router = useRouter();
   const { dateRange, setDateRange } = useTravel();
-  const [guests, setGuests] = useState(3);
   const [startDate, setStartDate] = useState(dateRange.startDate || "");
   const [endDate, setEndDate] = useState(dateRange.endDate || "");
   const today = new Date().toISOString().split("T")[0];
