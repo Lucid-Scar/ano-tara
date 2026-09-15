@@ -45,6 +45,7 @@ class ActivityPayload(BaseModel):
     type: str = Field(min_length=1)
     destination: str = Field(default="General itinerary", min_length=1)
     guests: int = Field(default=1, ge=1)
+    assigned_day: str | None = None
 
 
 class ItineraryPayload(BaseModel):
@@ -789,7 +790,16 @@ def generate_itinerary(payload: ItineraryPayload):
         weather_matched = bool(options)
         options = options or payload.target_dates
 
-        day = min(options, key=lambda candidate: len(scheduled[candidate]))
+        assigned_date = None
+        if activity.assigned_day and activity.assigned_day.startswith("Day "):
+            try:
+                assigned_index = int(activity.assigned_day.removeprefix("Day ")) - 1
+                if 0 <= assigned_index < len(payload.target_dates):
+                    assigned_date = payload.target_dates[assigned_index]
+            except ValueError:
+                assigned_date = None
+
+        day = assigned_date or min(options, key=lambda candidate: len(scheduled[candidate]))
         matched_fc = forecasts.get(destination, {}).get(day, monthly_weather_for_date(date.fromisoformat(day)))
         
         act_type = activity.type.strip().lower()
@@ -829,6 +839,7 @@ def generate_itinerary(payload: ItineraryPayload):
             "name": activity.name.strip(),
             "type": act_type,
             "destination": destination,
+            "assigned_day": activity.assigned_day,
             "guests": activity.guests,
             "weather": matched_fc["condition"],
             "weather_forecast": matched_fc,

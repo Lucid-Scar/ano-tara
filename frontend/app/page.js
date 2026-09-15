@@ -1,11 +1,22 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Footer from "./footer/Footer";
+import { useTravel } from "./TravelContext";
 
 export default function Home() {
+  const router = useRouter();
+  const { dateRange, setDateRange } = useTravel();
   const [guests, setGuests] = useState(3);
-  const [checkIn, setCheckIn] = useState("");
+  const [startDate, setStartDate] = useState(dateRange.startDate || "");
+  const [endDate, setEndDate] = useState(dateRange.endDate || "");
+  const today = new Date().toISOString().split("T")[0];
+
+  useEffect(() => {
+    if (dateRange.startDate) setStartDate(dateRange.startDate);
+    if (dateRange.endDate) setEndDate(dateRange.endDate);
+  }, [dateRange.endDate, dateRange.startDate]);
 
   const handleMinus = (e) => {
     e.preventDefault();
@@ -17,15 +28,21 @@ export default function Home() {
     setGuests((prev) => prev + 1);
   };
 
-  const searchUrl = `/destinations?date=${checkIn}&guests=${guests}`;
+  const searchUrl = `/destinations?startDate=${startDate}&endDate=${endDate}&date=${startDate}&guests=${guests}`;
 
-  const saveTripSearch = () => {
+  const saveTripSearch = (event) => {
+    event.preventDefault();
+    if (!startDate || !endDate || endDate < startDate) return;
     const existing = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+    setDateRange({ startDate, endDate });
     window.localStorage.setItem("anoTaraTrip", JSON.stringify({
       ...existing,
-      targetDates: checkIn ? [checkIn] : [],
+      startDate,
+      endDate,
+      targetDates: [startDate, ...(endDate !== startDate ? [endDate] : [])],
       guests,
     }));
+    router.push(searchUrl);
   };
 
   return (
@@ -75,8 +92,28 @@ export default function Home() {
           
           <div className="flex-[3] flex items-center w-full px-4 py-2 sm:border-r sm:border-slate-300 hover:bg-gray-50 rounded-2xl transition-colors cursor-pointer">
             <div className="flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Travel date</p>
-              <input type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer" />
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Start date</p>
+              <input
+                type="date"
+                min={today}
+                value={startDate}
+                onChange={(event) => {
+                  const nextStartDate = event.target.value;
+                  setStartDate(nextStartDate);
+                  if (endDate && endDate < nextStartDate) setEndDate(nextStartDate);
+                }}
+                className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer"
+              />
+            </div>
+            <div className="flex-1 border-t border-slate-200 pt-2 sm:border-t-0 sm:border-l sm:border-slate-300 sm:pl-4">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">End date</p>
+              <input
+                type="date"
+                min={startDate || today}
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+                className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer"
+              />
             </div>
           </div>
 
@@ -96,10 +133,10 @@ export default function Home() {
           </div>
 
           <div className="flex-none w-full sm:w-auto mt-2 sm:mt-0 pl-2">
-            <Link onClick={saveTripSearch} href={searchUrl} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b9f0c8] px-8 py-4 sm:py-5 shadow-sm transition hover:scale-105 active:scale-95 text-teal-950">
+            <button type="button" onClick={saveTripSearch} disabled={!startDate || !endDate || endDate < startDate} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b9f0c8] px-8 py-4 sm:py-5 shadow-sm transition hover:scale-105 active:scale-95 text-teal-950 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               <span className="font-bold text-lg hidden sm:block">Search</span>
-            </Link>
+            </button>
           </div>
 
         </div>

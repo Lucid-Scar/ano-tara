@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
+import { useTravel } from "../TravelContext";
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
@@ -17,6 +18,18 @@ const FALLBACK_DESTINATION = {
   activities: [],
 };
 
+const generateDateRange = (startDate, endDate) => {
+  if (!startDate || !endDate || endDate < startDate) return [];
+  const dates = [];
+  const current = new Date(`${startDate}T00:00:00`);
+  const last = new Date(`${endDate}T00:00:00`);
+  while (current <= last) {
+    dates.push(current.toISOString().split("T")[0]);
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+};
+
 function NearbyCard({ destination }) {
   return (
     <Link href={`/specific-destinations?id=${destination.id}`} className="group relative block h-52 overflow-hidden rounded-2xl shadow-sm">
@@ -28,12 +41,15 @@ function NearbyCard({ destination }) {
 }
 
 export default function SpecificDestinationsPage() {
+  const { dateRange, setDateRange, addActivity } = useTravel();
   const [guests, setGuests] = useState(1); 
   const [tripReady, setTripReady] = useState(false);
   
-  // The MLR is calculated for one travel date, not a stay range.
-  const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
   const [selectedTime, setSelectedTime] = useState("10:00");
+  const [assignedDay, setAssignedDay] = useState("Day 1");
+  const [toastMessage, setToastMessage] = useState("");
   
   // CSV / MLR / Open-Meteo Weather State Management
   const [predictedPrice, setPredictedPrice] = useState("...");
@@ -68,14 +84,23 @@ export default function SpecificDestinationsPage() {
     });
   };
 
-  const displayRange = formatDate(checkIn) || "Select date";
+  const displayRange = formatDate(startDate) || "Select date";
+
+  useEffect(() => {
+    if (dateRange.startDate) setStartDate(dateRange.startDate);
+    if (dateRange.endDate) setEndDate(dateRange.endDate);
+  }, [dateRange.endDate, dateRange.startDate]);
 
   useEffect(() => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
     if (storedTrip) {
       try {
         const trip = JSON.parse(storedTrip);
-        if (trip.targetDates?.[0]) setCheckIn(trip.targetDates[0]);
+        const storedDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
+        const storedStartDate = trip.startDate || storedDates[0];
+        const storedEndDate = trip.endDate || storedDates[storedDates.length - 1] || storedStartDate;
+        if (storedStartDate) setStartDate(storedStartDate);
+        if (storedEndDate) setEndDate(storedEndDate);
         if (trip.guests) setGuests(trip.guests);
       } catch {
         window.localStorage.removeItem("anoTaraTrip");
@@ -102,7 +127,7 @@ export default function SpecificDestinationsPage() {
         // Fetch priority Open-Meteo forecast and activity recommendations
         const [destinationResponse, forecastResponse] = await Promise.all([
           fetch(`http://localhost:8000/destinations/${destinationId}`),
-          fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${checkIn}`),
+          fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${startDate}`),
         ]);
         const destination = await destinationResponse.json();
         const forecastData = await forecastResponse.json();
@@ -147,7 +172,7 @@ export default function SpecificDestinationsPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            check_in: checkIn || new Date().toISOString().split("T")[0],
+            check_in: startDate || new Date().toISOString().split("T")[0],
             guests,
             hotel_type: chosenHotelType,
             destination_id: destinationId,
@@ -182,17 +207,23 @@ export default function SpecificDestinationsPage() {
     return () => {
       isMounted = false;
     };
-  }, [guests, checkIn, tripReady]);
+  }, [guests, startDate, tripReady]);
 
   useEffect(() => {
     if (!tripReady) return;
     const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
-    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, targetDates: [checkIn], guests }));
-  }, [checkIn, guests, tripReady]);
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({
+      ...stored,
+      startDate,
+      endDate,
+      targetDates: generateDateRange(startDate, endDate),
+      guests,
+    }));
+  }, [startDate, endDate, guests, tripReady]);
 
   const addToPlanner = () => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
-    let trip = { activities: [], targetDates: [checkIn], mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests };
+    let trip = { activities: [], startDate, endDate, targetDates: generateDateRange(startDate, endDate), mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests };
     try {
       if (storedTrip) trip = { ...trip, ...JSON.parse(storedTrip) };
     } catch {
@@ -203,6 +234,8 @@ export default function SpecificDestinationsPage() {
     const selected = {
       ...activity,
       destination: destinationDetails.name,
+      assignedDay,
+      assigned_day: assignedDay,
       guests,
       weather: weatherForecast?.condition || destinationDetails.main_weather || "Sunny",
       weather_forecast: weatherForecast,
@@ -210,11 +243,16 @@ export default function SpecificDestinationsPage() {
     if (!trip.activities.some((item) => item.name === selected.name && item.destination === selected.destination)) {
       trip.activities = [...trip.activities, selected];
     }
-    trip.targetDates = [checkIn];
+    addActivity(selected);
+    setDateRange({ startDate, endDate });
+    trip.startDate = startDate;
+    trip.endDate = endDate;
+    trip.targetDates = generateDateRange(startDate, endDate);
     trip.guests = guests;
     trip.mlrPrice = Number(predictedPrice.replace(/,/g, "")) || 2999;
     window.localStorage.setItem("anoTaraTrip", JSON.stringify(trip));
-    window.location.href = "/final-planner";
+    setToastMessage("Activity added to your itinerary.");
+    window.setTimeout(() => setToastMessage(""), 3000);
   };
 
   return (
@@ -367,21 +405,43 @@ export default function SpecificDestinationsPage() {
 
               <div className="mb-6 grid w-full grid-cols-1 gap-6">
                 
-                {/* The MLR uses a single selected travel date. */}
                 <div>
                   <label className="block text-sm font-bold text-slate-900 mb-2">When are you going?</label>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 hover:border-gray-400 transition-colors cursor-pointer">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">START DATE</span>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => { const nextStartDate = e.target.value; const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate; setStartDate(nextStartDate); setEndDate(nextEndDate); setDateRange({ startDate: nextStartDate, endDate: nextEndDate }); }}
+                        className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-700 outline-none cursor-pointer"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 hover:border-gray-400 transition-colors cursor-pointer">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">END DATE</span>
+                      <input
+                        type="date"
+                        min={startDate}
+                        value={endDate}
+                        onChange={(e) => { setEndDate(e.target.value); setDateRange({ startDate, endDate: e.target.value }); }}
+                        className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-700 outline-none cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <label className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-slate-700">
+                    <span>Assign to</span>
+                    <select
+                      value={assignedDay}
+                      onChange={(e) => setAssignedDay(e.target.value)}
+                      className="max-w-[65%] rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold outline-none focus:border-gray-400"
+                    >
+                      {generateDateRange(startDate, endDate).map((date, index) => (
+                        <option key={date} value={`Day ${index + 1}`}>Day {index + 1} · {formatDate(date)}</option>
+                      ))}
+                    </select>
+                  </label>
+
                   <div className="flex flex-col gap-3">
-                    <div className="flex gap-2">
-                      <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2 hover:border-gray-400 transition-colors cursor-pointer">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">DATE</span>
-                        <input 
-                          type="date" 
-                          value={checkIn}
-                          onChange={(e) => setCheckIn(e.target.value)}
-                          className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-700 outline-none cursor-pointer"
-                        />
-                      </div>
-                    </div>
                     
                     {/* Time Input */}
                     <div className="flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-3 hover:border-gray-400 transition-colors cursor-pointer">
@@ -422,6 +482,12 @@ export default function SpecificDestinationsPage() {
                 </svg>
                 Add to Itinerary
               </button>
+
+              {toastMessage ? (
+                <div role="status" className="fixed bottom-6 right-6 z-[60] rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl">
+                  {toastMessage}
+                </div>
+              ) : null}
 
               <div className="rounded-xl bg-[#f8fafc] p-4 flex items-start gap-3 border border-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#58a573] mt-0.5 flex-shrink-0">
