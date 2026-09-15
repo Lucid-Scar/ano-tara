@@ -12,6 +12,8 @@ export default function Home() {
   const [guests, setGuests] = useState(3);
   const [startDate, setStartDate] = useState(dateRange.startDate || "");
   const [endDate, setEndDate] = useState(dateRange.endDate || "");
+  const [guests, setGuests] = useState(1);
+  const [checkIn, setCheckIn] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
   const today = new Date().toISOString().split("T")[0];
 

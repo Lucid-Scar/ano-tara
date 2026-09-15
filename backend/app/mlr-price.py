@@ -1,49 +1,30 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-"""Train and evaluate the Ano-Tara hotel price multiplier model.
-
-The script keeps feature creation in one place so training and runtime
-prediction use the same equations and one-hot column names.
-"""
-
-# Import standard-library helpers for paths and weather-file discovery.
 import glob
 from pathlib import Path
 
-# Import tabular data, numerical transforms, and model-bundle serialization.
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 
-# Import the regression, split, and evaluation utilities used by the model.
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 
-# Resolve paths relative to this file so the script works from any directory.
 BASE_DIR = Path(__file__).resolve().parent
 HOTEL_CSV_PATH = BASE_DIR / "hotel_bookings.csv"
 HOURLY_WEATHER_PATH = BASE_DIR / "hourly_data_combined_2020_to_2023.csv"
 BUNDLE_PATH = BASE_DIR / "model" / "price_model_bundle.joblib"
-# Save evaluation artifacts beside the trained model for easy thesis inclusion.
 REPORT_PATH = BASE_DIR / "model" / "mlr_evaluation_report.csv"
 PLOT_PATH = BASE_DIR / "model" / "mlr_evaluation_plot.png"
 
-# Keep the product's synthetic base prices in one shared configuration.
-BASE_PRICES = {"City Hotel": 3800.0, "Resort Hotel": 9000.0}
-# Convert the source ADR unit into the PHP unit used by the application.
+# Using the empirical base prices calculated previously
+BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
 ADR_TO_PHP = 62.0
-# Make the train/test result reproducible for thesis and system evaluation.
 RANDOM_STATE = 0
 
-
 def load_monthly_weather() -> pd.DataFrame:
-    """Load compatible weather sources and calculate monthly baselines."""
-    # Store normalized frames so providers with different column names can merge.
     weather_frames = []
-
-    # Read 2024-2026 files using the OpenWeather column names.
     for file_path in glob.glob(str(BASE_DIR / "weather" / "*.csv")):
         weather_frame = pd.read_csv(file_path)
         required = {"datetime", "main.temp", "rain.1h"}
@@ -54,7 +35,6 @@ def load_monthly_weather() -> pd.DataFrame:
                 )
             )
 
-    # Read the 2020-2023 file using its temperature column name.
     if HOURLY_WEATHER_PATH.exists():
         hourly_frame = pd.read_csv(HOURLY_WEATHER_PATH)
         required = {"datetime", "temperature", "rain"}
@@ -65,43 +45,34 @@ def load_monthly_weather() -> pd.DataFrame:
                 )
             )
 
-    # Stop rather than silently fitting without the requested climate variables.
     if not weather_frames:
         raise ValueError("No compatible weather datasets were found.")
 
-    # Combine sources and interpret missing rain measurements as no rain.
     weather = pd.concat(weather_frames, ignore_index=True)
     weather["rain"] = pd.to_numeric(weather["rain"], errors="coerce").fillna(0.0)
     weather["temp"] = pd.to_numeric(weather["temp"], errors="coerce")
     weather["datetime"] = pd.to_datetime(weather["datetime"], utc=True, errors="coerce")
     weather = weather.dropna(subset=["datetime", "temp"])
-
-    # Convert hourly timestamps into monthly means available at inference time.
     weather["month"] = weather["datetime"].dt.month_name()
     return (
         weather.groupby("month", as_index=False)
         .agg(avg_monthly_temp=("temp", "mean"), avg_monthly_rain=("rain", "mean"))
     )
 
-
 def build_training_frame() -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Create the feature matrix and return it with the weather reference table."""
-    # Load bookings and remove impossible ADR values before deriving the target.
     hotel = pd.read_csv(HOTEL_CSV_PATH)
     hotel = hotel.loc[hotel["adr"].between(0, 1000, inclusive="neither")].copy()
 
-    # Keep fields known from the selected travel date, party size, and hotel type.
+    # ADDED 'lead_time' to the columns we keep
     columns = [
         "hotel", "arrival_date_year", "arrival_date_month", "arrival_date_day_of_month",
-        "adults", "children", "adr",
+        "adults", "children", "adr", "lead_time"
     ]
     hotel = hotel[columns].dropna().copy()
 
-    # Compute total party size and reject bookings with no guests.
     hotel["pax"] = hotel["adults"] + hotel["children"]
     hotel = hotel.loc[hotel["pax"] > 0].copy()
 
-    # Build a real calendar date so Friday, Saturday, and Sunday are detectable.
     month_numbers = {name: number for number, name in enumerate(
         ["", "January", "February", "March", "April", "May", "June", "July",
          "August", "September", "October", "November", "December"]
@@ -116,15 +87,12 @@ def build_training_frame() -> tuple[pd.DataFrame, pd.DataFrame]:
     )
     hotel = hotel.dropna(subset=["arrival_date"])
 
-    # Equation: surge_multiplier = (ADR * PHP conversion) / synthetic hotel base.
     hotel["synthetic_base_price"] = hotel["hotel"].map(BASE_PRICES)
     hotel["surge_multiplier"] = hotel["adr"] * ADR_TO_PHP / hotel["synthetic_base_price"]
 
-    # Add the requested weekend indicator and nonlinear party-size term.
     hotel["is_weekend"] = hotel["arrival_date"].dt.dayofweek.isin([4, 5, 6]).astype(int)
     hotel["pax_squared"] = hotel["pax"] ** 2
 
-    # Merge monthly climate baselines using the booking's arrival month.
     monthly_weather = load_monthly_weather()
     frame = hotel.merge(
         monthly_weather,
@@ -136,21 +104,14 @@ def build_training_frame() -> tuple[pd.DataFrame, pd.DataFrame]:
         ["avg_monthly_temp", "avg_monthly_rain"]
     ].fillna(0.0)
 
-    # Encode resort status numerically so it can participate in interactions.
     frame["hotel_is_resort"] = (frame["hotel"] == "Resort Hotel").astype(int)
-    # Equation: hotel_temp = resort flag * monthly temperature.
     frame["hotel_temp"] = frame["hotel_is_resort"] * frame["avg_monthly_temp"]
-    # Equation: hotel_rain = resort flag * monthly rainfall.
     frame["hotel_rain"] = frame["hotel_is_resort"] * frame["avg_monthly_rain"]
-    # Equation: hotel_pax = resort flag * party size.
     frame["hotel_pax"] = frame["hotel_is_resort"] * frame["pax"]
-    # One-hot encode month while avoiding a redundant reference month.
+    
     encoded = pd.get_dummies(frame, columns=["arrival_date_month"], drop_first=True, dtype=float)
-
-    # Equation: log_multiplier = ln(surge_multiplier), reducing outlier leverage.
     encoded["log_multiplier"] = np.log(encoded["surge_multiplier"].clip(lower=1e-6))
 
-    # Remove source-only fields, identifiers, and target columns from X.
     target_columns = {
         "adr", "adr_php", "surge_multiplier", "log_multiplier", "synthetic_base_price",
         "hotel", "arrival_date", "arrival_date_year", "arrival_date_day_of_month",
@@ -159,10 +120,7 @@ def build_training_frame() -> tuple[pd.DataFrame, pd.DataFrame]:
     features = encoded.drop(columns=[column for column in target_columns if column in encoded])
     return features.astype(float), monthly_weather
 
-
 def evaluate_predictions(actual_multiplier: pd.Series, predicted_log: np.ndarray, base_prices: pd.Series) -> dict:
-    """Calculate multiplier and PHP metrics after undoing the log transform."""
-    # Equation: predicted_multiplier = exp(predicted_log), reversing ln(multiplier).
     predicted_multiplier = np.exp(predicted_log)
     actual_values = actual_multiplier.to_numpy()
     actual_php = actual_values * base_prices.to_numpy()
@@ -179,15 +137,7 @@ def evaluate_predictions(actual_multiplier: pd.Series, predicted_log: np.ndarray
         "rmse_php": mean_squared_error(actual_php, predicted_php) ** 0.5,
     }
 
-
-def build_evaluation_report(
-    actual_multiplier: pd.Series,
-    predicted_log: np.ndarray,
-    base_prices: pd.Series,
-    hotel_types: pd.Series,
-) -> pd.DataFrame:
-    """Build unified and hotel-subset metrics from the same holdout predictions."""
-    # Define the report groups; each subset is evaluated without refitting the model.
+def build_evaluation_report(actual_multiplier: pd.Series, predicted_log: np.ndarray, base_prices: pd.Series, hotel_types: pd.Series) -> pd.DataFrame:
     groups = {
         "Unified Model": pd.Series(True, index=hotel_types.index),
         "City Hotel Subset": hotel_types == "City Hotel",
@@ -195,7 +145,6 @@ def build_evaluation_report(
     }
     rows = []
     for scope, mask in groups.items():
-        # Filter actuals, predictions, and base prices by the same hotel mask.
         group_actual = actual_multiplier.loc[mask]
         group_base = base_prices.loc[mask]
         group_prediction = predicted_log[mask.to_numpy()]
@@ -203,46 +152,28 @@ def build_evaluation_report(
         rows.append({"scope": scope, "samples": int(mask.sum()), **metrics})
     return pd.DataFrame(rows)
 
+def plot_actual_vs_predicted(actual_php, predicted_php, sample_size=100):
+    actual_sample = actual_php[:sample_size]
+    predicted_sample = predicted_php[:sample_size]
+    x_axis = np.arange(sample_size)
 
-def save_evaluation_plot(report: pd.DataFrame) -> None:
-    """Save a readable four-panel comparison plot for the evaluation report."""
-    # Use one consistent color per scope so every panel is easy to compare.
-    colors = ["#17324D", "#E07A5F", "#2A9D8F"]
-    figure, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
-    charts = [
-        ("r2", "R² score", "R²", lambda value: value * 100),
-        ("mae_multiplier", "Multiplier MAE", "Error (x)", lambda value: value),
-        ("mae_adr", "ADR MAE", "Error (source ADR units)", lambda value: value),
-        ("rmse_php", "PHP RMSE", "Error (PHP)", lambda value: value),
-    ]
-    for axis, (column, title, ylabel, formatter) in zip(axes.flat, charts):
-        values = [formatter(value) for value in report[column]]
-        bars = axis.bar(report["scope"], values, color=colors)
-        axis.set_title(title)
-        axis.set_ylabel(ylabel)
-        axis.tick_params(axis="x", rotation=18)
-        axis.grid(axis="y", alpha=0.25)
-        axis.set_axisbelow(True)
-        for bar, value in zip(bars, values):
-            axis.annotate(
-                f"{value:.2f}",
-                (bar.get_x() + bar.get_width() / 2, bar.get_height()),
-                ha="center",
-                va="bottom",
-                xytext=(0, 4),
-                textcoords="offset points",
-            )
-    figure.suptitle("Ano-Tara Unified MLR: Overall and Hotel Subset Evaluation", fontsize=15)
-    figure.savefig(PLOT_PATH, dpi=180)
-    plt.close(figure)
-
+    plt.figure(figsize=(14, 7))
+    plt.plot(x_axis, actual_sample, color='black', linestyle='-', linewidth=2, label='Actual Price (PHP)')
+    plt.plot(x_axis, predicted_sample, color='red', linestyle='--', linewidth=2, label='Predicted Price (PHP)')
+    
+    plt.title('Ano Tara? - Actual vs. Predicted Hotel Prices (Sample of 100 Bookings)', fontsize=14)
+    plt.xlabel('Booking Sample Index', fontsize=12)
+    plt.ylabel('Hotel Price (PHP)', fontsize=12)
+    plt.grid(True, linestyle=':', alpha=0.7)
+    plt.legend(fontsize=12, loc='upper right')
+    
+    plt.tight_layout()
+    plt.savefig(PLOT_PATH, dpi=180)
+    plt.close()
 
 def train_model() -> dict:
-    """Train, evaluate, print, and persist the unified MLR model."""
-    # Build the exact feature matrix that will later be reconstructed by the API.
     features, monthly_weather = build_training_frame()
 
-    # Recreate the target rows using the same source filters and row ordering.
     target = pd.read_csv(HOTEL_CSV_PATH)
     target = target.loc[target["adr"].between(0, 1000, inclusive="neither")].copy()
     target = target[["hotel", "adults", "children", "adr"]].dropna()
@@ -253,7 +184,6 @@ def train_model() -> dict:
     target = target.loc[target["multiplier"] > 0].reset_index(drop=True)
     target = target.iloc[: len(features)].copy()
 
-    # Split once so every reported scope uses the same untouched holdout evaluation.
     x_train, x_test, y_train, y_test, _, base_test, _, hotel_test = train_test_split(
         features,
         np.log(target["multiplier"]),
@@ -263,14 +193,26 @@ def train_model() -> dict:
         random_state=RANDOM_STATE,
     )
 
-    # Fit ordinary least squares to the log target with all engineered features.
+    # --- STATSMODELS P-VALUE REPORT ---
+    X_train_sm = sm.add_constant(x_train)
+    ols_model = sm.OLS(y_train, X_train_sm).fit()
+    print("\n" + "="*72)
+    print("STATISTICAL SIGNIFICANCE REPORT (P-VALUES)")
+    print(ols_model.summary())
+    print("="*72 + "\n")
+    # ----------------------------------
+
     model = LinearRegression()
     model.fit(x_train, y_train)
     predicted_log = model.predict(x_test)
     evaluation = evaluate_predictions(np.exp(y_test), predicted_log, base_test)
     report = build_evaluation_report(np.exp(y_test), predicted_log, base_test, hotel_test)
 
-    # Refit using every valid booking so production receives the maximum data signal.
+    # Generate and save the plot
+    actual_php_array = np.exp(y_test).to_numpy() * base_test.to_numpy()
+    predicted_php_array = np.exp(predicted_log) * base_test.to_numpy()
+    plot_actual_vs_predicted(actual_php_array, predicted_php_array, sample_size=100)
+
     model.fit(features, np.log(target["multiplier"]))
     bundle = {
         "model": model,
@@ -285,9 +227,7 @@ def train_model() -> dict:
     BUNDLE_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(bundle, BUNDLE_PATH)
     report.to_csv(REPORT_PATH, index=False)
-    save_evaluation_plot(report)
 
-    # Print the unified table values used for system and thesis evaluation.
     print("=" * 72)
     print("UNIFIED ANO-TARA MLR MODEL EVALUATION")
     print(f"Dataset size: {len(features):,} bookings")
@@ -301,9 +241,14 @@ def train_model() -> dict:
     print(f"Saved bundle: {BUNDLE_PATH}")
     print(f"Saved report: {REPORT_PATH}")
     print(f"Saved plot: {PLOT_PATH}")
+
+    # --- PRINT COEFFICIENTS ---
+    print("\nIntercept (Beta 0):", model.intercept_)
+    print("Coefficients:")
+    for feature, coef in zip(features.columns, model.coef_):
+        print(f"{feature}: {coef:.6f}")
+
     return bundle
 
-
 if __name__ == "__main__":
-    # Run with: python mlr-price.py.
     train_model()

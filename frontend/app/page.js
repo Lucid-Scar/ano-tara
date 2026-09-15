@@ -17,6 +17,8 @@ export default function Home() {
     if (dateRange.startDate) setStartDate(dateRange.startDate);
     if (dateRange.endDate) setEndDate(dateRange.endDate);
   }, [dateRange.endDate, dateRange.startDate]);
+  const [guests, setGuests] = useState(1);
+  const [checkIn, setCheckIn] = useState("");
 
   const handleMinus = (e) => {
     e.preventDefault();
