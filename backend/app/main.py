@@ -3,7 +3,7 @@ import csv
 import re
 from base64 import b64decode
 from binascii import Error as Base64Error
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -64,12 +64,20 @@ MONTHLY_WEATHER = {
     10: (28.1, 20.6, "Rainy"), 11: (27.8, 14.1, "Cloudy"), 12: (27.2, 11.4, "Cloudy"),
 }
 
+DEFAULT_BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
+
 # Load the trained unified MLR bundle once when the API starts.
 PRICE_MODEL_PATH = BASE_DIR / "model" / "price_model_bundle.joblib"
 try:
     PRICE_MODEL_BUNDLE = joblib.load(PRICE_MODEL_PATH)
 except (FileNotFoundError, ImportError, ValueError):
     PRICE_MODEL_BUNDLE = None
+
+BASE_PRICES = (
+    PRICE_MODEL_BUNDLE.get("base_prices", DEFAULT_BASE_PRICES)
+    if PRICE_MODEL_BUNDLE
+    else DEFAULT_BASE_PRICES
+)
 
 
 def predict_mlr_price(check_in: date, guests: int, hotel_type: str) -> tuple[float, float, dict]:
@@ -86,12 +94,14 @@ def predict_mlr_price(check_in: date, guests: int, hotel_type: str) -> tuple[flo
     # Recreate every engineered numeric feature used by mlr-price.py.
     base_price = float(bundle["base_prices"][hotel_type])
     pax = float(guests)
+    lead_time = max(0, (check_in - datetime.now().date()).days)
     is_weekend = float(check_in.weekday() in {4, 5, 6})
     avg_temp = float(weather_row["avg_monthly_temp"].iloc[0])
     avg_rain = float(weather_row["avg_monthly_rain"].iloc[0])
     is_resort = float(hotel_type == "Resort Hotel")
     model_input = pd.DataFrame({
         "pax": [pax],
+        "lead_time": [float(lead_time)],
         "is_weekend": [is_weekend],
         "pax_squared": [pax ** 2],
         "avg_monthly_temp": [avg_temp],
@@ -288,6 +298,8 @@ def load_destinations() -> list[dict]:
                     "location": name,  # Tag is now the city itself
                     "country": row.get("country", "Philippines"),
                     "hotel_type": meta.get("hotel_type", "City Hotel"),
+                    "base_price": BASE_PRICES[meta.get("hotel_type", "City Hotel")],
+                    "base_prices": BASE_PRICES,
                     "latitude": float(row["latitude"]),
                     "longitude": float(row["longitude"]),
                     "main_weather": "Cold" if is_cold else row.get("main_weather", "Cloudy"),
@@ -674,7 +686,7 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
 @app.post("/predict-price")
 def predict_price(payload: PricePayload):
     hotel_type = payload.hotel_type if payload.hotel_type in {"City Hotel", "Resort Hotel"} else "Resort Hotel"
-    base_price = 5999.72 if hotel_type == "City Hotel" else 6625.63
+    base_price = float(BASE_PRICES[hotel_type])
     # Prefer the trained log-linear MLR and retain the old formula only as an offline fallback.
     try:
         price, multiplier, model_evaluation = predict_mlr_price(

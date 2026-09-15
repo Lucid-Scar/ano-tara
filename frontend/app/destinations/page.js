@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
+import { MLR_BASE_PRICES } from "../pricing";
 
 const CARDS_PER_PAGE = 24;
 
@@ -85,7 +86,7 @@ function ActivityDestinationCard({ item }) {
             </svg>
           </span>
           <span className="text-xs font-bold text-slate-600">
-            {item.hotelType === "Resort Hotel" ? "₱9,000 base" : "₱3,800 base"}
+            ₱{(item.base_price || MLR_BASE_PRICES[item.hotelType]).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} base
           </span>
         </div>
       </div>
@@ -94,7 +95,7 @@ function ActivityDestinationCard({ item }) {
 }
 
 export default function DestinationsPage() {
-  const [guests, setGuests] = useState(3);
+  const [guests, setGuests] = useState(1);
   const [destinations, setDestinations] = useState([]);
   const [tripReady, setTripReady] = useState(false);
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
@@ -197,6 +198,7 @@ export default function DestinationsPage() {
         activityName: outdoor.name,
         activityType: "outdoor",
         hotelType: "Resort Hotel",
+        base_price: dest.base_prices?.["Resort Hotel"] || MLR_BASE_PRICES["Resort Hotel"],
         weatherTag: outdoor.weather_tag || (isCold ? "Cold" : "Sunny"),
         image: dest.image,
         description: dest.description,
@@ -212,6 +214,7 @@ export default function DestinationsPage() {
         activityName: indoor.name,
         activityType: "indoor",
         hotelType: "City Hotel",
+        base_price: dest.base_prices?.["City Hotel"] || MLR_BASE_PRICES["City Hotel"],
         weatherTag: indoor.weather_tag || (isCold ? "Cold" : "Rainy"),
         image: dest.image,
         description: dest.description,

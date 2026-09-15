@@ -4,7 +4,7 @@ import Link from "next/link";
 import Footer from "./footer/Footer";
 
 export default function Home() {
-  const [guests, setGuests] = useState(3);
+  const [guests, setGuests] = useState(1);
   const [checkIn, setCheckIn] = useState("");
 
   const handleMinus = (e) => {

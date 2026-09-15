@@ -5,7 +5,7 @@ import Footer from "./footer/Footer";
 import Header from "./header/Header";
 
 export default function Home() {
-  const [guests, setGuests] = useState(3);
+  const [guests, setGuests] = useState(1);
   const [checkIn, setCheckIn] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
 
