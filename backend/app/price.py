@@ -31,3 +31,4 @@ resort_base_php = resort_base_euro * exchange_rate
 
 print(f"Regression Intercept (City Hotel Base): €{city_base_euro:.2f} -> ₱{city_base_php:.2f}")
 print(f"Regression Calculated (Resort Hotel Base): €{resort_base_euro:.2f} -> ₱{resort_base_php:.2f}")
+

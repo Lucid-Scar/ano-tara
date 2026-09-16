@@ -66,12 +66,20 @@ def build_training_frame() -> tuple[pd.DataFrame, pd.DataFrame]:
     # ADDED 'lead_time' to the columns we keep
     columns = [
         "hotel", "arrival_date_year", "arrival_date_month", "arrival_date_day_of_month",
-        "adults", "children", "adr", "lead_time"
+        "adults", "children", "adr", "lead_time", 
+        "stays_in_weekend_nights", "stays_in_week_nights", "reserved_room_type"
     ]
     hotel = hotel[columns].dropna().copy()
 
     hotel["pax"] = hotel["adults"] + hotel["children"]
     hotel = hotel.loc[hotel["pax"] > 0].copy()
+    
+    # Calculate total trip duration
+    hotel["length_of_stay"] = hotel["stays_in_weekend_nights"] + hotel["stays_in_week_nights"]
+    hotel = hotel.loc[hotel["length_of_stay"] > 0].copy() # Remove impossible 0-night bookings
+
+    # Simplify room types for a clean UI: 'A' is standard (0), everything else is Premium (1)
+    hotel["is_premium_room"] = (hotel["reserved_room_type"] != "A").astype(int)
 
     month_numbers = {name: number for number, name in enumerate(
         ["", "January", "February", "March", "April", "May", "June", "July",
@@ -115,7 +123,7 @@ def build_training_frame() -> tuple[pd.DataFrame, pd.DataFrame]:
     target_columns = {
         "adr", "adr_php", "surge_multiplier", "log_multiplier", "synthetic_base_price",
         "hotel", "arrival_date", "arrival_date_year", "arrival_date_day_of_month",
-        "adults", "children",
+        "adults", "children", "stays_in_weekend_nights", "stays_in_week_nights", "reserved_room_type"
     }
     features = encoded.drop(columns=[column for column in target_columns if column in encoded])
     return features.astype(float), monthly_weather
@@ -152,23 +160,27 @@ def build_evaluation_report(actual_multiplier: pd.Series, predicted_log: np.ndar
         rows.append({"scope": scope, "samples": int(mask.sum()), **metrics})
     return pd.DataFrame(rows)
 
-def plot_actual_vs_predicted(actual_php, predicted_php, sample_size=100):
-    actual_sample = actual_php[:sample_size]
-    predicted_sample = predicted_php[:sample_size]
-    x_axis = np.arange(sample_size)
+def plot_actual_vs_predicted(actual_php, predicted_php, title, filename, sample_size=100):
+    """Generates and saves a specific subset graph for manuscript visuals."""
+    # Ensure we don't try to plot more samples than actually exist
+    current_sample_size = min(len(actual_php), sample_size)
+    actual_sample = actual_php[:current_sample_size]
+    predicted_sample = predicted_php[:current_sample_size]
+    x_axis = np.arange(current_sample_size)
 
     plt.figure(figsize=(14, 7))
     plt.plot(x_axis, actual_sample, color='black', linestyle='-', linewidth=2, label='Actual Price (PHP)')
     plt.plot(x_axis, predicted_sample, color='red', linestyle='--', linewidth=2, label='Predicted Price (PHP)')
     
-    plt.title('Ano Tara? - Actual vs. Predicted Hotel Prices (Sample of 100 Bookings)', fontsize=14)
+    plt.title(title, fontsize=14)
     plt.xlabel('Booking Sample Index', fontsize=12)
     plt.ylabel('Hotel Price (PHP)', fontsize=12)
     plt.grid(True, linestyle=':', alpha=0.7)
     plt.legend(fontsize=12, loc='upper right')
     
     plt.tight_layout()
-    plt.savefig(PLOT_PATH, dpi=180)
+    save_path = BASE_DIR / "model" / filename
+    plt.savefig(save_path, dpi=180)
     plt.close()
 
 def train_model() -> dict:
@@ -208,10 +220,32 @@ def train_model() -> dict:
     evaluation = evaluate_predictions(np.exp(y_test), predicted_log, base_test)
     report = build_evaluation_report(np.exp(y_test), predicted_log, base_test, hotel_test)
 
-    # Generate and save the plot
+    # Generate and save THREE separate plots for Chapter 4 visuals
     actual_php_array = np.exp(y_test).to_numpy() * base_test.to_numpy()
     predicted_php_array = np.exp(predicted_log) * base_test.to_numpy()
-    plot_actual_vs_predicted(actual_php_array, predicted_php_array, sample_size=100)
+
+    # 1. Unified Model Graph
+    plot_actual_vs_predicted(
+        actual_php_array, predicted_php_array, 
+        title='Ano Tara? - Unified MLR Actual vs. Predicted (Sample of 100)',
+        filename='mlr_evaluation_plot_unified.png'
+    )
+
+    # 2. City Hotel Subset Graph
+    city_mask = (hotel_test == "City Hotel").to_numpy()
+    plot_actual_vs_predicted(
+        actual_php_array[city_mask], predicted_php_array[city_mask], 
+        title='Ano Tara? - City Hotel Actual vs. Predicted (Sample of 100)',
+        filename='mlr_evaluation_plot_city.png'
+    )
+
+    # 3. Resort Hotel Subset Graph
+    resort_mask = (hotel_test == "Resort Hotel").to_numpy()
+    plot_actual_vs_predicted(
+        actual_php_array[resort_mask], predicted_php_array[resort_mask], 
+        title='Ano Tara? - Resort Hotel Actual vs. Predicted (Sample of 100)',
+        filename='mlr_evaluation_plot_resort.png'
+    )
 
     model.fit(features, np.log(target["multiplier"]))
     bundle = {

@@ -31,8 +31,13 @@ export default function SpecificDestinationsPage() {
   const [guests, setGuests] = useState(1); 
   const [tripReady, setTripReady] = useState(false);
   
-  // The MLR is calculated for one travel date, not a stay range.
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
+  const [checkOut, setCheckOut] = useState(() => {
+    const nextDay = new Date();
+    nextDay.setDate(nextDay.getDate() + 1);
+    return nextDay.toISOString().split("T")[0];
+  });
+  const [roomType, setRoomType] = useState("Standard Room");
   const [selectedTime, setSelectedTime] = useState("10:00");
   
   // CSV / MLR / Open-Meteo Weather State Management
@@ -68,7 +73,9 @@ export default function SpecificDestinationsPage() {
     });
   };
 
-  const displayRange = formatDate(checkIn) || "Select date";
+  const displayRange = checkIn
+    ? `${formatDate(checkIn)} - ${formatDate(checkOut)}`
+    : "Select dates";
 
   useEffect(() => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
@@ -76,7 +83,9 @@ export default function SpecificDestinationsPage() {
       try {
         const trip = JSON.parse(storedTrip);
         if (trip.targetDates?.[0]) setCheckIn(trip.targetDates[0]);
+        if (trip.targetDates?.[1]) setCheckOut(trip.targetDates[1]);
         if (trip.guests) setGuests(trip.guests);
+        if (trip.roomType) setRoomType(trip.roomType);
       } catch {
         window.localStorage.removeItem("anoTaraTrip");
       }
@@ -148,10 +157,10 @@ export default function SpecificDestinationsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             check_in: checkIn || new Date().toISOString().split("T")[0],
+            check_out: checkOut,
             guests,
             hotel_type: chosenHotelType,
-            destination_id: destinationId,
-            destination_name: destination.name,
+            room_type: roomType,
           }),
         });
         const price = await priceResponse.json();
@@ -161,7 +170,7 @@ export default function SpecificDestinationsPage() {
         }
 
         if (isMounted && priceResponse.ok && price.status === "success") {
-          setPredictedPrice(price.price.toLocaleString());
+          setPredictedPrice(price.total_price.toLocaleString());
           setPricingDetails(price);
         }
       } catch (error) {
@@ -182,17 +191,17 @@ export default function SpecificDestinationsPage() {
     return () => {
       isMounted = false;
     };
-  }, [guests, checkIn, tripReady]);
+  }, [guests, checkIn, checkOut, roomType, tripReady]);
 
   useEffect(() => {
     if (!tripReady) return;
     const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
-    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, targetDates: [checkIn], guests }));
-  }, [checkIn, guests, tripReady]);
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, targetDates: [checkIn, checkOut], guests, roomType }));
+  }, [checkIn, checkOut, guests, roomType, tripReady]);
 
   const addToPlanner = () => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
-    let trip = { activities: [], targetDates: [checkIn], mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests };
+    let trip = { activities: [], targetDates: [checkIn, checkOut], mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests, roomType };
     try {
       if (storedTrip) trip = { ...trip, ...JSON.parse(storedTrip) };
     } catch {
@@ -210,8 +219,9 @@ export default function SpecificDestinationsPage() {
     if (!trip.activities.some((item) => item.name === selected.name && item.destination === selected.destination)) {
       trip.activities = [...trip.activities, selected];
     }
-    trip.targetDates = [checkIn];
+    trip.targetDates = [checkIn, checkOut];
     trip.guests = guests;
+    trip.roomType = roomType;
     trip.mlrPrice = Number(predictedPrice.replace(/,/g, "")) || 2999;
     window.localStorage.setItem("anoTaraTrip", JSON.stringify(trip));
     window.location.href = "/final-planner";
@@ -296,10 +306,11 @@ export default function SpecificDestinationsPage() {
               <div className="h-px w-full bg-gray-200 mb-8"></div>
               
               <div className="mt-2">
+                <p className="text-sm font-bold uppercase tracking-wider text-gray-400">Total estimated cost</p>
                 <h3 className="text-4xl font-black text-[#860001]">PHP {predictedPrice}</h3>
                 {pricingDetails ? (
                   <p className="mt-2 text-sm text-gray-500">
-                    Base price: PHP {pricingDetails.base_price.toLocaleString()} · {pricingDetails.season}
+                    PHP {pricingDetails.daily_price.toLocaleString()} / night for {pricingDetails.length_of_stay} {pricingDetails.length_of_stay === 1 ? "night" : "nights"}
                   </p>
                 ) : null}
                 <a href="#" className="mt-2 inline-block text-sm font-medium italic text-gray-500 underline transition-colors hover:text-[#76B3DD]">
@@ -316,11 +327,12 @@ export default function SpecificDestinationsPage() {
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Estimated MLR Cost</p>
                 <div className="flex items-baseline gap-2">
                   <h3 className="text-[2rem] font-black text-[#0f172a]">PHP {predictedPrice}</h3>
-                  <span className="text-sm text-gray-500 font-medium">/ for {guests} {guests === 1 ? 'guest' : 'guests'}</span>
+                  <span className="text-sm text-gray-500 font-medium">total for {guests} {guests === 1 ? 'guest' : 'guests'}</span>
                 </div>
                 {pricingDetails ? (
                   <div className="mt-3 space-y-1 text-xs text-gray-500">
-                    <p>Base price: PHP {pricingDetails.base_price.toLocaleString()}</p>
+                    <p>PHP {pricingDetails.daily_price.toLocaleString()} / night · {pricingDetails.length_of_stay} {pricingDetails.length_of_stay === 1 ? "night" : "nights"}</p>
+                    <p>Base daily rate: PHP {pricingDetails.base_price.toLocaleString()}</p>
                     <p>{pricingDetails.month} · {pricingDetails.season}</p>
                   </div>
                 ) : null}
@@ -367,22 +379,50 @@ export default function SpecificDestinationsPage() {
 
               <div className="mb-6 grid w-full grid-cols-1 gap-6">
                 
-                {/* The MLR uses a single selected travel date. */}
                 <div>
                   <label className="block text-sm font-bold text-slate-900 mb-2">When are you going?</label>
-                  <div className="flex flex-col gap-3">
-                    <div className="flex gap-2">
-                      <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2 hover:border-gray-400 transition-colors cursor-pointer">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">DATE</span>
-                        <input 
-                          type="date" 
-                          value={checkIn}
-                          onChange={(e) => setCheckIn(e.target.value)}
-                          className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-700 outline-none cursor-pointer"
-                        />
-                      </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 transition-colors hover:border-gray-400">
+                      <label htmlFor="check-in" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Check-in</label>
+                      <input
+                        id="check-in"
+                        type="date"
+                        value={checkIn}
+                        onChange={(e) => {
+                          const nextCheckIn = e.target.value;
+                          setCheckIn(nextCheckIn);
+                          if (checkOut < nextCheckIn) setCheckOut(nextCheckIn);
+                        }}
+                        className="w-full bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer sm:text-sm"
+                      />
                     </div>
-                    
+                    <div className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 transition-colors hover:border-gray-400">
+                      <label htmlFor="check-out" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Check-out</label>
+                      <input
+                        id="check-out"
+                        type="date"
+                        min={checkIn}
+                        value={checkOut}
+                        onChange={(e) => setCheckOut(e.target.value)}
+                        className="w-full bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer sm:text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <label htmlFor="room-type" className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">Room type</label>
+                    <select
+                      id="room-type"
+                      value={roomType}
+                      onChange={(e) => setRoomType(e.target.value)}
+                      className="h-[48px] w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 text-sm font-medium text-slate-700 outline-none transition-colors hover:border-gray-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
+                    >
+                      <option>Standard Room</option>
+                      <option>Premium Suite</option>
+                    </select>
+                  </div>
+
+                  <div className="mt-3">
                     {/* Time Input */}
                     <div className="flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-3 hover:border-gray-400 transition-colors cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 shrink-0">

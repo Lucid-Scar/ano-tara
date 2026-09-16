@@ -34,8 +34,10 @@ class OutfitPayload(BaseModel):
 
 class PricePayload(BaseModel):
     check_in: date
-    guests: int = Field(ge=1)
-    hotel_type: str = "Resort Hotel"
+    check_out: date      # NEW: To calculate length of stay
+    guests: int
+    hotel_type: str
+    room_type: str      # NEW: "Standard" or "Premium"
     destination_id: str | None = None
     destination_name: str | None = None
 
@@ -726,14 +728,23 @@ def predict_price(payload: PricePayload):
         if rec_type == "outdoor" else
         f"Rainy forecast detected ({weather.get('precipitation_sum_mm', 10)} mm rain) — indoor activities are recommended."
     )
+    
+    # The MLR predicts a daily rate. Apply the stay length after prediction.
+    length_of_stay = max(1, (payload.check_out - payload.check_in).days)
+    daily_price = round(price, 2)
+    total_price = round(daily_price * length_of_stay, 2)
 
     return {
         "status": "success",
-        "price": price,
+        "price": total_price,
+        "daily_price": daily_price,
+        "total_price": total_price,
+        "length_of_stay": length_of_stay,
         "currency": "PHP",
         "hotel_type": hotel_type,
         "base_price": base_price,
         "multiplier": round(multiplier, 4),
+        "surge_multiplier": round(multiplier, 2),
         "month": payload.check_in.strftime("%B"),
         "season": season,
         "model_evaluation": model_evaluation,
@@ -751,6 +762,7 @@ def predict_price(payload: PricePayload):
         "recommended_activity_type": rec_type,
         "activity_recommendation_reason": rec_reason,
         "source": price_source,
+        
     }
 
 
