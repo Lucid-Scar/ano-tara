@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
+import { useTravel } from "../TravelContext";
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
@@ -17,6 +18,18 @@ const FALLBACK_DESTINATION = {
   activities: [],
 };
 
+const generateDateRange = (startDate, endDate) => {
+  if (!startDate || !endDate || endDate < startDate) return [];
+  const dates = [];
+  const current = new Date(`${startDate}T00:00:00`);
+  const last = new Date(`${endDate}T00:00:00`);
+  while (current <= last) {
+    dates.push(current.toISOString().split("T")[0]);
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+};
+
 function NearbyCard({ destination }) {
   return (
     <Link href={`/specific-destinations?id=${destination.id}`} className="group relative block h-52 overflow-hidden rounded-2xl shadow-sm">
@@ -28,17 +41,20 @@ function NearbyCard({ destination }) {
 }
 
 export default function SpecificDestinationsPage() {
+  const { dateRange, setDateRange, addActivity } = useTravel();
   const [guests, setGuests] = useState(1); 
   const [tripReady, setTripReady] = useState(false);
   
-  const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
-  const [checkOut, setCheckOut] = useState(() => {
+  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(() => {
     const nextDay = new Date();
     nextDay.setDate(nextDay.getDate() + 1);
     return nextDay.toISOString().split("T")[0];
   });
   const [roomType, setRoomType] = useState("Standard Room");
   const [selectedTime, setSelectedTime] = useState("10:00");
+  const [assignedDay, setAssignedDay] = useState("Day 1");
+  const [toastMessage, setToastMessage] = useState("");
   
   // CSV / MLR / Open-Meteo Weather State Management
   const [predictedPrice, setPredictedPrice] = useState("...");
@@ -73,17 +89,25 @@ export default function SpecificDestinationsPage() {
     });
   };
 
-  const displayRange = checkIn
-    ? `${formatDate(checkIn)} - ${formatDate(checkOut)}`
+  const displayRange = startDate
+    ? `${formatDate(startDate)} - ${formatDate(endDate)}`
     : "Select dates";
+
+  useEffect(() => {
+    if (dateRange.startDate) setStartDate(dateRange.startDate);
+    if (dateRange.endDate) setEndDate(dateRange.endDate);
+  }, [dateRange.endDate, dateRange.startDate]);
 
   useEffect(() => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
     if (storedTrip) {
       try {
         const trip = JSON.parse(storedTrip);
-        if (trip.targetDates?.[0]) setCheckIn(trip.targetDates[0]);
-        if (trip.targetDates?.[1]) setCheckOut(trip.targetDates[1]);
+        const storedDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
+        const storedStartDate = trip.startDate || storedDates[0];
+        const storedEndDate = trip.endDate || storedDates[storedDates.length - 1] || storedStartDate;
+        if (storedStartDate) setStartDate(storedStartDate);
+        if (storedEndDate) setEndDate(storedEndDate);
         if (trip.guests) setGuests(trip.guests);
         if (trip.roomType) setRoomType(trip.roomType);
       } catch {
@@ -111,7 +135,7 @@ export default function SpecificDestinationsPage() {
         // Fetch priority Open-Meteo forecast and activity recommendations
         const [destinationResponse, forecastResponse] = await Promise.all([
           fetch(`http://localhost:8000/destinations/${destinationId}`),
-          fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${checkIn}`),
+          fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${startDate}`),
         ]);
         const destination = await destinationResponse.json();
         const forecastData = await forecastResponse.json();
@@ -156,8 +180,8 @@ export default function SpecificDestinationsPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            check_in: checkIn || new Date().toISOString().split("T")[0],
-            check_out: checkOut,
+            check_in: startDate || new Date().toISOString().split("T")[0],
+            check_out: endDate,
             guests,
             hotel_type: chosenHotelType,
             room_type: roomType,
@@ -191,17 +215,24 @@ export default function SpecificDestinationsPage() {
     return () => {
       isMounted = false;
     };
-  }, [guests, checkIn, checkOut, roomType, tripReady]);
+  }, [endDate, guests, roomType, startDate, tripReady]);
 
   useEffect(() => {
     if (!tripReady) return;
     const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
-    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, targetDates: [checkIn, checkOut], guests, roomType }));
-  }, [checkIn, checkOut, guests, roomType, tripReady]);
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({
+      ...stored,
+      startDate,
+      endDate,
+      targetDates: generateDateRange(startDate, endDate),
+      guests,
+      roomType,
+    }));
+  }, [endDate, guests, roomType, startDate, tripReady]);
 
   const addToPlanner = () => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
-    let trip = { activities: [], targetDates: [checkIn, checkOut], mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests, roomType };
+    let trip = { activities: [], startDate, endDate, targetDates: generateDateRange(startDate, endDate), mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests, roomType };
     try {
       if (storedTrip) trip = { ...trip, ...JSON.parse(storedTrip) };
     } catch {
@@ -212,6 +243,8 @@ export default function SpecificDestinationsPage() {
     const selected = {
       ...activity,
       destination: destinationDetails.name,
+      assignedDay,
+      assigned_day: assignedDay,
       guests,
       weather: weatherForecast?.condition || destinationDetails.main_weather || "Sunny",
       weather_forecast: weatherForecast,
@@ -219,12 +252,17 @@ export default function SpecificDestinationsPage() {
     if (!trip.activities.some((item) => item.name === selected.name && item.destination === selected.destination)) {
       trip.activities = [...trip.activities, selected];
     }
-    trip.targetDates = [checkIn, checkOut];
+    addActivity(selected);
+    setDateRange({ startDate, endDate });
+    trip.startDate = startDate;
+    trip.endDate = endDate;
+    trip.targetDates = generateDateRange(startDate, endDate);
     trip.guests = guests;
     trip.roomType = roomType;
     trip.mlrPrice = Number(predictedPrice.replace(/,/g, "")) || 2999;
     window.localStorage.setItem("anoTaraTrip", JSON.stringify(trip));
-    window.location.href = "/final-planner";
+    setToastMessage("Activity added to your itinerary.");
+    window.setTimeout(() => setToastMessage(""), 3000);
   };
 
   return (
@@ -383,27 +421,33 @@ export default function SpecificDestinationsPage() {
                   <label className="block text-sm font-bold text-slate-900 mb-2">When are you going?</label>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 transition-colors hover:border-gray-400">
-                      <label htmlFor="check-in" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Check-in</label>
+                      <label htmlFor="start-date" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Start date</label>
                       <input
-                        id="check-in"
+                        id="start-date"
                         type="date"
-                        value={checkIn}
+                        value={startDate}
                         onChange={(e) => {
-                          const nextCheckIn = e.target.value;
-                          setCheckIn(nextCheckIn);
-                          if (checkOut < nextCheckIn) setCheckOut(nextCheckIn);
+                          const nextStartDate = e.target.value;
+                          const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate;
+                          setStartDate(nextStartDate);
+                          setEndDate(nextEndDate);
+                          setDateRange({ startDate: nextStartDate, endDate: nextEndDate });
                         }}
                         className="w-full bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer sm:text-sm"
                       />
                     </div>
                     <div className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 transition-colors hover:border-gray-400">
-                      <label htmlFor="check-out" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Check-out</label>
+                      <label htmlFor="end-date" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">End date</label>
                       <input
-                        id="check-out"
+                        id="end-date"
                         type="date"
-                        min={checkIn}
-                        value={checkOut}
-                        onChange={(e) => setCheckOut(e.target.value)}
+                        min={startDate}
+                        value={endDate}
+                        onChange={(e) => {
+                          const nextEndDate = e.target.value;
+                          setEndDate(nextEndDate);
+                          setDateRange({ startDate, endDate: nextEndDate });
+                        }}
                         className="w-full bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer sm:text-sm"
                       />
                     </div>
@@ -422,7 +466,20 @@ export default function SpecificDestinationsPage() {
                     </select>
                   </div>
 
-                  <div className="mt-3">
+                  <label className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-slate-700">
+                    <span>Assign to</span>
+                    <select
+                      value={assignedDay}
+                      onChange={(e) => setAssignedDay(e.target.value)}
+                      className="max-w-[65%] rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold outline-none focus:border-gray-400"
+                    >
+                      {generateDateRange(startDate, endDate).map((date, index) => (
+                        <option key={date} value={`Day ${index + 1}`}>Day {index + 1} · {formatDate(date)}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="flex flex-col gap-3">
                     {/* Time Input */}
                     <div className="flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-3 hover:border-gray-400 transition-colors cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 shrink-0">
@@ -462,6 +519,12 @@ export default function SpecificDestinationsPage() {
                 </svg>
                 Add to Itinerary
               </button>
+
+              {toastMessage ? (
+                <div role="status" className="fixed bottom-6 right-6 z-[60] rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl">
+                  {toastMessage}
+                </div>
+              ) : null}
 
               <div className="rounded-xl bg-[#f8fafc] p-4 flex items-start gap-3 border border-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#58a573] mt-0.5 flex-shrink-0">
