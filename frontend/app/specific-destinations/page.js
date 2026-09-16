@@ -58,6 +58,7 @@ export default function SpecificDestinationsPage() {
   
   // CSV / MLR / Open-Meteo Weather State Management
   const [predictedPrice, setPredictedPrice] = useState("...");
+  const [priceError, setPriceError] = useState("");
   const [pricingDetails, setPricingDetails] = useState(null);
   const [weatherForecast, setWeatherForecast] = useState(null);
   const [recommendedType, setRecommendedType] = useState("outdoor");
@@ -133,16 +134,26 @@ export default function SpecificDestinationsPage() {
 
       try {
         // Fetch priority Open-Meteo forecast and activity recommendations
-        const [destinationResponse, forecastResponse] = await Promise.all([
-          fetch(`http://localhost:8000/destinations/${destinationId}`),
-          fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${startDate}`),
-        ]);
-        const destination = await destinationResponse.json();
-        const forecastData = await forecastResponse.json();
-        if (!destinationResponse.ok) throw new Error("Destination data is unavailable.");
+        let destinationResponse;
+        let destination = mockDestination;
+        try {
+          destinationResponse = await fetch(`http://localhost:8000/destinations/${destinationId}`);
+          if (destinationResponse.ok) destination = await destinationResponse.json();
+        } catch (error) {
+          console.warn("Destination details are unavailable; continuing with local data", error);
+        }
+
+        let forecastResponse;
+        let forecastData = {};
+        try {
+          forecastResponse = await fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${startDate}`);
+          forecastData = forecastResponse.ok ? await forecastResponse.json() : {};
+        } catch (error) {
+          console.warn("Weather forecast is unavailable; continuing with destination pricing", error);
+        }
         
         let acts = destination.activities || mockDestination.activities || [];
-        if (forecastResponse.ok && forecastData.activities && forecastData.activities.length > 0) {
+        if (forecastResponse?.ok && forecastData.activities && forecastData.activities.length > 0) {
           acts = forecastData.activities;
           setActivityList(forecastData.activities);
           setWeatherForecast(forecastData.forecast);
@@ -196,9 +207,15 @@ export default function SpecificDestinationsPage() {
         if (isMounted && priceResponse.ok && price.status === "success") {
           setPredictedPrice(price.total_price.toLocaleString());
           setPricingDetails(price);
+          setPriceError("");
+        } else {
+          throw new Error(price.detail || "Price prediction is unavailable.");
         }
       } catch (error) {
         console.warn("Using fallback destination data because the backend is unavailable", error);
+        if (isMounted) {
+          setPriceError("Price unavailable. Start the backend service to calculate the estimate.");
+        }
         const acts = (mockDestination.activities || []).map((a) => ({
           ...a,
           hotel_type: a.type === "outdoor" ? "Resort Hotel" : "City Hotel",
@@ -345,7 +362,7 @@ export default function SpecificDestinationsPage() {
               
               <div className="mt-2">
                 <p className="text-sm font-bold uppercase tracking-wider text-gray-400">Total estimated cost</p>
-                <h3 className="text-4xl font-black text-[#860001]">PHP {predictedPrice}</h3>
+                <h3 className="text-4xl font-black text-[#860001]">{priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
                 {pricingDetails ? (
                   <p className="mt-2 text-sm text-gray-500">
                     PHP {pricingDetails.daily_price.toLocaleString()} / night for {pricingDetails.length_of_stay} {pricingDetails.length_of_stay === 1 ? "night" : "nights"}
@@ -364,7 +381,7 @@ export default function SpecificDestinationsPage() {
               <div className="mb-6 pb-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Estimated MLR Cost</p>
                 <div className="flex items-baseline gap-2">
-                  <h3 className="text-[2rem] font-black text-[#0f172a]">PHP {predictedPrice}</h3>
+                  <h3 className="text-[2rem] font-black text-[#0f172a]">{priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
                   <span className="text-sm text-gray-500 font-medium">total for {guests} {guests === 1 ? 'guest' : 'guests'}</span>
                 </div>
                 {pricingDetails ? (
