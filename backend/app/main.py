@@ -984,13 +984,28 @@ def generate_itinerary(payload: ItineraryPayload):
 @app.post("/predict-outfit")
 def predict_outfit(payload: OutfitPayload):
     try:
-        image = Image.open(BytesIO(image_bytes(payload))).convert("RGB").resize((224, 224))
-        prediction = model.predict(np.expand_dims((np.asarray(image).astype(np.float32) / 127.5) - 1, 0), verbose=0)
-        index = int(np.argmax(prediction)); category = class_names[index]
+        # 1. Open the image from the decoded bytes
+        image = Image.open(BytesIO(image_bytes(payload)))
+        
+        # 2. Convert to "L" (Grayscale) and resize to 28x28 pixels
+        array = np.asarray(image.convert("L").resize((28, 28)), dtype=np.float32)
+        
+        # 3. Normalize pixel values to [0, 1] and add the channel dimension -> (28, 28, 1)
+        processed_image = np.expand_dims(array / 255.0, axis=-1)
+        
+        # 4. Add the batch dimension -> (1, 28, 28, 1)
+        input_tensor = np.expand_dims(processed_image, axis=0)
+        
+        # 5. Pass to the CNN
+        prediction = model.predict(input_tensor, verbose=0)
+        
+        index = int(np.argmax(prediction))
+        category = class_names[index]
         weather_match = classify_clothing_weather(category)
         weather = str(weather_match["primary"])
         suitability = str(weather_match["phrase"])
         conditions = weather_match["conditions"]
+        
         return {
             "status": "success",
             "detected_category": category,
@@ -1000,5 +1015,7 @@ def predict_outfit(payload: OutfitPayload):
             "confidence_score": f"{float(prediction[0][index]) * 100:.1f}%",
             "message": f"This outfit looks best for {suitability}.",
         }
-    except ValueError as exc: return {"status": "error", "message": str(exc)}
-    except Exception as exc: return {"status": "error", "message": str(exc)}
+    except ValueError as exc: 
+        return {"status": "error", "message": str(exc)}
+    except Exception as exc: 
+        return {"status": "error", "message": str(exc)}

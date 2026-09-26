@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ImageUploader from "../../components/ImageUploader";
+import OutfitImageCapture from "../../components/OutfitImageCapture";
 
 const adviceByWeather = {
   Sunny: "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
@@ -43,6 +44,8 @@ export default function OutfitPlannerPage() {
   const [message, setMessage] = useState("");
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [loadingOutfit, setLoadingOutfit] = useState(false);
+  const [captureSource, setCaptureSource] = useState("");
+  const [captureMode, setCaptureMode] = useState("");
 
   useEffect(() => {
     let trip = {};
@@ -274,7 +277,11 @@ export default function OutfitPlannerPage() {
           <section className="rounded-2xl bg-white p-6 shadow-sm">
             <h2 className="text-xl font-bold">3. Upload your outfit to know if it is the perfect match</h2>
             <div className="mt-5">
-              <ImageUploader onSelect={analyzeOutfit} label="Upload outfit" />
+              <p className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Please crop one clothing/garment per image for the best results.</p>
+              <div className="flex flex-wrap gap-3">
+                <ImageUploader onSelect={(dataUrl) => { setCaptureSource(dataUrl); setCaptureMode("image"); }} label="Upload outfit" />
+                <button onClick={() => { setCaptureSource(""); setCaptureMode("camera"); }} className="inline-flex items-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold uppercase tracking-[0.15em] text-white shadow-sm hover:bg-slate-700">Use camera</button>
+              </div>
             </div>
             {image ? <img src={image} alt="Outfit preview" className="mt-5 h-56 w-full rounded-xl object-contain bg-slate-50" /> : null}
             {loadingOutfit ? <p className="mt-4 text-sm text-slate-500">CNN is analyzing your outfit...</p> : null}
@@ -296,6 +303,7 @@ export default function OutfitPlannerPage() {
           </section>
         </div>
       </div>
+      {captureMode ? <OutfitImageCapture source={captureSource} mode={captureMode} onCancel={() => setCaptureMode("")} onSelect={(croppedImage) => { setCaptureMode(""); analyzeOutfit(croppedImage); }} /> : null}
     </main>
   );
 }
