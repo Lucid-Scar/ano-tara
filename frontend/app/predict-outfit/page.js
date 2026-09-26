@@ -119,7 +119,14 @@ export default function OutfitPlannerPage() {
         const priceResponse = await fetch("http://localhost:8000/predict-price", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ check_in: date, guests: 1, hotel_type: hotelType, destination_name: destination }),
+          body: JSON.stringify({
+            check_in: date,
+            check_out: date,
+            guests: 1,
+            hotel_type: hotelType,
+            room_type: "Standard Room",
+            destination_name: destination,
+          }),
         });
         const priceData = await priceResponse.json();
         if (!priceResponse.ok) throw new Error(priceData.detail || "Could not get the weather forecast.");

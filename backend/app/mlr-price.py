@@ -99,7 +99,6 @@ def build_training_frame() -> tuple[pd.DataFrame, pd.DataFrame]:
     hotel["surge_multiplier"] = hotel["adr"] * ADR_TO_PHP / hotel["synthetic_base_price"]
 
     hotel["is_weekend"] = hotel["arrival_date"].dt.dayofweek.isin([4, 5, 6]).astype(int)
-    hotel["pax_squared"] = hotel["pax"] ** 2
 
     monthly_weather = load_monthly_weather()
     frame = hotel.merge(
