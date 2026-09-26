@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
+import { useTravel } from "../TravelContext";
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
@@ -17,6 +18,18 @@ const FALLBACK_DESTINATION = {
   activities: [],
 };
 
+const generateDateRange = (startDate, endDate) => {
+  if (!startDate || !endDate || endDate < startDate) return [];
+  const dates = [];
+  const current = new Date(`${startDate}T00:00:00`);
+  const last = new Date(`${endDate}T00:00:00`);
+  while (current <= last) {
+    dates.push(current.toISOString().split("T")[0]);
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+};
+
 function NearbyCard({ destination }) {
   return (
     <Link href={`/specific-destinations?id=${destination.id}`} className="group relative block h-52 overflow-hidden rounded-2xl shadow-sm">
@@ -28,13 +41,24 @@ function NearbyCard({ destination }) {
 }
 
 export default function SpecificDestinationsPage() {
+  const { dateRange, setDateRange, addActivity } = useTravel();
   const [guests, setGuests] = useState(1); 
   const [tripReady, setTripReady] = useState(false);
   
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(() => {
+    const nextDay = new Date();
+    nextDay.setDate(nextDay.getDate() + 1);
+    return nextDay.toISOString().split("T")[0];
+  });
+  const [roomType, setRoomType] = useState("Standard Room");
   const [selectedTime, setSelectedTime] = useState("10:00");
+  const [assignedDay, setAssignedDay] = useState("Day 1");
+  const [toastMessage, setToastMessage] = useState("");
   
   const [predictedPrice, setPredictedPrice] = useState("...");
+  const [priceError, setPriceError] = useState("");
   const [pricingDetails, setPricingDetails] = useState(null);
   const [weatherForecast, setWeatherForecast] = useState(null);
   const [recommendedType, setRecommendedType] = useState("outdoor");
@@ -65,15 +89,27 @@ export default function SpecificDestinationsPage() {
     });
   };
 
-  const displayRange = formatDate(checkIn) || "Select date";
+  const displayRange = startDate
+    ? `${formatDate(startDate)} - ${formatDate(endDate)}`
+    : "Select dates";
+
+  useEffect(() => {
+    if (dateRange.startDate) setStartDate(dateRange.startDate);
+    if (dateRange.endDate) setEndDate(dateRange.endDate);
+  }, [dateRange.endDate, dateRange.startDate]);
 
   useEffect(() => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
     if (storedTrip) {
       try {
         const trip = JSON.parse(storedTrip);
-        if (trip.targetDates?.[0]) setCheckIn(trip.targetDates[0]);
+        const storedDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
+        const storedStartDate = trip.startDate || storedDates[0];
+        const storedEndDate = trip.endDate || storedDates[storedDates.length - 1] || storedStartDate;
+        if (storedStartDate) setStartDate(storedStartDate);
+        if (storedEndDate) setEndDate(storedEndDate);
         if (trip.guests) setGuests(trip.guests);
+        if (trip.roomType) setRoomType(trip.roomType);
       } catch {
         window.localStorage.removeItem("anoTaraTrip");
       }
@@ -96,16 +132,27 @@ export default function SpecificDestinationsPage() {
       setNearbyDestinations(MOCK_DESTINATIONS.filter((destination) => destination.id !== mockDestination.id).slice(0, 4));
 
       try {
-        const [destinationResponse, forecastResponse] = await Promise.all([
-          fetch(`http://localhost:8000/destinations/${destinationId}`),
-          fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${checkIn}`),
-        ]);
-        const destination = await destinationResponse.json();
-        const forecastData = await forecastResponse.json();
-        if (!destinationResponse.ok) throw new Error("Destination data is unavailable.");
+        // Fetch priority Open-Meteo forecast and activity recommendations
+        let destinationResponse;
+        let destination = mockDestination;
+        try {
+          destinationResponse = await fetch(`http://localhost:8000/destinations/${destinationId}`);
+          if (destinationResponse.ok) destination = await destinationResponse.json();
+        } catch (error) {
+          console.warn("Destination details are unavailable; continuing with local data", error);
+        }
+
+        let forecastResponse;
+        let forecastData = {};
+        try {
+          forecastResponse = await fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${startDate}`);
+          forecastData = forecastResponse.ok ? await forecastResponse.json() : {};
+        } catch (error) {
+          console.warn("Weather forecast is unavailable; continuing with destination pricing", error);
+        }
         
         let acts = destination.activities || mockDestination.activities || [];
-        if (forecastResponse.ok && forecastData.activities && forecastData.activities.length > 0) {
+        if (forecastResponse?.ok && forecastData.activities && forecastData.activities.length > 0) {
           acts = forecastData.activities;
           setActivityList(forecastData.activities);
           setWeatherForecast(forecastData.forecast);
@@ -142,11 +189,11 @@ export default function SpecificDestinationsPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            check_in: checkIn || new Date().toISOString().split("T")[0],
+            check_in: startDate || new Date().toISOString().split("T")[0],
+            check_out: endDate,
             guests,
             hotel_type: chosenHotelType,
-            destination_id: destinationId,
-            destination_name: destination.name,
+            room_type: roomType,
           }),
         });
         const price = await priceResponse.json();
@@ -156,11 +203,17 @@ export default function SpecificDestinationsPage() {
         }
 
         if (isMounted && priceResponse.ok && price.status === "success") {
-          setPredictedPrice(price.price.toLocaleString());
+          setPredictedPrice(price.total_price.toLocaleString());
           setPricingDetails(price);
+          setPriceError("");
+        } else {
+          throw new Error(price.detail || "Price prediction is unavailable.");
         }
       } catch (error) {
         console.warn("Using fallback destination data because the backend is unavailable", error);
+        if (isMounted) {
+          setPriceError("Price unavailable. Start the backend service to calculate the estimate.");
+        }
         const acts = (mockDestination.activities || []).map((a) => ({
           ...a,
           hotel_type: a.type === "outdoor" ? "Resort Hotel" : "City Hotel",
@@ -177,17 +230,24 @@ export default function SpecificDestinationsPage() {
     return () => {
       isMounted = false;
     };
-  }, [guests, checkIn, tripReady]);
+  }, [endDate, guests, roomType, startDate, tripReady]);
 
   useEffect(() => {
     if (!tripReady) return;
     const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
-    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, targetDates: [checkIn], guests }));
-  }, [checkIn, guests, tripReady]);
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({
+      ...stored,
+      startDate,
+      endDate,
+      targetDates: generateDateRange(startDate, endDate),
+      guests,
+      roomType,
+    }));
+  }, [endDate, guests, roomType, startDate, tripReady]);
 
   const addToPlanner = () => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
-    let trip = { activities: [], targetDates: [checkIn], mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests };
+    let trip = { activities: [], startDate, endDate, targetDates: generateDateRange(startDate, endDate), mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests, roomType };
     try {
       if (storedTrip) trip = { ...trip, ...JSON.parse(storedTrip) };
     } catch {
@@ -198,6 +258,8 @@ export default function SpecificDestinationsPage() {
     const selected = {
       ...activity,
       destination: destinationDetails.name,
+      assignedDay,
+      assigned_day: assignedDay,
       guests,
       weather: weatherForecast?.condition || destinationDetails.main_weather || "Sunny",
       weather_forecast: weatherForecast,
@@ -205,11 +267,17 @@ export default function SpecificDestinationsPage() {
     if (!trip.activities.some((item) => item.name === selected.name && item.destination === selected.destination)) {
       trip.activities = [...trip.activities, selected];
     }
-    trip.targetDates = [checkIn];
+    addActivity(selected);
+    setDateRange({ startDate, endDate });
+    trip.startDate = startDate;
+    trip.endDate = endDate;
+    trip.targetDates = generateDateRange(startDate, endDate);
     trip.guests = guests;
+    trip.roomType = roomType;
     trip.mlrPrice = Number(predictedPrice.replace(/,/g, "")) || 2999;
     window.localStorage.setItem("anoTaraTrip", JSON.stringify(trip));
-    window.location.href = "/final-planner";
+    setToastMessage("Activity added to your itinerary.");
+    window.setTimeout(() => setToastMessage(""), 3000);
   };
 
   return (
@@ -291,10 +359,11 @@ export default function SpecificDestinationsPage() {
               <div className="h-px w-full bg-gray-200 mb-8"></div>
               
               <div className="mt-2">
-                <h3 className="text-4xl font-black text-[#860001]">PHP {predictedPrice}</h3>
+                <p className="text-sm font-bold uppercase tracking-wider text-gray-400">Total estimated cost</p>
+                <h3 className="text-4xl font-black text-[#860001]">{priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
                 {pricingDetails ? (
                   <p className="mt-2 text-sm text-gray-500">
-                    Base price: PHP {pricingDetails.base_price.toLocaleString()} · {pricingDetails.season}
+                    PHP {pricingDetails.daily_price.toLocaleString()} / night for {pricingDetails.length_of_stay} {pricingDetails.length_of_stay === 1 ? "night" : "nights"}
                   </p>
                 ) : null}
                 <a href="#" className="mt-2 inline-block text-sm font-medium italic text-gray-500 underline transition-colors hover:text-[#76B3DD]">
@@ -310,12 +379,13 @@ export default function SpecificDestinationsPage() {
               <div className="mb-6 pb-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Estimated MLR Cost</p>
                 <div className="flex items-baseline gap-2">
-                  <h3 className="text-[2rem] font-black text-[#0f172a]">PHP {predictedPrice}</h3>
-                  <span className="text-sm text-gray-500 font-medium">/ for {guests} {guests === 1 ? 'guest' : 'guests'}</span>
+                  <h3 className="text-[2rem] font-black text-[#0f172a]">{priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
+                  <span className="text-sm text-gray-500 font-medium">total for {guests} {guests === 1 ? 'guest' : 'guests'}</span>
                 </div>
                 {pricingDetails ? (
                   <div className="mt-3 space-y-1 text-xs text-gray-500">
-                    <p>Base price: PHP {pricingDetails.base_price.toLocaleString()}</p>
+                    <p>PHP {pricingDetails.daily_price.toLocaleString()} / night · {pricingDetails.length_of_stay} {pricingDetails.length_of_stay === 1 ? "night" : "nights"}</p>
+                    <p>Base daily rate: PHP {pricingDetails.base_price.toLocaleString()}</p>
                     <p>{pricingDetails.month} · {pricingDetails.season}</p>
                   </div>
                 ) : null}
@@ -362,22 +432,69 @@ export default function SpecificDestinationsPage() {
 
               <div className="mb-6 grid w-full grid-cols-1 gap-6">
                 
-                {/* The MLR uses a single selected travel date. */}
                 <div>
                   <label className="block text-sm font-bold text-slate-900 mb-2">When are you going?</label>
-                  <div className="flex flex-col gap-3">
-                    <div className="flex gap-2">
-                      <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2 hover:border-gray-400 transition-colors cursor-pointer">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">DATE</span>
-                        <input 
-                          type="date" 
-                          value={checkIn}
-                          onChange={(e) => setCheckIn(e.target.value)}
-                          className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-700 outline-none cursor-pointer"
-                        />
-                      </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 transition-colors hover:border-gray-400">
+                      <label htmlFor="start-date" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Start date</label>
+                      <input
+                        id="start-date"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => {
+                          const nextStartDate = e.target.value;
+                          const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate;
+                          setStartDate(nextStartDate);
+                          setEndDate(nextEndDate);
+                          setDateRange({ startDate: nextStartDate, endDate: nextEndDate });
+                        }}
+                        className="w-full bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer sm:text-sm"
+                      />
                     </div>
-                    
+                    <div className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 transition-colors hover:border-gray-400">
+                      <label htmlFor="end-date" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">End date</label>
+                      <input
+                        id="end-date"
+                        type="date"
+                        min={startDate}
+                        value={endDate}
+                        onChange={(e) => {
+                          const nextEndDate = e.target.value;
+                          setEndDate(nextEndDate);
+                          setDateRange({ startDate, endDate: nextEndDate });
+                        }}
+                        className="w-full bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer sm:text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <label htmlFor="room-type" className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">Room type</label>
+                    <select
+                      id="room-type"
+                      value={roomType}
+                      onChange={(e) => setRoomType(e.target.value)}
+                      className="h-[48px] w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 text-sm font-medium text-slate-700 outline-none transition-colors hover:border-gray-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
+                    >
+                      <option>Standard Room</option>
+                      <option>Premium Suite</option>
+                    </select>
+                  </div>
+
+                  <label className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-slate-700">
+                    <span>Assign to</span>
+                    <select
+                      value={assignedDay}
+                      onChange={(e) => setAssignedDay(e.target.value)}
+                      className="max-w-[65%] rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold outline-none focus:border-gray-400"
+                    >
+                      {generateDateRange(startDate, endDate).map((date, index) => (
+                        <option key={date} value={`Day ${index + 1}`}>Day {index + 1} · {formatDate(date)}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="flex flex-col gap-3">
                     {/* Time Input */}
                     <div className="flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-3 hover:border-gray-400 transition-colors cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 shrink-0">
@@ -417,6 +534,12 @@ export default function SpecificDestinationsPage() {
                 </svg>
                 Add to Itinerary
               </button>
+
+              {toastMessage ? (
+                <div role="status" className="fixed bottom-6 right-6 z-[60] rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl">
+                  {toastMessage}
+                </div>
+              ) : null}
 
               <div className="rounded-xl bg-[#f8fafc] p-4 flex items-start gap-3 border border-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#58a573] mt-0.5 flex-shrink-0">

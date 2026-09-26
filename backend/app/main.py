@@ -3,7 +3,7 @@ import csv
 import re
 from base64 import b64decode
 from binascii import Error as Base64Error
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -34,8 +34,10 @@ class OutfitPayload(BaseModel):
 
 class PricePayload(BaseModel):
     check_in: date
-    guests: int = Field(ge=1)
-    hotel_type: str = "Resort Hotel"
+    check_out: date      # NEW: To calculate length of stay
+    guests: int
+    hotel_type: str
+    room_type: str      # NEW: "Standard" or "Premium"
     destination_id: str | None = None
     destination_name: str | None = None
 
@@ -45,6 +47,7 @@ class ActivityPayload(BaseModel):
     type: str = Field(min_length=1)
     destination: str = Field(default="General itinerary", min_length=1)
     guests: int = Field(default=1, ge=1)
+    assigned_day: str | None = None
 
 
 class ItineraryPayload(BaseModel):
@@ -64,12 +67,20 @@ MONTHLY_WEATHER = {
     10: (28.1, 20.6, "Rainy"), 11: (27.8, 14.1, "Cloudy"), 12: (27.2, 11.4, "Cloudy"),
 }
 
+DEFAULT_BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
+
 # Load the trained unified MLR bundle once when the API starts.
 PRICE_MODEL_PATH = BASE_DIR / "model" / "price_model_bundle.joblib"
 try:
     PRICE_MODEL_BUNDLE = joblib.load(PRICE_MODEL_PATH)
 except (FileNotFoundError, ImportError, ValueError):
     PRICE_MODEL_BUNDLE = None
+
+BASE_PRICES = (
+    PRICE_MODEL_BUNDLE.get("base_prices", DEFAULT_BASE_PRICES)
+    if PRICE_MODEL_BUNDLE
+    else DEFAULT_BASE_PRICES
+)
 
 
 def predict_mlr_price(check_in: date, guests: int, hotel_type: str) -> tuple[float, float, dict]:
@@ -86,12 +97,14 @@ def predict_mlr_price(check_in: date, guests: int, hotel_type: str) -> tuple[flo
     # Recreate every engineered numeric feature used by mlr-price.py.
     base_price = float(bundle["base_prices"][hotel_type])
     pax = float(guests)
+    lead_time = max(0, (check_in - datetime.now().date()).days)
     is_weekend = float(check_in.weekday() in {4, 5, 6})
     avg_temp = float(weather_row["avg_monthly_temp"].iloc[0])
     avg_rain = float(weather_row["avg_monthly_rain"].iloc[0])
     is_resort = float(hotel_type == "Resort Hotel")
     model_input = pd.DataFrame({
         "pax": [pax],
+        "lead_time": [float(lead_time)],
         "is_weekend": [is_weekend],
         "pax_squared": [pax ** 2],
         "avg_monthly_temp": [avg_temp],
@@ -111,7 +124,7 @@ def predict_mlr_price(check_in: date, guests: int, hotel_type: str) -> tuple[flo
         model_input[month_feature] = 1.0
     model_input = model_input[bundle["features"]].astype(float)
 
-    # Equation: multiplier = exp(model(log_multiplier)); clamp only impossible low prices.
+    # Keep the configured base price as the minimum before applying demand effects.
     predicted_log_multiplier = float(bundle["model"].predict(model_input)[0])
     multiplier = max(1.0, float(np.exp(predicted_log_multiplier)))
     price = round(base_price * multiplier, 2)
@@ -322,6 +335,8 @@ def load_destinations() -> list[dict]:
                     "location": name,  # Tag is now the city itself
                     "country": row.get("country", "Philippines"),
                     "hotel_type": meta.get("hotel_type", "City Hotel"),
+                    "base_price": BASE_PRICES[meta.get("hotel_type", "City Hotel")],
+                    "base_prices": BASE_PRICES,
                     "latitude": float(row["latitude"]),
                     "longitude": float(row["longitude"]),
                     "main_weather": "Cold" if is_cold else row.get("main_weather", "Cloudy"),
@@ -708,8 +723,7 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
 @app.post("/predict-price")
 def predict_price(payload: PricePayload):
     hotel_type = payload.hotel_type if payload.hotel_type in {"City Hotel", "Resort Hotel"} else "Resort Hotel"
-    base_price = 3800.0 if hotel_type == "City Hotel" else 6625.63
-
+    base_price = float(BASE_PRICES[hotel_type])
     # Prefer the trained log-linear MLR and retain the old formula only as an offline fallback.
     try:
         price, multiplier, model_evaluation = predict_mlr_price(
@@ -749,14 +763,23 @@ def predict_price(payload: PricePayload):
         if rec_type == "outdoor" else
         f"Rainy forecast detected ({weather.get('precipitation_sum_mm', 10)} mm rain) — indoor activities are recommended."
     )
+    
+    # The MLR predicts a daily rate. Apply the stay length after prediction.
+    length_of_stay = max(1, (payload.check_out - payload.check_in).days)
+    daily_price = round(price, 2)
+    total_price = round(daily_price * length_of_stay, 2)
 
     return {
         "status": "success",
-        "price": price,
+        "price": total_price,
+        "daily_price": daily_price,
+        "total_price": total_price,
+        "length_of_stay": length_of_stay,
         "currency": "PHP",
         "hotel_type": hotel_type,
         "base_price": base_price,
         "multiplier": round(multiplier, 4),
+        "surge_multiplier": round(multiplier, 2),
         "month": payload.check_in.strftime("%B"),
         "season": season,
         "model_evaluation": model_evaluation,
@@ -774,6 +797,7 @@ def predict_price(payload: PricePayload):
         "recommended_activity_type": rec_type,
         "activity_recommendation_reason": rec_reason,
         "source": price_source,
+        
     }
 
 
@@ -824,7 +848,16 @@ def generate_itinerary(payload: ItineraryPayload):
         weather_matched = bool(options)
         options = options or payload.target_dates
 
-        day = min(options, key=lambda candidate: len(scheduled[candidate]))
+        assigned_date = None
+        if activity.assigned_day and activity.assigned_day.startswith("Day "):
+            try:
+                assigned_index = int(activity.assigned_day.removeprefix("Day ")) - 1
+                if 0 <= assigned_index < len(payload.target_dates):
+                    assigned_date = payload.target_dates[assigned_index]
+            except ValueError:
+                assigned_date = None
+
+        day = assigned_date or min(options, key=lambda candidate: len(scheduled[candidate]))
         matched_fc = forecasts.get(destination, {}).get(day, monthly_weather_for_date(date.fromisoformat(day)))
         
         act_type = activity.type.strip().lower()
@@ -864,6 +897,7 @@ def generate_itinerary(payload: ItineraryPayload):
             "name": activity.name.strip(),
             "type": act_type,
             "destination": destination,
+            "assigned_day": activity.assigned_day,
             "guests": activity.guests,
             "weather": matched_fc["condition"],
             "weather_forecast": matched_fc,

@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
+import { MLR_BASE_PRICES } from "../pricing";
 
 const CARDS_PER_PAGE = 24;
 
@@ -85,7 +86,7 @@ function ActivityDestinationCard({ item }) {
             </svg>
           </span>
           <span className="text-xs font-bold text-slate-600">
-            {item.hotelType === "Resort Hotel" ? "₱9,000 base" : "₱3,800 base"}
+            ₱{(item.base_price || MLR_BASE_PRICES[item.hotelType]).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} base
           </span>
         </div>
       </div>
@@ -94,10 +95,11 @@ function ActivityDestinationCard({ item }) {
 }
 
 export default function DestinationsPage() {
-  const [guests, setGuests] = useState(3);
+  const [guests, setGuests] = useState(1);
   const [destinations, setDestinations] = useState([]);
   const [tripReady, setTripReady] = useState(false);
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState("");
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -113,9 +115,12 @@ export default function DestinationsPage() {
     } catch {
       window.localStorage.removeItem("anoTaraTrip");
     }
-    if (query.get("date")) setCheckIn(query.get("date"));
+    if (query.get("startDate")) setCheckIn(query.get("startDate"));
+    else if (query.get("date")) setCheckIn(query.get("date"));
     else if (query.get("checkIn")) setCheckIn(query.get("checkIn"));
     else if (stored.targetDates?.[0]) setCheckIn(stored.targetDates[0]);
+    if (query.get("endDate")) setEndDate(query.get("endDate"));
+    else if (stored.endDate) setEndDate(stored.endDate);
     if (query.get("guests")) setGuests(Number(query.get("guests")) || 1);
     else if (stored.guests) setGuests(stored.guests);
 
@@ -144,8 +149,8 @@ export default function DestinationsPage() {
   useEffect(() => {
     if (!tripReady) return;
     const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
-    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, targetDates: checkIn ? [checkIn] : [], guests }));
-  }, [checkIn, guests, tripReady]);
+    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, startDate: checkIn, endDate: endDate || checkIn, targetDates: checkIn ? [checkIn, ...(endDate && endDate !== checkIn ? [endDate] : [])] : [], guests }));
+  }, [checkIn, endDate, guests, tripReady]);
 
   const handleMinus = (e) => {
     e.preventDefault();
@@ -197,6 +202,7 @@ export default function DestinationsPage() {
         activityName: outdoor.name,
         activityType: "outdoor",
         hotelType: "Resort Hotel",
+        base_price: dest.base_prices?.["Resort Hotel"] || MLR_BASE_PRICES["Resort Hotel"],
         weatherTag: outdoor.weather_tag || (isCold ? "Cold" : "Sunny"),
         image: dest.image,
         description: dest.description,
@@ -212,6 +218,7 @@ export default function DestinationsPage() {
         activityName: indoor.name,
         activityType: "indoor",
         hotelType: "City Hotel",
+        base_price: dest.base_prices?.["City Hotel"] || MLR_BASE_PRICES["City Hotel"],
         weatherTag: indoor.weather_tag || (isCold ? "Cold" : "Rainy"),
         image: dest.image,
         description: dest.description,
@@ -326,12 +333,19 @@ export default function DestinationsPage() {
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Date:</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Dates:</span>
             <input 
               type="date" 
               value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
+              onChange={(e) => { const nextStartDate = e.target.value; setCheckIn(nextStartDate); if (endDate < nextStartDate) setEndDate(nextStartDate); }}
+              className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] shadow-sm transition cursor-pointer"
+            />
+            <input
+              type="date"
+              min={checkIn}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
               className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] shadow-sm transition cursor-pointer"
             />
           </div>
