@@ -31,11 +31,9 @@ export default function SpecificDestinationsPage() {
   const [guests, setGuests] = useState(1); 
   const [tripReady, setTripReady] = useState(false);
   
-  // The MLR is calculated for one travel date, not a stay range.
   const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
   const [selectedTime, setSelectedTime] = useState("10:00");
   
-  // CSV / MLR / Open-Meteo Weather State Management
   const [predictedPrice, setPredictedPrice] = useState("...");
   const [pricingDetails, setPricingDetails] = useState(null);
   const [weatherForecast, setWeatherForecast] = useState(null);
@@ -58,7 +56,6 @@ export default function SpecificDestinationsPage() {
     setGuests((prev) => prev + 1);
   };
 
-  // Helper to format dates for the Header Display
   const formatDate = (dateString) => {
     if (!dateString) return "";
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -99,7 +96,6 @@ export default function SpecificDestinationsPage() {
       setNearbyDestinations(MOCK_DESTINATIONS.filter((destination) => destination.id !== mockDestination.id).slice(0, 4));
 
       try {
-        // Fetch priority Open-Meteo forecast and activity recommendations
         const [destinationResponse, forecastResponse] = await Promise.all([
           fetch(`http://localhost:8000/destinations/${destinationId}`),
           fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${checkIn}`),
@@ -117,7 +113,6 @@ export default function SpecificDestinationsPage() {
           setRecommendationReason(forecastData.activity_recommendation_reason || "");
           setWeatherComparison(forecastData.comparison || null);
         } else {
-          // Fallback mock activity tagging
           const isRainy = (destination.main_weather || "").toLowerCase().includes("rain");
           acts = acts.map((a) => {
             const isOutdoor = a.type === "outdoor";

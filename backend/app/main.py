@@ -113,7 +113,7 @@ def predict_mlr_price(check_in: date, guests: int, hotel_type: str) -> tuple[flo
 
     # Equation: multiplier = exp(model(log_multiplier)); clamp only impossible low prices.
     predicted_log_multiplier = float(bundle["model"].predict(model_input)[0])
-    multiplier = max(0.5, float(np.exp(predicted_log_multiplier)))
+    multiplier = max(1.0, float(np.exp(predicted_log_multiplier)))
     price = round(base_price * multiplier, 2)
     return price, multiplier, bundle.get("evaluation", {})
 
@@ -139,6 +139,40 @@ def slugify(text: str) -> str:
     text = text.lower().strip()
     text = re.sub(r"[^a-z0-9]+", "-", text)
     return text.strip("-")
+
+
+CLOTHING_WEATHER_MAP = {
+    "t shirt top": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "shirt": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "dress": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "sandal": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "sneaker": {"conditions": ["Sunny", "Cloudy"], "phrase": "sunny or cool weather", "primary": "Sunny"},
+    "bag": {"conditions": ["Sunny", "Cloudy", "Rainy"], "phrase": "any weather", "primary": "Cloudy"},
+    "trouser": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "pullover": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "coat": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "ankle boot": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+}
+
+
+def classify_clothing_weather(category: str) -> dict[str, object]:
+    normalized = category.strip().lower().replace("-", " ").replace("_", " ")
+    mapping = CLOTHING_WEATHER_MAP.get(normalized)
+    if mapping:
+        return mapping
+    fallbacks = {
+        "t shirt top": CLOTHING_WEATHER_MAP["t shirt top"],
+        "shirt": CLOTHING_WEATHER_MAP["shirt"],
+        "dress": CLOTHING_WEATHER_MAP["dress"],
+        "sandal": CLOTHING_WEATHER_MAP["sandal"],
+        "sneaker": CLOTHING_WEATHER_MAP["sneaker"],
+        "bag": CLOTHING_WEATHER_MAP["bag"],
+        "trouser": CLOTHING_WEATHER_MAP["trouser"],
+        "pullover": CLOTHING_WEATHER_MAP["pullover"],
+        "coat": CLOTHING_WEATHER_MAP["coat"],
+        "ankle boot": CLOTHING_WEATHER_MAP["ankle boot"],
+    }
+    return fallbacks.get(normalized, {"conditions": ["Cloudy"], "phrase": "this trip's weather", "primary": "Cloudy"})
 
 
 DESTINATION_METADATA = {
@@ -674,7 +708,8 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
 @app.post("/predict-price")
 def predict_price(payload: PricePayload):
     hotel_type = payload.hotel_type if payload.hotel_type in {"City Hotel", "Resort Hotel"} else "Resort Hotel"
-    base_price = 3800.0 if hotel_type == "City Hotel" else 9000.0
+    base_price = 3800.0 if hotel_type == "City Hotel" else 6625.63
+
     # Prefer the trained log-linear MLR and retain the old formula only as an offline fallback.
     try:
         price, multiplier, model_evaluation = predict_mlr_price(
@@ -918,16 +953,18 @@ def predict_outfit(payload: OutfitPayload):
         image = Image.open(BytesIO(image_bytes(payload))).convert("RGB").resize((224, 224))
         prediction = model.predict(np.expand_dims((np.asarray(image).astype(np.float32) / 127.5) - 1, 0), verbose=0)
         index = int(np.argmax(prediction)); category = class_names[index]
-        # Map CNN labels to the same destination weather vocabulary used by the planner.
-        label = category.lower().replace("-", " ")
-        if "rain" in label:
-            weather, suitability = "Rainy", "rainy weather"
-        elif "warm" in label or "hot" in label:
-            weather, suitability = "Sunny", "sunny, warm weather"
-        elif "cold" in label or "cool" in label:
-            weather, suitability = "Cloudy", "cool or cloudy weather, including sunny days with strong wind or a cool breeze"
-        else:
-            weather, suitability = "Cloudy", "this trip's weather"
-        return {"status": "success", "detected_category": category, "weather_suitability": suitability, "expected_condition": weather, "confidence_score": f"{float(prediction[0][index]) * 100:.1f}%", "message": f"This outfit looks best for {suitability}."}
+        weather_match = classify_clothing_weather(category)
+        weather = str(weather_match["primary"])
+        suitability = str(weather_match["phrase"])
+        conditions = weather_match["conditions"]
+        return {
+            "status": "success",
+            "detected_category": category,
+            "weather_suitability": suitability,
+            "expected_condition": weather,
+            "conditions": conditions,
+            "confidence_score": f"{float(prediction[0][index]) * 100:.1f}%",
+            "message": f"This outfit looks best for {suitability}.",
+        }
     except ValueError as exc: return {"status": "error", "message": str(exc)}
     except Exception as exc: return {"status": "error", "message": str(exc)}

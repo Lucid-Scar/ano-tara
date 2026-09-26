@@ -31,7 +31,7 @@ REPORT_PATH = BASE_DIR / "model" / "mlr_evaluation_report.csv"
 PLOT_PATH = BASE_DIR / "model" / "mlr_evaluation_plot.png"
 
 # Keep the product's synthetic base prices in one shared configuration.
-BASE_PRICES = {"City Hotel": 3800.0, "Resort Hotel": 9000.0}
+BASE_PRICES = {"City Hotel": 100000, "Resort Hotel": 1000}
 # Convert the source ADR unit into the PHP unit used by the application.
 ADR_TO_PHP = 62.0
 # Make the train/test result reproducible for thesis and system evaluation.

@@ -2,10 +2,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
-# =====================================================================
-# PLOT 1: Decision Tree Weather Suitability Confusion Matrix
-# =====================================================================
-# Extracted from your results: TN=28, FP=0, FN=66, TP=106
 cm_dt = np.array([[28, 0], 
                   [66, 106]])
 labels_dt = ["Unsafe / Flagged", "Safe / Recommended"]
@@ -16,13 +12,9 @@ plt.title('Decision Tree Weather Suitability\nConfusion Matrix (Accuracy: 67.00%
 plt.ylabel('Actual Condition (Ground Truth)', fontsize=12)
 plt.xlabel('System Prediction', fontsize=12)
 plt.tight_layout()
-plt.savefig("decision_tree_matrix.png") # Saves the image automatically
+plt.savefig("decision_tree_matrix.png")
 plt.show()
 
-# =====================================================================
-# PLOT 2: Cross-Referencing Module Confusion Matrix
-# =====================================================================
-# Mathematically derived from your 200 queries, 88.5% Acc, 100% Prec, 68.06% Recall
 cm_cr = np.array([[128, 0], 
                   [23, 49]])
 labels_cr = ["Invalid / Blocked", "Valid / Recommended"]

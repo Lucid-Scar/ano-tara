@@ -1,3 +1,10 @@
-0 Warm-Weather
-1 Cold-Weather
-2 Rain-Weather
+0 T-shirt_top
+1 Trouser
+2 Pullover
+3 Dress
+4 Coat
+5 Sandal
+6 Shirt
+7 Sneaker
+8 Bag
+9 Ankle_boot

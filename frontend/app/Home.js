@@ -27,7 +27,6 @@ export default function Home() {
     setGuests((prev) => prev + 1);
   };
 
-  // Prepares the query string so the data connects to the next page
   const searchUrl = `/destinations?date=${checkIn}&guests=${guests}`;
 
   return (

@@ -55,7 +55,6 @@ def fetch_weather_chunk(destination, start_date, end_date):
     daily = response.json()["daily"]
     rows = []
     for index, weather_date in enumerate(daily["time"]):
-        # Keep the daily mean temperature because the MLR uses one temperature value.
         temperature_max = daily["temperature_2m_max"][index]
         temperature_min = daily["temperature_2m_min"][index]
         average_temperature = (temperature_max + temperature_min) / 2
@@ -70,7 +69,6 @@ def fetch_weather_chunk(destination, start_date, end_date):
                 "temperature_min_c": temperature_min,
                 "average_temperature_c": average_temperature,
                 "precipitation_mm": daily["precipitation_sum"][index],
-                # Friday, Saturday, and Sunday are treated as weekend demand days.
                 "is_weekend": int(weather_day.weekday() in {4, 5, 6}),
             }
         )
@@ -140,7 +138,6 @@ def main():
         key = destination_key(activity["destination"])
         activities_by_destination.setdefault(key, []).append(activity)
 
-    # Validate the join before writing output so source activities cannot disappear.
     destination_keys = {destination_key(row["destination"]) for row in destinations}
     missing_activity_destinations = sorted(
         {
@@ -156,12 +153,10 @@ def main():
         )
 
     for weather in weather_rows:
-        # Use a normalized key so capitalization and extra spaces do not drop rows.
         matching_activities = activities_by_destination.get(destination_key(weather["destination"]), [])
         for activity in matching_activities:
             activity_type = activity["activity_type"]
             condition = weather["weather_condition"]
-            # Activity type maps to the same hotel categories used by the MLR.
             hotel_type = "Resort Hotel" if activity_type == "outdoor" else "City Hotel"
             hotel_is_resort = int(hotel_type == "Resort Hotel")
             average_temperature = float(weather["average_temperature_c"])
@@ -208,7 +203,6 @@ def main():
             "decision_label_source",
         ],
     )
-    # Verify the Cartesian join produced one row for every activity and weather day.
     weather_counts = {}
     for weather in weather_rows:
         key = destination_key(weather["destination"])
