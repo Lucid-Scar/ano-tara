@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
 import { MLR_BASE_PRICES } from "../pricing";
+import { useTravel } from "../TravelContext";
+import { clampToSelectableDate, getGuestWarning, getMinSelectableDate } from "../tripUtils";
 
 const CARDS_PER_PAGE = 24;
 
@@ -95,11 +97,18 @@ function ActivityDestinationCard({ item }) {
 }
 
 export default function DestinationsPage() {
-  const [guests, setGuests] = useState(1);
+  const { dateRange, setDateRange, guests, setGuests } = useTravel();
   const [destinations, setDestinations] = useState([]);
   const [tripReady, setTripReady] = useState(false);
-  const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
-  const [endDate, setEndDate] = useState("");
+  const minDate = getMinSelectableDate();
+  const [checkIn, setCheckIn] = useState(dateRange.startDate || minDate);
+  const [endDate, setEndDate] = useState(dateRange.endDate || "");
+  const guestWarning = getGuestWarning(guests);
+
+  useEffect(() => {
+    if (dateRange.startDate) setCheckIn(dateRange.startDate);
+    if (dateRange.endDate) setEndDate(dateRange.endDate);
+  }, [dateRange.endDate, dateRange.startDate]);
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,12 +124,10 @@ export default function DestinationsPage() {
     } catch {
       window.localStorage.removeItem("anoTaraTrip");
     }
-    if (query.get("startDate")) setCheckIn(query.get("startDate"));
-    else if (query.get("date")) setCheckIn(query.get("date"));
-    else if (query.get("checkIn")) setCheckIn(query.get("checkIn"));
-    else if (stored.targetDates?.[0]) setCheckIn(stored.targetDates[0]);
-    if (query.get("endDate")) setEndDate(query.get("endDate"));
-    else if (stored.endDate) setEndDate(stored.endDate);
+    const nextCheckIn = query.get("startDate") || query.get("date") || query.get("checkIn") || stored.targetDates?.[0];
+    if (nextCheckIn) setCheckIn(clampToSelectableDate(nextCheckIn));
+    const nextEndDate = query.get("endDate") || stored.endDate;
+    if (nextEndDate) setEndDate(clampToSelectableDate(nextEndDate));
     if (query.get("guests")) setGuests(Number(query.get("guests")) || 1);
     else if (stored.guests) setGuests(stored.guests);
 
@@ -148,6 +155,7 @@ export default function DestinationsPage() {
 
   useEffect(() => {
     if (!tripReady) return;
+    setDateRange({ startDate: checkIn, endDate: endDate || checkIn });
     const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
     window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, startDate: checkIn, endDate: endDate || checkIn, targetDates: checkIn ? [checkIn, ...(endDate && endDate !== checkIn ? [endDate] : [])] : [], guests }));
   }, [checkIn, endDate, guests, tripReady]);
@@ -337,19 +345,23 @@ export default function DestinationsPage() {
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Dates:</span>
             <input 
               type="date" 
+              min={minDate}
               value={checkIn}
               onChange={(e) => { const nextStartDate = e.target.value; setCheckIn(nextStartDate); if (endDate < nextStartDate) setEndDate(nextStartDate); }}
               className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] shadow-sm transition cursor-pointer"
             />
             <input
               type="date"
-              min={checkIn}
+              min={checkIn || minDate}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] shadow-sm transition cursor-pointer"
             />
           </div>
         </div>
+        {guestWarning ? (
+          <p className="-mt-2 mb-4 text-xs font-semibold text-amber-600">{guestWarning}</p>
+        ) : null}
 
         {/* SEARCH BAR & DUAL FILTERS SECTION */}
         <div className="mb-8 rounded-3xl bg-white p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-slate-100 space-y-5">

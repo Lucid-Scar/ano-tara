@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ImageUploader from "../../components/ImageUploader";
+import { clampToSelectableDate, getMinSelectableDate } from "../tripUtils";
 
 const adviceByWeather = {
   Sunny: "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
@@ -51,7 +52,7 @@ export default function OutfitPlannerPage() {
     } catch {
       window.localStorage.removeItem("anoTaraTrip");
     }
-    const selectedDate = trip.targetDates?.[0] || new Date().toISOString().split("T")[0];
+    const selectedDate = clampToSelectableDate(trip.targetDates?.[0] || getMinSelectableDate());
     setDate(selectedDate);
 
     if (trip.outfit) {
@@ -242,6 +243,7 @@ export default function OutfitPlannerPage() {
               <h2 className="text-xl font-bold">2. Which date do you plan to go?</h2>
               <input
                 type="date"
+                min={getMinSelectableDate()}
                 value={date}
                 onChange={(event) => {
                   setDate(event.target.value);
