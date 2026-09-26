@@ -83,7 +83,13 @@ BASE_PRICES = (
 )
 
 
-def predict_mlr_price(check_in: date, guests: int, hotel_type: str) -> tuple[float, float, dict]:
+def predict_mlr_price(
+    check_in: date,
+    guests: int,
+    hotel_type: str,
+    length_of_stay: int,
+    room_type: str,
+) -> tuple[float, float, dict]:
     """Predict a PHP price using the same features and log equation as training."""
     # Use the stable training weather baseline, because live weather is not known at training time.
     bundle = PRICE_MODEL_BUNDLE
@@ -105,6 +111,8 @@ def predict_mlr_price(check_in: date, guests: int, hotel_type: str) -> tuple[flo
     model_input = pd.DataFrame({
         "pax": [pax],
         "lead_time": [float(lead_time)],
+        "length_of_stay": [float(length_of_stay)],
+        "is_premium_room": [float(room_type != "Standard Room")],
         "is_weekend": [is_weekend],
         "pax_squared": [pax ** 2],
         "avg_monthly_temp": [avg_temp],
@@ -724,11 +732,18 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
 def predict_price(payload: PricePayload):
     hotel_type = payload.hotel_type if payload.hotel_type in {"City Hotel", "Resort Hotel"} else "Resort Hotel"
     base_price = float(BASE_PRICES[hotel_type])
+    length_of_stay = max(1, (payload.check_out - payload.check_in).days)
     # Prefer the trained log-linear MLR and retain the old formula only as an offline fallback.
     try:
         price, multiplier, model_evaluation = predict_mlr_price(
-            payload.check_in, payload.guests, hotel_type
+            payload.check_in,
+            payload.guests,
+            hotel_type,
+            length_of_stay,
+            payload.room_type,
         )
+        multiplier = min(multiplier, 3.0)
+        price = base_price * multiplier
         season = "Peak season" if payload.check_in.month in {12, 1, 2, 4} else "Regular season"
         price_source = "Unified MLR with log target and engineered interactions"
     except RuntimeError:
@@ -765,7 +780,6 @@ def predict_price(payload: PricePayload):
     )
     
     # The MLR predicts a daily rate. Apply the stay length after prediction.
-    length_of_stay = max(1, (payload.check_out - payload.check_in).days)
     daily_price = round(price, 2)
     total_price = round(daily_price * length_of_stay, 2)
 

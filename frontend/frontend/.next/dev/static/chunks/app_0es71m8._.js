@@ -11,9 +11,13 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/client/app-dir/link.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$footer$2f$Footer$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/app/footer/Footer.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$pricing$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/app/pricing.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/app/TravelContext.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/app/tripUtils.js [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature();
 "use client";
+;
+;
 ;
 ;
 ;
@@ -34,14 +38,14 @@ function ActivityDestinationCard({ item }) {
                         loading: "lazy"
                     }, void 0, false, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 16,
+                        lineNumber: 18,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent"
                     }, void 0, false, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 22,
+                        lineNumber: 24,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -53,25 +57,25 @@ function ActivityDestinationCard({ item }) {
                                     children: item.weatherTag === "Sunny" ? "☀️" : item.weatherTag === "Rainy" ? "🌧️" : "❄️"
                                 }, void 0, false, {
                                     fileName: "[project]/app/destinations/page.js",
-                                    lineNumber: 35,
+                                    lineNumber: 37,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                     children: item.weatherTag
                                 }, void 0, false, {
                                     fileName: "[project]/app/destinations/page.js",
-                                    lineNumber: 38,
+                                    lineNumber: 40,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/destinations/page.js",
-                            lineNumber: 26,
+                            lineNumber: 28,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 25,
+                        lineNumber: 27,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -95,7 +99,7 @@ function ActivityDestinationCard({ item }) {
                                                 d: "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/destinations/page.js",
-                                                lineNumber: 56,
+                                                lineNumber: 58,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("circle", {
@@ -104,13 +108,13 @@ function ActivityDestinationCard({ item }) {
                                                 r: "3"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/destinations/page.js",
-                                                lineNumber: 57,
+                                                lineNumber: 59,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 45,
+                                        lineNumber: 47,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -118,13 +122,13 @@ function ActivityDestinationCard({ item }) {
                                         children: item.cityName
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 59,
+                                        lineNumber: 61,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 44,
+                                lineNumber: 46,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -135,19 +139,19 @@ function ActivityDestinationCard({ item }) {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 64,
+                                lineNumber: 66,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 43,
+                        lineNumber: 45,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/destinations/page.js",
-                lineNumber: 15,
+                lineNumber: 17,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -160,7 +164,7 @@ function ActivityDestinationCard({ item }) {
                                 children: item.activityName
                             }, void 0, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 72,
+                                lineNumber: 74,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -168,13 +172,13 @@ function ActivityDestinationCard({ item }) {
                                 children: item.description
                             }, void 0, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 76,
+                                lineNumber: 78,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 71,
+                        lineNumber: 73,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -198,18 +202,18 @@ function ActivityDestinationCard({ item }) {
                                             points: "9 18 15 12 9 6"
                                         }, void 0, false, {
                                             fileName: "[project]/app/destinations/page.js",
-                                            lineNumber: 85,
+                                            lineNumber: 87,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 84,
+                                        lineNumber: 86,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 82,
+                                lineNumber: 84,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -224,36 +228,47 @@ function ActivityDestinationCard({ item }) {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 88,
+                                lineNumber: 90,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 81,
+                        lineNumber: 83,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/destinations/page.js",
-                lineNumber: 70,
+                lineNumber: 72,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/app/destinations/page.js",
-        lineNumber: 11,
+        lineNumber: 13,
         columnNumber: 5
     }, this);
 }
 _c = ActivityDestinationCard;
 function DestinationsPage() {
     _s();
-    const [guests, setGuests] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(1);
+    const { dateRange, setDateRange, guests, setGuests } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useTravel"])();
     const [destinations, setDestinations] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
     const [tripReady, setTripReady] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
-    const [checkIn, setCheckIn] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(new Date().toISOString().split("T")[0]);
-    const [endDate, setEndDate] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
+    const minDate = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])();
+    const [checkIn, setCheckIn] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(dateRange.startDate || minDate);
+    const [endDate, setEndDate] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(dateRange.endDate || "");
+    const guestWarning = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getGuestWarning"])(guests);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "DestinationsPage.useEffect": ()=>{
+            if (dateRange.startDate) setCheckIn(dateRange.startDate);
+            if (dateRange.endDate) setEndDate(dateRange.endDate);
+        }
+    }["DestinationsPage.useEffect"], [
+        dateRange.endDate,
+        dateRange.startDate
+    ]);
     // Search & Filter States
     const [searchQuery, setSearchQuery] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
     const [weatherFilter, setWeatherFilter] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null); // null | 'Sunny' | 'Rainy' | 'Cold'
@@ -268,12 +283,10 @@ function DestinationsPage() {
             } catch  {
                 window.localStorage.removeItem("anoTaraTrip");
             }
-            if (query.get("startDate")) setCheckIn(query.get("startDate"));
-            else if (query.get("date")) setCheckIn(query.get("date"));
-            else if (query.get("checkIn")) setCheckIn(query.get("checkIn"));
-            else if (stored.targetDates?.[0]) setCheckIn(stored.targetDates[0]);
-            if (query.get("endDate")) setEndDate(query.get("endDate"));
-            else if (stored.endDate) setEndDate(stored.endDate);
+            const nextCheckIn = query.get("startDate") || query.get("date") || query.get("checkIn") || stored.targetDates?.[0];
+            if (nextCheckIn) setCheckIn((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])(nextCheckIn));
+            const nextEndDate = query.get("endDate") || stored.endDate;
+            if (nextEndDate) setEndDate((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])(nextEndDate));
             if (query.get("guests")) setGuests(Number(query.get("guests")) || 1);
             else if (stored.guests) setGuests(stored.guests);
             let isMounted = true;
@@ -302,6 +315,10 @@ function DestinationsPage() {
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "DestinationsPage.useEffect": ()=>{
             if (!tripReady) return;
+            setDateRange({
+                startDate: checkIn,
+                endDate: endDate || checkIn
+            });
             const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
             window.localStorage.setItem("anoTaraTrip", JSON.stringify({
                 ...stored,
@@ -458,17 +475,17 @@ function DestinationsPage() {
                                 className: "h-10 w-auto object-contain cursor-pointer"
                             }, void 0, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 275,
+                                lineNumber: 283,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/app/destinations/page.js",
-                            lineNumber: 274,
+                            lineNumber: 282,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 273,
+                        lineNumber: 281,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -500,7 +517,7 @@ function DestinationsPage() {
                                                     ry: "2"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 284,
+                                                    lineNumber: 292,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("line", {
@@ -510,7 +527,7 @@ function DestinationsPage() {
                                                     y2: "6"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 284,
+                                                    lineNumber: 292,
                                                     columnNumber: 79
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("line", {
@@ -520,7 +537,7 @@ function DestinationsPage() {
                                                     y2: "6"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 284,
+                                                    lineNumber: 292,
                                                     columnNumber: 122
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("line", {
@@ -530,13 +547,13 @@ function DestinationsPage() {
                                                     y2: "10"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 284,
+                                                    lineNumber: 292,
                                                     columnNumber: 163
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/destinations/page.js",
-                                            lineNumber: 283,
+                                            lineNumber: 291,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -544,20 +561,20 @@ function DestinationsPage() {
                                             children: displayRange
                                         }, void 0, false, {
                                             fileName: "[project]/app/destinations/page.js",
-                                            lineNumber: 286,
+                                            lineNumber: 294,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/destinations/page.js",
-                                    lineNumber: 282,
+                                    lineNumber: 290,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "h-6 w-px bg-gray-200 mx-2"
                                 }, void 0, false, {
                                     fileName: "[project]/app/destinations/page.js",
-                                    lineNumber: 289,
+                                    lineNumber: 297,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -582,7 +599,7 @@ function DestinationsPage() {
                                                             d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/destinations/page.js",
-                                                            lineNumber: 294,
+                                                            lineNumber: 302,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("circle", {
@@ -591,13 +608,13 @@ function DestinationsPage() {
                                                             r: "4"
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/destinations/page.js",
-                                                            lineNumber: 294,
+                                                            lineNumber: 302,
                                                             columnNumber: 78
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 293,
+                                                    lineNumber: 301,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -608,13 +625,13 @@ function DestinationsPage() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 296,
+                                                    lineNumber: 304,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/destinations/page.js",
-                                            lineNumber: 292,
+                                            lineNumber: 300,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -626,7 +643,7 @@ function DestinationsPage() {
                                                     children: "-"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 300,
+                                                    lineNumber: 308,
                                                     columnNumber: 18
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -635,19 +652,19 @@ function DestinationsPage() {
                                                     children: "+"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 301,
+                                                    lineNumber: 309,
                                                     columnNumber: 18
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/destinations/page.js",
-                                            lineNumber: 299,
+                                            lineNumber: 307,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/destinations/page.js",
-                                    lineNumber: 291,
+                                    lineNumber: 299,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -670,7 +687,7 @@ function DestinationsPage() {
                                                 r: "8"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/destinations/page.js",
-                                                lineNumber: 307,
+                                                lineNumber: 315,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("line", {
@@ -680,29 +697,29 @@ function DestinationsPage() {
                                                 y2: "16.65"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/destinations/page.js",
-                                                lineNumber: 307,
+                                                lineNumber: 315,
                                                 columnNumber: 56
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 306,
+                                        lineNumber: 314,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/app/destinations/page.js",
-                                    lineNumber: 305,
+                                    lineNumber: 313,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/destinations/page.js",
-                            lineNumber: 280,
+                            lineNumber: 288,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 279,
+                        lineNumber: 287,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -714,7 +731,7 @@ function DestinationsPage() {
                                 children: "Outfit Planner"
                             }, void 0, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 314,
+                                lineNumber: 322,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -723,19 +740,19 @@ function DestinationsPage() {
                                 children: "Final Planner"
                             }, void 0, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 317,
+                                lineNumber: 325,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 313,
+                        lineNumber: 321,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/destinations/page.js",
-                lineNumber: 272,
+                lineNumber: 280,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
@@ -751,7 +768,7 @@ function DestinationsPage() {
                                         children: "Activities & Experiences"
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 328,
+                                        lineNumber: 336,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -763,7 +780,7 @@ function DestinationsPage() {
                                                 children: filteredActivities.length
                                             }, void 0, false, {
                                                 fileName: "[project]/app/destinations/page.js",
-                                                lineNumber: 332,
+                                                lineNumber: 340,
                                                 columnNumber: 23
                                             }, this),
                                             " activities across ",
@@ -774,7 +791,7 @@ function DestinationsPage() {
                                                 children: displayRange
                                             }, void 0, false, {
                                                 fileName: "[project]/app/destinations/page.js",
-                                                lineNumber: 332,
+                                                lineNumber: 340,
                                                 columnNumber: 163
                                             }, this),
                                             " (",
@@ -785,13 +802,13 @@ function DestinationsPage() {
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 331,
+                                        lineNumber: 339,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 327,
+                                lineNumber: 335,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -802,11 +819,12 @@ function DestinationsPage() {
                                         children: "Dates:"
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 337,
+                                        lineNumber: 345,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
                                         type: "date",
+                                        min: minDate,
                                         value: checkIn,
                                         onChange: (e)=>{
                                             const nextStartDate = e.target.value;
@@ -816,32 +834,40 @@ function DestinationsPage() {
                                         className: "rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] shadow-sm transition cursor-pointer"
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 338,
+                                        lineNumber: 346,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
                                         type: "date",
-                                        min: checkIn,
+                                        min: checkIn || minDate,
                                         value: endDate,
                                         onChange: (e)=>setEndDate(e.target.value),
                                         className: "rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] shadow-sm transition cursor-pointer"
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 344,
+                                        lineNumber: 353,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 336,
+                                lineNumber: 344,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 326,
+                        lineNumber: 334,
                         columnNumber: 9
                     }, this),
+                    guestWarning ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                        className: "-mt-2 mb-4 text-xs font-semibold text-amber-600",
+                        children: guestWarning
+                    }, void 0, false, {
+                        fileName: "[project]/app/destinations/page.js",
+                        lineNumber: 363,
+                        columnNumber: 11
+                    }, this) : null,
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "mb-8 rounded-3xl bg-white p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-slate-100 space-y-5",
                         children: [
@@ -867,7 +893,7 @@ function DestinationsPage() {
                                                     r: "8"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 361,
+                                                    lineNumber: 373,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("line", {
@@ -877,18 +903,18 @@ function DestinationsPage() {
                                                     y2: "16.65"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 361,
+                                                    lineNumber: 373,
                                                     columnNumber: 56
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/destinations/page.js",
-                                            lineNumber: 360,
+                                            lineNumber: 372,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 359,
+                                        lineNumber: 371,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -899,7 +925,7 @@ function DestinationsPage() {
                                         className: "w-full rounded-2xl border border-gray-200 bg-slate-50/50 py-3.5 pl-12 pr-10 text-sm font-medium text-slate-900 placeholder:text-gray-400 outline-none transition focus:border-[#4a8b8b] focus:bg-white focus:ring-4 focus:ring-[#4a8b8b]/10"
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 364,
+                                        lineNumber: 376,
                                         columnNumber: 13
                                     }, this),
                                     searchQuery ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -923,7 +949,7 @@ function DestinationsPage() {
                                                     y2: "18"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 377,
+                                                    lineNumber: 389,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("line", {
@@ -933,24 +959,24 @@ function DestinationsPage() {
                                                     y2: "18"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 377,
+                                                    lineNumber: 389,
                                                     columnNumber: 62
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/destinations/page.js",
-                                            lineNumber: 376,
+                                            lineNumber: 388,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 372,
+                                        lineNumber: 384,
                                         columnNumber: 15
                                     }, this) : null
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 358,
+                                lineNumber: 370,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -966,7 +992,7 @@ function DestinationsPage() {
                                                     children: "City Weather:"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 390,
+                                                    lineNumber: 402,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -981,14 +1007,14 @@ function DestinationsPage() {
                                                                     children: "☀️"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/destinations/page.js",
-                                                                    lineNumber: 401,
+                                                                    lineNumber: 413,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 "Sunny"
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/app/destinations/page.js",
-                                                            lineNumber: 392,
+                                                            lineNumber: 404,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1000,14 +1026,14 @@ function DestinationsPage() {
                                                                     children: "🌧️"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/destinations/page.js",
-                                                                    lineNumber: 414,
+                                                                    lineNumber: 426,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 "Rainy"
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/app/destinations/page.js",
-                                                            lineNumber: 405,
+                                                            lineNumber: 417,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1019,31 +1045,31 @@ function DestinationsPage() {
                                                                     children: "❄️"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/destinations/page.js",
-                                                                    lineNumber: 427,
+                                                                    lineNumber: 439,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 "Cold"
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/app/destinations/page.js",
-                                                            lineNumber: 418,
+                                                            lineNumber: 430,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/app/destinations/page.js",
-                                                    lineNumber: 391,
+                                                    lineNumber: 403,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/destinations/page.js",
-                                            lineNumber: 389,
+                                            lineNumber: 401,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 386,
+                                        lineNumber: 398,
                                         columnNumber: 13
                                     }, this),
                                     isAnyFilterActive ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1068,7 +1094,7 @@ function DestinationsPage() {
                                                         r: "10"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/destinations/page.js",
-                                                        lineNumber: 443,
+                                                        lineNumber: 455,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("line", {
@@ -1078,7 +1104,7 @@ function DestinationsPage() {
                                                         y2: "15"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/destinations/page.js",
-                                                        lineNumber: 443,
+                                                        lineNumber: 455,
                                                         columnNumber: 59
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("line", {
@@ -1088,32 +1114,32 @@ function DestinationsPage() {
                                                         y2: "15"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/destinations/page.js",
-                                                        lineNumber: 443,
+                                                        lineNumber: 455,
                                                         columnNumber: 102
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/destinations/page.js",
-                                                lineNumber: 442,
+                                                lineNumber: 454,
                                                 columnNumber: 17
                                             }, this),
                                             "Reset all filters"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/destinations/page.js",
-                                        lineNumber: 437,
+                                        lineNumber: 449,
                                         columnNumber: 15
                                     }, this) : null
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 384,
+                                lineNumber: 396,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 355,
+                        lineNumber: 367,
                         columnNumber: 9
                     }, this),
                     filteredActivities.length > 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1122,12 +1148,12 @@ function DestinationsPage() {
                                 item: item
                             }, item.id, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 457,
+                                lineNumber: 469,
                                 columnNumber: 15
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 455,
+                        lineNumber: 467,
                         columnNumber: 11
                     }, this) : destinations.length === 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm",
@@ -1136,12 +1162,12 @@ function DestinationsPage() {
                             children: "Loading destinations…"
                         }, void 0, false, {
                             fileName: "[project]/app/destinations/page.js",
-                            lineNumber: 462,
+                            lineNumber: 474,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 461,
+                        lineNumber: 473,
                         columnNumber: 11
                     }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm",
@@ -1151,7 +1177,7 @@ function DestinationsPage() {
                                 children: "🔍"
                             }, void 0, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 466,
+                                lineNumber: 478,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -1159,7 +1185,7 @@ function DestinationsPage() {
                                 children: "No matching activities found"
                             }, void 0, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 469,
+                                lineNumber: 481,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1167,7 +1193,7 @@ function DestinationsPage() {
                                 children: "Try adjusting your search query or toggling off active weather/activity filters."
                             }, void 0, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 470,
+                                lineNumber: 482,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1177,13 +1203,13 @@ function DestinationsPage() {
                                 children: "Show all activities"
                             }, void 0, false, {
                                 fileName: "[project]/app/destinations/page.js",
-                                lineNumber: 473,
+                                lineNumber: 485,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 465,
+                        lineNumber: 477,
                         columnNumber: 11
                     }, this),
                     visibleActivities.length < filteredActivities.length ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1195,33 +1221,37 @@ function DestinationsPage() {
                             children: "Load more activities"
                         }, void 0, false, {
                             fileName: "[project]/app/destinations/page.js",
-                            lineNumber: 485,
+                            lineNumber: 497,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/destinations/page.js",
-                        lineNumber: 484,
+                        lineNumber: 496,
                         columnNumber: 11
                     }, this) : null
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/destinations/page.js",
-                lineNumber: 323,
+                lineNumber: 331,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$footer$2f$Footer$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {}, void 0, false, {
                 fileName: "[project]/app/destinations/page.js",
-                lineNumber: 497,
+                lineNumber: 509,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/app/destinations/page.js",
-        lineNumber: 269,
+        lineNumber: 277,
         columnNumber: 5
     }, this);
 }
-_s(DestinationsPage, "xlwZGy/K2sogJbm782e83GBMwxQ=");
+_s(DestinationsPage, "OffIAZouVCBASREHBFWEeciyDW4=", false, function() {
+    return [
+        __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useTravel"]
+    ];
+});
 _c1 = DestinationsPage;
 var _c, _c1;
 __turbopack_context__.k.register(_c, "ActivityDestinationCard");

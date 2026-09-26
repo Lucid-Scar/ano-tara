@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import ImageUploader from "../../components/ImageUploader";
 import OutfitImageCapture from "../../components/OutfitImageCapture";
+import { clampToSelectableDate, getMinSelectableDate } from "../tripUtils";
 
 const adviceByWeather = {
   Sunny: "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
@@ -54,7 +55,7 @@ export default function OutfitPlannerPage() {
     } catch {
       window.localStorage.removeItem("anoTaraTrip");
     }
-    const selectedDate = trip.targetDates?.[0] || new Date().toISOString().split("T")[0];
+    const selectedDate = clampToSelectableDate(trip.targetDates?.[0] || getMinSelectableDate());
     setDate(selectedDate);
 
     if (trip.outfit) {
@@ -125,7 +126,14 @@ export default function OutfitPlannerPage() {
         const priceResponse = await fetch("http://localhost:8000/predict-price", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ check_in: date, guests: 1, hotel_type: hotelType, destination_name: destination }),
+          body: JSON.stringify({
+            check_in: date,
+            check_out: date,
+            guests: 1,
+            hotel_type: hotelType,
+            room_type: "Standard Room",
+            destination_name: destination,
+          }),
         });
         const priceData = await priceResponse.json();
         if (!priceResponse.ok) throw new Error(priceData.detail || "Could not get the weather forecast.");
@@ -245,6 +253,7 @@ export default function OutfitPlannerPage() {
               <h2 className="text-xl font-bold">2. Which date do you plan to go?</h2>
               <input
                 type="date"
+                min={getMinSelectableDate()}
                 value={date}
                 onChange={(event) => {
                   setDate(event.target.value);

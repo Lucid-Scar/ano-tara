@@ -1,13 +1,25 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { clampGuestCount, clampToSelectableDate, getMinSelectableDate } from "./tripUtils";
 
 const TravelContext = createContext(null);
 const TRIP_STORAGE_KEY = "anoTaraTrip";
 const SAVED_STORAGE_KEY = "anoTaraSavedPlanners";
 
+// Ensures a start/end pair never includes today or a past date, and end is never before start.
+function sanitizeDateRange({ startDate, endDate }) {
+  const minDate = getMinSelectableDate();
+  const nextStart = startDate ? clampToSelectableDate(startDate) : "";
+  let nextEnd = endDate ? clampToSelectableDate(endDate) : "";
+  if (nextStart && nextEnd && nextEnd < nextStart) nextEnd = nextStart;
+  if (!nextStart && nextEnd && nextEnd < minDate) nextEnd = "";
+  return { startDate: nextStart, endDate: nextEnd };
+}
+
 export function TravelProvider({ children }) {
   const [dateRange, setDateRangeState] = useState({ startDate: "", endDate: "" });
+  const [guests, setGuestsState] = useState(1);
   const [currentActivities, setCurrentActivities] = useState([]);
   const [savedItineraries, setSavedItinerariesState] = useState([]);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -16,10 +28,11 @@ export function TravelProvider({ children }) {
     try {
       const trip = JSON.parse(window.localStorage.getItem(TRIP_STORAGE_KEY) || "{}");
       const targetDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
-      setDateRangeState({
+      setDateRangeState(sanitizeDateRange({
         startDate: trip.startDate || targetDates[0] || "",
         endDate: trip.endDate || targetDates[targetDates.length - 1] || targetDates[0] || "",
-      });
+      }));
+      setGuestsState(clampGuestCount(trip.guests || 1));
       setCurrentActivities(Array.isArray(trip.activities) ? trip.activities : []);
 
       const saved = JSON.parse(window.localStorage.getItem(SAVED_STORAGE_KEY) || "[]");
@@ -38,13 +51,20 @@ export function TravelProvider({ children }) {
     window.localStorage.setItem(TRIP_STORAGE_KEY, JSON.stringify({
       ...current,
       ...dateRange,
+      guests,
       activities: currentActivities,
     }));
     window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedItineraries));
-  }, [currentActivities, dateRange, isHydrated, savedItineraries]);
+  }, [currentActivities, dateRange, guests, isHydrated, savedItineraries]);
 
+  // Single source of truth: any page that updates the date range updates it everywhere.
   const setDateRange = (nextRange) => {
-    setDateRangeState((current) => ({ ...current, ...nextRange }));
+    setDateRangeState((current) => sanitizeDateRange({ ...current, ...nextRange }));
+  };
+
+  // Single source of truth for pax; always kept at a sane, non-zero whole number.
+  const setGuests = (nextGuests) => {
+    setGuestsState((current) => clampGuestCount(typeof nextGuests === "function" ? nextGuests(current) : nextGuests));
   };
 
   const addActivity = (activity) => {
@@ -68,6 +88,7 @@ export function TravelProvider({ children }) {
 
   const clearCurrentPlan = () => {
     setDateRangeState({ startDate: "", endDate: "" });
+    setGuestsState(1);
     setCurrentActivities([]);
     window.localStorage.removeItem(TRIP_STORAGE_KEY);
   };
@@ -75,6 +96,8 @@ export function TravelProvider({ children }) {
   const value = useMemo(() => ({
     dateRange,
     setDateRange,
+    guests,
+    setGuests,
     currentActivities,
     setCurrentActivities,
     addActivity,
@@ -83,7 +106,7 @@ export function TravelProvider({ children }) {
     saveItinerary,
     deleteItinerary,
     clearCurrentPlan,
-  }), [dateRange, currentActivities, savedItineraries]);
+  }), [dateRange, guests, currentActivities, savedItineraries]);
 
   return <TravelContext.Provider value={value}>{children}</TravelContext.Provider>;
 }
