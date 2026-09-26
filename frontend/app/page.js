@@ -4,20 +4,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Footer from "./footer/Footer";
 import { useTravel } from "./TravelContext";
+import { getGuestWarning, getMinSelectableDate } from "./tripUtils";
 
 export default function Home() {
   const router = useRouter();
-  const { dateRange, setDateRange } = useTravel();
+  const { dateRange, setDateRange, guests, setGuests } = useTravel();
   const [startDate, setStartDate] = useState(dateRange.startDate || "");
   const [endDate, setEndDate] = useState(dateRange.endDate || "");
-  const today = new Date().toISOString().split("T")[0];
+  const minDate = getMinSelectableDate();
 
   useEffect(() => {
     if (dateRange.startDate) setStartDate(dateRange.startDate);
     if (dateRange.endDate) setEndDate(dateRange.endDate);
   }, [dateRange.endDate, dateRange.startDate]);
-  const [guests, setGuests] = useState(1);
-  const [checkIn, setCheckIn] = useState("");
+
+  const guestWarning = getGuestWarning(guests);
 
   const handleMinus = (e) => {
     e.preventDefault();
@@ -96,7 +97,7 @@ export default function Home() {
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Start date</p>
               <input
                 type="date"
-                min={today}
+                min={minDate}
                 value={startDate}
                 onChange={(event) => {
                   const nextStartDate = event.target.value;
@@ -110,7 +111,7 @@ export default function Home() {
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">End date</p>
               <input
                 type="date"
-                min={startDate || today}
+                min={startDate || minDate}
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
                 className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer"
@@ -141,6 +142,9 @@ export default function Home() {
           </div>
 
         </div>
+        {guestWarning ? (
+          <p className="px-6 pb-2 pt-1 text-xs font-semibold text-amber-600">{guestWarning}</p>
+        ) : null}
       </div>
 
       {/* --- SEARCH BY EXPERIENCE SECTION --- */}

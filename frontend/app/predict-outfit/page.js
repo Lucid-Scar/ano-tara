@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ImageUploader from "../../components/ImageUploader";
+import { clampToSelectableDate, getMinSelectableDate } from "../tripUtils";
 
 const adviceByWeather = {
   Sunny: "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
@@ -10,22 +11,26 @@ const adviceByWeather = {
   Cloudy: "Comfortable layers and a light jacket are the safest choice.",
 };
 
-/** Map CNN labels to forecast conditions they fit. Cold/cloudy also covers sunny days with wind or a cool breeze. */
+
 function outfitExpectation(categoryOrSuitability) {
-  const raw = String(categoryOrSuitability || "").toLowerCase().replace(/-/g, " ");
-  if (raw.includes("rain")) {
-    return { conditions: ["Rainy"], phrase: "rainy weather" };
-  }
-  if (raw.includes("warm") || raw.includes("hot")) {
-    return { conditions: ["Sunny"], phrase: "sunny, warm weather" };
-  }
-  if (raw.includes("cold") || raw.includes("cool") || raw.includes("cloud")) {
-    return {
-      conditions: ["Cloudy", "Sunny"],
-      phrase: "cool or cloudy weather, including sunny days with strong wind or a cool breeze",
-    };
-  }
-  return { conditions: [], phrase: "this trip's weather" };
+  const raw = String(categoryOrSuitability || "").toLowerCase().replace(/_/g, " ").replace(/-/g, " ").trim();
+
+  const mapping = {
+    "t shirt top": { conditions: ["Sunny"], phrase: "sunny, warm weather" },
+    shirt: { conditions: ["Sunny"], phrase: "sunny, warm weather" },
+    dress: { conditions: ["Sunny"], phrase: "sunny, warm weather" },
+    sandal: { conditions: ["Sunny"], phrase: "sunny, warm weather" },
+    sneaker: { conditions: ["Sunny", "Cloudy"], phrase: "sunny or cool weather" },
+    bag: { conditions: ["Sunny", "Cloudy", "Rainy"], phrase: "any weather" },
+    trouser: { conditions: ["Cloudy", "Rainy"], phrase: "cool, cloudy, or rainy weather" },
+    pullover: { conditions: ["Cloudy", "Rainy"], phrase: "cool, cloudy, or rainy weather" },
+    coat: { conditions: ["Cloudy", "Rainy"], phrase: "cool, cloudy, or rainy weather" },
+    "ankle boot": { conditions: ["Cloudy", "Rainy"], phrase: "cool, cloudy, or rainy weather" },
+  };
+
+  if (mapping[raw]) return mapping[raw];
+
+  return { conditions: ["Cloudy"], phrase: "this trip's weather" };
 }
 
 export default function OutfitPlannerPage() {
@@ -47,7 +52,7 @@ export default function OutfitPlannerPage() {
     } catch {
       window.localStorage.removeItem("anoTaraTrip");
     }
-    const selectedDate = trip.targetDates?.[0] || new Date().toISOString().split("T")[0];
+    const selectedDate = clampToSelectableDate(trip.targetDates?.[0] || getMinSelectableDate());
     setDate(selectedDate);
 
     if (trip.outfit) {
@@ -115,7 +120,6 @@ export default function OutfitPlannerPage() {
           comparison: data.comparison?.summary,
         });
       } else {
-        // Fallback to predict-price endpoint
         const priceResponse = await fetch("http://localhost:8000/predict-price", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -246,6 +250,7 @@ export default function OutfitPlannerPage() {
               <h2 className="text-xl font-bold">2. Which date do you plan to go?</h2>
               <input
                 type="date"
+                min={getMinSelectableDate()}
                 value={date}
                 onChange={(event) => {
                   setDate(event.target.value);

@@ -10,13 +10,15 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/client/app-dir/link.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/app/TravelContext.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/app/tripUtils.js [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature();
 "use client";
 ;
 ;
 ;
-const defaultDate = new Date().toISOString().split("T")[0];
+;
+const defaultDate = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])();
 const formatDateLabel = (dateString)=>new Date(`${dateString}T00:00:00`).toLocaleDateString("en-US", {
         month: "long",
         day: "numeric",
@@ -40,11 +42,10 @@ const weatherStyles = {
 };
 function FinalPlannerPage() {
     _s();
-    const { dateRange, setDateRange, currentActivities, setCurrentActivities, saveItinerary, deleteItinerary, clearCurrentPlan } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useTravel"])();
+    const { dateRange, setDateRange, guests, setGuests, currentActivities, setCurrentActivities, saveItinerary, deleteItinerary, clearCurrentPlan } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useTravel"])();
     const [startDate, setStartDate] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(defaultDate);
     const [endDate, setEndDate] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(defaultDate);
     const [mlrPrice, setMlrPrice] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("2999");
-    const [guests, setGuests] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(1);
     const [activities, setActivities] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
     const [outfit, setOutfit] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
     const [planner, setPlanner] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
@@ -73,8 +74,9 @@ function FinalPlannerPage() {
             try {
                 const trip = JSON.parse(savedTrip);
                 const storedDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
-                const savedStartDate = trip.startDate || storedDates[0] || defaultDate;
-                const savedEndDate = trip.endDate || storedDates[storedDates.length - 1] || savedStartDate;
+                const storedStartDate = trip.startDate || storedDates[0] || defaultDate;
+                const savedEndDate = trip.endDate || storedDates[storedDates.length - 1] || storedStartDate;
+                const savedStartDate = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])(storedStartDate);
                 setActivities(Array.isArray(trip.activities) ? trip.activities.map({
                     "FinalPlannerPage.useEffect": (activity)=>({
                             ...activity,
@@ -83,7 +85,7 @@ function FinalPlannerPage() {
                 }["FinalPlannerPage.useEffect"]) : []);
                 setCurrentActivities(Array.isArray(trip.activities) ? trip.activities : []);
                 setStartDate(savedStartDate);
-                setEndDate(savedEndDate);
+                setEndDate((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])(savedEndDate));
                 if (typeof trip.mlrPrice === "number") setMlrPrice(String(trip.mlrPrice));
                 if (typeof trip.guests === "number") setGuests(trip.guests);
                 setOutfit(trip.outfit || null);
@@ -198,6 +200,10 @@ function FinalPlannerPage() {
             setErrorMessage("Choose a valid start and end date.");
             return;
         }
+        if ((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isPastOrTodayDate"])(startDate)) {
+            setErrorMessage("Start date must be a future date, not today or in the past.");
+            return;
+        }
         setIsLoading(true);
         try {
             const response = await fetch("http://localhost:8000/api/generate-itinerary", {
@@ -264,7 +270,7 @@ function FinalPlannerPage() {
                                     children: "Back to home"
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 210,
+                                    lineNumber: 215,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
@@ -272,7 +278,7 @@ function FinalPlannerPage() {
                                     children: "Final planner"
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 213,
+                                    lineNumber: 218,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -280,13 +286,13 @@ function FinalPlannerPage() {
                                     children: "A print-ready trip plan arranged by forecast, activity type, and estimated cost."
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 214,
+                                    lineNumber: 219,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/final-planner/page.js",
-                            lineNumber: 209,
+                            lineNumber: 214,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -299,7 +305,7 @@ function FinalPlannerPage() {
                                     children: "Clear current plan"
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 217,
+                                    lineNumber: 222,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -310,7 +316,7 @@ function FinalPlannerPage() {
                                     children: "Print planner"
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 220,
+                                    lineNumber: 225,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -318,19 +324,19 @@ function FinalPlannerPage() {
                                     children: "Decision Tree"
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 223,
+                                    lineNumber: 228,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/final-planner/page.js",
-                            lineNumber: 216,
+                            lineNumber: 221,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/final-planner/page.js",
-                    lineNumber: 208,
+                    lineNumber: 213,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -345,7 +351,7 @@ function FinalPlannerPage() {
                                     children: "Selected trip details"
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 229,
+                                    lineNumber: 234,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -357,6 +363,7 @@ function FinalPlannerPage() {
                                                 "Start date",
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
                                                     type: "date",
+                                                    min: (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])(),
                                                     value: startDate,
                                                     onChange: (event)=>{
                                                         const nextStartDate = event.target.value;
@@ -369,13 +376,13 @@ function FinalPlannerPage() {
                                                     className: "mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 font-medium outline-none focus:border-slate-900"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 233,
+                                                    lineNumber: 238,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 231,
+                                            lineNumber: 236,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -384,7 +391,7 @@ function FinalPlannerPage() {
                                                 "End date",
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
                                                     type: "date",
-                                                    min: startDate,
+                                                    min: startDate || (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])(),
                                                     value: endDate,
                                                     onChange: (event)=>{
                                                         setEndDate(event.target.value);
@@ -394,19 +401,19 @@ function FinalPlannerPage() {
                                                     className: "mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 font-medium outline-none focus:border-slate-900"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 242,
+                                                    lineNumber: 248,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 240,
+                                            lineNumber: 246,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 230,
+                                    lineNumber: 235,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -420,7 +427,7 @@ function FinalPlannerPage() {
                                                     children: "Clicked activities"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 254,
+                                                    lineNumber: 260,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -429,13 +436,13 @@ function FinalPlannerPage() {
                                                     children: "Choose more"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 255,
+                                                    lineNumber: 261,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 253,
+                                            lineNumber: 259,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -443,7 +450,7 @@ function FinalPlannerPage() {
                                             children: "Set guests per activity below. Estimates use each activity's guest count."
                                         }, void 0, false, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 257,
+                                            lineNumber: 263,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -459,7 +466,7 @@ function FinalPlannerPage() {
                                                                     children: activity.name
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                    lineNumber: 262,
+                                                                    lineNumber: 268,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -470,13 +477,13 @@ function FinalPlannerPage() {
                                                                     children: "Remove"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                    lineNumber: 263,
+                                                                    lineNumber: 269,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/app/final-planner/page.js",
-                                                            lineNumber: 261,
+                                                            lineNumber: 267,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -490,7 +497,7 @@ function FinalPlannerPage() {
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                    lineNumber: 266,
+                                                                    lineNumber: 272,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -503,7 +510,7 @@ function FinalPlannerPage() {
                                                                             children: "−"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/app/final-planner/page.js",
-                                                                            lineNumber: 267,
+                                                                            lineNumber: 273,
                                                                             columnNumber: 92
                                                                         }, this),
                                                                         activity.guests,
@@ -516,21 +523,29 @@ function FinalPlannerPage() {
                                                                             children: "+"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/app/final-planner/page.js",
-                                                                            lineNumber: 267,
+                                                                            lineNumber: 273,
                                                                             columnNumber: 319
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                    lineNumber: 267,
+                                                                    lineNumber: 273,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/app/final-planner/page.js",
-                                                            lineNumber: 265,
+                                                            lineNumber: 271,
                                                             columnNumber: 21
                                                         }, this),
+                                                        (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getGuestWarning"])(activity.guests) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                            className: "mt-1.5 text-[11px] font-semibold text-amber-600",
+                                                            children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getGuestWarning"])(activity.guests)
+                                                        }, void 0, false, {
+                                                            fileName: "[project]/app/final-planner/page.js",
+                                                            lineNumber: 276,
+                                                            columnNumber: 23
+                                                        }, this) : null,
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
                                                             className: "mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600",
                                                             children: [
@@ -538,7 +553,7 @@ function FinalPlannerPage() {
                                                                     children: "Assign to"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                    lineNumber: 270,
+                                                                    lineNumber: 279,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -555,29 +570,29 @@ function FinalPlannerPage() {
                                                                             ]
                                                                         }, date, true, {
                                                                             fileName: "[project]/app/final-planner/page.js",
-                                                                            lineNumber: 277,
+                                                                            lineNumber: 286,
                                                                             columnNumber: 27
                                                                         }, this))
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                    lineNumber: 271,
+                                                                    lineNumber: 280,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/app/final-planner/page.js",
-                                                            lineNumber: 269,
+                                                            lineNumber: 278,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, `${activity.name}-${activity.destination}-${index}`, true, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 260,
+                                                    lineNumber: 266,
                                                     columnNumber: 19
                                                 }, this))
                                         }, void 0, false, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 258,
+                                            lineNumber: 264,
                                             columnNumber: 15
                                         }, this),
                                         !activities.length ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -585,7 +600,7 @@ function FinalPlannerPage() {
                                             children: "Choose activities from a destination page first."
                                         }, void 0, false, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 284,
+                                            lineNumber: 293,
                                             columnNumber: 37
                                         }, this) : null,
                                         outfit ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -602,14 +617,14 @@ function FinalPlannerPage() {
                                                                 className: "h-14 w-14 rounded-xl object-cover border border-emerald-300 bg-white shadow-sm"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 292,
+                                                                lineNumber: 301,
                                                                 columnNumber: 25
                                                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                 className: "flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-200 text-2xl",
                                                                 children: "👗"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 294,
+                                                                lineNumber: 303,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -622,7 +637,7 @@ function FinalPlannerPage() {
                                                                                 children: "Attached Outfit"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                lineNumber: 298,
+                                                                                lineNumber: 307,
                                                                                 columnNumber: 27
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -630,13 +645,13 @@ function FinalPlannerPage() {
                                                                                 children: outfit.matches ? "Weather Match" : "Needs adjustment"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                lineNumber: 299,
+                                                                                lineNumber: 308,
                                                                                 columnNumber: 27
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 297,
+                                                                        lineNumber: 306,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -644,7 +659,7 @@ function FinalPlannerPage() {
                                                                         children: outfit.category || "Selected Outfit"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 305,
+                                                                        lineNumber: 314,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -657,24 +672,24 @@ function FinalPlannerPage() {
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 306,
+                                                                        lineNumber: 315,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 296,
+                                                                lineNumber: 305,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/final-planner/page.js",
-                                                        lineNumber: 290,
+                                                        lineNumber: 299,
                                                         columnNumber: 21
                                                     }, this)
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 289,
+                                                    lineNumber: 298,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -682,7 +697,7 @@ function FinalPlannerPage() {
                                                     children: outfit.advice
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 311,
+                                                    lineNumber: 320,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -694,7 +709,7 @@ function FinalPlannerPage() {
                                                             children: "Change / Try another outfit"
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/final-planner/page.js",
-                                                            lineNumber: 314,
+                                                            lineNumber: 323,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -704,19 +719,19 @@ function FinalPlannerPage() {
                                                             children: "Remove outfit"
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/final-planner/page.js",
-                                                            lineNumber: 317,
+                                                            lineNumber: 326,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 313,
+                                                    lineNumber: 322,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 288,
+                                            lineNumber: 297,
                                             columnNumber: 17
                                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-4",
@@ -732,20 +747,20 @@ function FinalPlannerPage() {
                                                                     children: "👗"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                    lineNumber: 330,
+                                                                    lineNumber: 339,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                     children: "No outfit attached yet"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                    lineNumber: 331,
+                                                                    lineNumber: 340,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/app/final-planner/page.js",
-                                                            lineNumber: 329,
+                                                            lineNumber: 338,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -754,13 +769,13 @@ function FinalPlannerPage() {
                                                             children: "Predict outfit"
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/final-planner/page.js",
-                                                            lineNumber: 333,
+                                                            lineNumber: 342,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 328,
+                                                    lineNumber: 337,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -768,19 +783,19 @@ function FinalPlannerPage() {
                                                     children: "Test if your clothing matches your destination's predicted weather before finalizing."
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 340,
+                                                    lineNumber: 349,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 327,
+                                            lineNumber: 336,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 252,
+                                    lineNumber: 258,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -790,7 +805,7 @@ function FinalPlannerPage() {
                                     children: isLoading ? "Arranging your trip..." : "Generate final planner"
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 347,
+                                    lineNumber: 356,
                                     columnNumber: 13
                                 }, this),
                                 errorMessage ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -798,13 +813,13 @@ function FinalPlannerPage() {
                                     children: errorMessage
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 350,
+                                    lineNumber: 359,
                                     columnNumber: 29
                                 }, this) : null
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/final-planner/page.js",
-                            lineNumber: 228,
+                            lineNumber: 233,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
@@ -819,7 +834,7 @@ function FinalPlannerPage() {
                                             children: "Your final planner will appear here."
                                         }, void 0, false, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 356,
+                                            lineNumber: 365,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -827,13 +842,13 @@ function FinalPlannerPage() {
                                             children: "Generate a plan to see each day, its mock weather, activities, and outfit advice."
                                         }, void 0, false, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 357,
+                                            lineNumber: 366,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 355,
+                                    lineNumber: 364,
                                     columnNumber: 15
                                 }, this) : null,
                                 isLoading ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -841,7 +856,7 @@ function FinalPlannerPage() {
                                     children: "The Decision Tree is arranging your activities..."
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 361,
+                                    lineNumber: 370,
                                     columnNumber: 26
                                 }, this) : null,
                                 planner ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -863,12 +878,12 @@ function FinalPlannerPage() {
                                                     children: "Delete itinerary"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/final-planner/page.js",
-                                                    lineNumber: 370,
+                                                    lineNumber: 379,
                                                     columnNumber: 19
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/app/final-planner/page.js",
-                                                lineNumber: 369,
+                                                lineNumber: 378,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -885,7 +900,7 @@ function FinalPlannerPage() {
                                                                         children: "Trip Outfit Match"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 379,
+                                                                        lineNumber: 388,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
@@ -893,7 +908,7 @@ function FinalPlannerPage() {
                                                                         children: (planner.outfit || outfit)?.category || "Recommended Outfit"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 380,
+                                                                        lineNumber: 389,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -901,13 +916,13 @@ function FinalPlannerPage() {
                                                                         children: (planner.outfit || outfit)?.advice || planner.itinerary[0]?.outfit_advice || "Comfortable and weather-appropriate casual travel attire."
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 383,
+                                                                        lineNumber: 392,
                                                                         columnNumber: 23
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 378,
+                                                                lineNumber: 387,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -918,18 +933,18 @@ function FinalPlannerPage() {
                                                                     className: "w-full h-full object-cover"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                    lineNumber: 389,
+                                                                    lineNumber: 398,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 388,
+                                                                lineNumber: 397,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/final-planner/page.js",
-                                                        lineNumber: 377,
+                                                        lineNumber: 386,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -940,7 +955,7 @@ function FinalPlannerPage() {
                                                                 children: "Estimated Price"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 399,
+                                                                lineNumber: 408,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -953,7 +968,7 @@ function FinalPlannerPage() {
                                                                                     children: destination
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                                    lineNumber: 404,
+                                                                                    lineNumber: 413,
                                                                                     columnNumber: 29
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -965,13 +980,13 @@ function FinalPlannerPage() {
                                                                                     ]
                                                                                 }, void 0, true, {
                                                                                     fileName: "[project]/app/final-planner/page.js",
-                                                                                    lineNumber: 405,
+                                                                                    lineNumber: 414,
                                                                                     columnNumber: 29
                                                                                 }, this)
                                                                             ]
                                                                         }, destination, true, {
                                                                             fileName: "[project]/app/final-planner/page.js",
-                                                                            lineNumber: 403,
+                                                                            lineNumber: 412,
                                                                             columnNumber: 27
                                                                         }, this)) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                         className: "flex justify-between border-b border-gray-200 pb-2",
@@ -980,7 +995,7 @@ function FinalPlannerPage() {
                                                                                 children: "Total Estimate"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                lineNumber: 410,
+                                                                                lineNumber: 419,
                                                                                 columnNumber: 27
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -992,13 +1007,13 @@ function FinalPlannerPage() {
                                                                                 ]
                                                                             }, void 0, true, {
                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                lineNumber: 411,
+                                                                                lineNumber: 420,
                                                                                 columnNumber: 27
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 409,
+                                                                        lineNumber: 418,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1008,7 +1023,7 @@ function FinalPlannerPage() {
                                                                                 children: "Baseline MLR"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                lineNumber: 415,
+                                                                                lineNumber: 424,
                                                                                 columnNumber: 25
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1018,31 +1033,31 @@ function FinalPlannerPage() {
                                                                                 ]
                                                                             }, void 0, true, {
                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                lineNumber: 416,
+                                                                                lineNumber: 425,
                                                                                 columnNumber: 25
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 414,
+                                                                        lineNumber: 423,
                                                                         columnNumber: 23
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 400,
+                                                                lineNumber: 409,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/final-planner/page.js",
-                                                        lineNumber: 398,
+                                                        lineNumber: 407,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/final-planner/page.js",
-                                                lineNumber: 375,
+                                                lineNumber: 384,
                                                 columnNumber: 17
                                             }, this),
                                             planner.itinerary[0] ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1059,7 +1074,7 @@ function FinalPlannerPage() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 425,
+                                                                lineNumber: 434,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1067,13 +1082,13 @@ function FinalPlannerPage() {
                                                                 children: "Open-Meteo Priority"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 428,
+                                                                lineNumber: 437,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/final-planner/page.js",
-                                                        lineNumber: 424,
+                                                        lineNumber: 433,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1087,7 +1102,7 @@ function FinalPlannerPage() {
                                                                         children: "Current Forecast"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 432,
+                                                                        lineNumber: 441,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1102,7 +1117,7 @@ function FinalPlannerPage() {
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 433,
+                                                                        lineNumber: 442,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1114,13 +1129,13 @@ function FinalPlannerPage() {
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 436,
+                                                                        lineNumber: 445,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 431,
+                                                                lineNumber: 440,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1131,7 +1146,7 @@ function FinalPlannerPage() {
                                                                         children: "Historical Climate"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 439,
+                                                                        lineNumber: 448,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1144,7 +1159,7 @@ function FinalPlannerPage() {
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 440,
+                                                                        lineNumber: 449,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1156,25 +1171,25 @@ function FinalPlannerPage() {
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 443,
+                                                                        lineNumber: 452,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 438,
+                                                                lineNumber: 447,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/final-planner/page.js",
-                                                        lineNumber: 430,
+                                                        lineNumber: 439,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/final-planner/page.js",
-                                                lineNumber: 423,
+                                                lineNumber: 432,
                                                 columnNumber: 19
                                             }, this) : null,
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1184,7 +1199,7 @@ function FinalPlannerPage() {
                                                         className: "absolute inset-0 bg-white/40 rounded-3xl z-0 pointer-events-none"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/final-planner/page.js",
-                                                        lineNumber: 450,
+                                                        lineNumber: 459,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1195,7 +1210,7 @@ function FinalPlannerPage() {
                                                                 children: "Itinerary Overview"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 452,
+                                                                lineNumber: 461,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1213,7 +1228,7 @@ function FinalPlannerPage() {
                                                                                         children: day.dayNumber
                                                                                     }, void 0, false, {
                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                        lineNumber: 463,
+                                                                                        lineNumber: 472,
                                                                                         columnNumber: 31
                                                                                     }, this),
                                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1221,13 +1236,13 @@ function FinalPlannerPage() {
                                                                                         children: day.date
                                                                                     }, void 0, false, {
                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                        lineNumber: 464,
+                                                                                        lineNumber: 473,
                                                                                         columnNumber: 31
                                                                                     }, this)
                                                                                 ]
                                                                             }, void 0, true, {
                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                lineNumber: 462,
+                                                                                lineNumber: 471,
                                                                                 columnNumber: 29
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1251,25 +1266,25 @@ function FinalPlannerPage() {
                                                                                                             d: "M12 9v3.75m0 3.75h.008M10.29 3.86 2.82 17.25A1.5 1.5 0 0 0 4.12 19.5h15.76a1.5 1.5 0 0 0 1.3-2.25L13.71 3.86a1.96 1.96 0 0 0-3.42 0Z"
                                                                                                         }, void 0, false, {
                                                                                                             fileName: "[project]/app/final-planner/page.js",
-                                                                                                            lineNumber: 473,
+                                                                                                            lineNumber: 482,
                                                                                                             columnNumber: 41
                                                                                                         }, this)
                                                                                                     }, void 0, false, {
                                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                                        lineNumber: 472,
+                                                                                                        lineNumber: 481,
                                                                                                         columnNumber: 39
                                                                                                     }, this),
                                                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                                                         children: "Long travel distance from the previous location."
                                                                                                     }, void 0, false, {
                                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                                        lineNumber: 475,
+                                                                                                        lineNumber: 484,
                                                                                                         columnNumber: 39
                                                                                                     }, this)
                                                                                                 ]
                                                                                             }, void 0, true, {
                                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                                lineNumber: 471,
+                                                                                                lineNumber: 480,
                                                                                                 columnNumber: 37
                                                                                             }, this) : null,
                                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1283,7 +1298,7 @@ function FinalPlannerPage() {
                                                                                                                 children: activity.name
                                                                                                             }, void 0, false, {
                                                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                                                lineNumber: 481,
+                                                                                                                lineNumber: 490,
                                                                                                                 columnNumber: 39
                                                                                                             }, this),
                                                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1294,7 +1309,7 @@ function FinalPlannerPage() {
                                                                                                                         children: "LOCATION:"
                                                                                                                     }, void 0, false, {
                                                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                                                        lineNumber: 486,
+                                                                                                                        lineNumber: 495,
                                                                                                                         columnNumber: 41
                                                                                                                     }, this),
                                                                                                                     " ",
@@ -1302,7 +1317,7 @@ function FinalPlannerPage() {
                                                                                                                 ]
                                                                                                             }, void 0, true, {
                                                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                                                lineNumber: 485,
+                                                                                                                lineNumber: 494,
                                                                                                                 columnNumber: 39
                                                                                                             }, this),
                                                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1316,7 +1331,7 @@ function FinalPlannerPage() {
                                                                                                                                 children: "FORECAST:"
                                                                                                                             }, void 0, false, {
                                                                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                                                                lineNumber: 492,
+                                                                                                                                lineNumber: 501,
                                                                                                                                 columnNumber: 43
                                                                                                                             }, this),
                                                                                                                             " ",
@@ -1324,7 +1339,7 @@ function FinalPlannerPage() {
                                                                                                                         ]
                                                                                                                     }, void 0, true, {
                                                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                                                        lineNumber: 491,
+                                                                                                                        lineNumber: 500,
                                                                                                                         columnNumber: 41
                                                                                                                     }, this),
                                                                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1335,7 +1350,7 @@ function FinalPlannerPage() {
                                                                                                                                 children: "APPAREL:"
                                                                                                                             }, void 0, false, {
                                                                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                                                                lineNumber: 496,
+                                                                                                                                lineNumber: 505,
                                                                                                                                 columnNumber: 43
                                                                                                                             }, this),
                                                                                                                             " ",
@@ -1343,7 +1358,7 @@ function FinalPlannerPage() {
                                                                                                                         ]
                                                                                                                     }, void 0, true, {
                                                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                                                        lineNumber: 495,
+                                                                                                                        lineNumber: 504,
                                                                                                                         columnNumber: 41
                                                                                                                     }, this),
                                                                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1354,7 +1369,7 @@ function FinalPlannerPage() {
                                                                                                                                 children: "ESTIMATE:"
                                                                                                                             }, void 0, false, {
                                                                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                                                                lineNumber: 500,
+                                                                                                                                lineNumber: 509,
                                                                                                                                 columnNumber: 43
                                                                                                                             }, this),
                                                                                                                             " ",
@@ -1363,19 +1378,19 @@ function FinalPlannerPage() {
                                                                                                                         ]
                                                                                                                     }, void 0, true, {
                                                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                                                        lineNumber: 499,
+                                                                                                                        lineNumber: 508,
                                                                                                                         columnNumber: 41
                                                                                                                     }, this)
                                                                                                                 ]
                                                                                                             }, void 0, true, {
                                                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                                                lineNumber: 490,
+                                                                                                                lineNumber: 499,
                                                                                                                 columnNumber: 39
                                                                                                             }, this)
                                                                                                         ]
                                                                                                     }, void 0, true, {
                                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                                        lineNumber: 480,
+                                                                                                        lineNumber: 489,
                                                                                                         columnNumber: 37
                                                                                                     }, this),
                                                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1386,29 +1401,29 @@ function FinalPlannerPage() {
                                                                                                             className: "h-full w-full object-cover"
                                                                                                         }, void 0, false, {
                                                                                                             fileName: "[project]/app/final-planner/page.js",
-                                                                                                            lineNumber: 507,
+                                                                                                            lineNumber: 516,
                                                                                                             columnNumber: 39
                                                                                                         }, this)
                                                                                                     }, void 0, false, {
                                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                                        lineNumber: 506,
+                                                                                                        lineNumber: 515,
                                                                                                         columnNumber: 37
                                                                                                     }, this)
                                                                                                 ]
                                                                                             }, void 0, true, {
                                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                                lineNumber: 479,
+                                                                                                lineNumber: 488,
                                                                                                 columnNumber: 35
                                                                                             }, this)
                                                                                         ]
                                                                                     }, activity.id || `${day.dayNumber}-${activity.name}-${activityIndex}`, true, {
                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                        lineNumber: 469,
+                                                                                        lineNumber: 478,
                                                                                         columnNumber: 33
                                                                                     }, this))
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                lineNumber: 467,
+                                                                                lineNumber: 476,
                                                                                 columnNumber: 29
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1418,7 +1433,7 @@ function FinalPlannerPage() {
                                                                                         children: "Average Daily Spend"
                                                                                     }, void 0, false, {
                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                        lineNumber: 519,
+                                                                                        lineNumber: 528,
                                                                                         columnNumber: 31
                                                                                     }, this),
                                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1428,25 +1443,25 @@ function FinalPlannerPage() {
                                                                                         ]
                                                                                     }, void 0, true, {
                                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                                        lineNumber: 520,
+                                                                                        lineNumber: 529,
                                                                                         columnNumber: 31
                                                                                     }, this)
                                                                                 ]
                                                                             }, void 0, true, {
                                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                                lineNumber: 518,
+                                                                                lineNumber: 527,
                                                                                 columnNumber: 29
                                                                             }, this)
                                                                         ]
                                                                     }, day.dayNumber, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 461,
+                                                                        lineNumber: 470,
                                                                         columnNumber: 27
                                                                     }, this);
                                                                 })
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 456,
+                                                                lineNumber: 465,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1457,7 +1472,7 @@ function FinalPlannerPage() {
                                                                         children: "Total Estimated Trip Cost"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 528,
+                                                                        lineNumber: 537,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1468,48 +1483,48 @@ function FinalPlannerPage() {
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/final-planner/page.js",
-                                                                        lineNumber: 529,
+                                                                        lineNumber: 538,
                                                                         columnNumber: 23
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/final-planner/page.js",
-                                                                lineNumber: 527,
+                                                                lineNumber: 536,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/final-planner/page.js",
-                                                        lineNumber: 451,
+                                                        lineNumber: 460,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/final-planner/page.js",
-                                                lineNumber: 449,
+                                                lineNumber: 458,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/final-planner/page.js",
-                                        lineNumber: 368,
+                                        lineNumber: 377,
                                         columnNumber: 17
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 364,
+                                    lineNumber: 373,
                                     columnNumber: 15
                                 }, this) : null
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/final-planner/page.js",
-                            lineNumber: 353,
+                            lineNumber: 362,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/final-planner/page.js",
-                    lineNumber: 227,
+                    lineNumber: 232,
                     columnNumber: 9
                 }, this),
                 savedPlanners.length > 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
@@ -1520,7 +1535,7 @@ function FinalPlannerPage() {
                             children: "Saved planners"
                         }, void 0, false, {
                             fileName: "[project]/app/final-planner/page.js",
-                            lineNumber: 542,
+                            lineNumber: 551,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1537,39 +1552,39 @@ function FinalPlannerPage() {
                                             children: savedPlanner.itinerary[0]?.day
                                         }, void 0, false, {
                                             fileName: "[project]/app/final-planner/page.js",
-                                            lineNumber: 546,
+                                            lineNumber: 555,
                                             columnNumber: 57
                                         }, this)
                                     ]
                                 }, savedPlanner.createdAt, true, {
                                     fileName: "[project]/app/final-planner/page.js",
-                                    lineNumber: 545,
+                                    lineNumber: 554,
                                     columnNumber: 17
                                 }, this))
                         }, void 0, false, {
                             fileName: "[project]/app/final-planner/page.js",
-                            lineNumber: 543,
+                            lineNumber: 552,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/final-planner/page.js",
-                    lineNumber: 541,
+                    lineNumber: 550,
                     columnNumber: 11
                 }, this) : null
             ]
         }, void 0, true, {
             fileName: "[project]/app/final-planner/page.js",
-            lineNumber: 207,
+            lineNumber: 212,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/app/final-planner/page.js",
-        lineNumber: 206,
+        lineNumber: 211,
         columnNumber: 5
     }, this);
 }
-_s(FinalPlannerPage, "YTj2NhZaS4c++yiauribQU6qbHg=", false, function() {
+_s(FinalPlannerPage, "Sx6SSW/vltoN3WSPtAU5dBKb3B8=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useTravel"]
     ];

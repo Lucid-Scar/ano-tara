@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTravel } from "../TravelContext";
+import { clampToSelectableDate, getGuestWarning, getMinSelectableDate, isPastOrTodayDate } from "../tripUtils";
 
-const defaultDate = new Date().toISOString().split("T")[0];
+const defaultDate = getMinSelectableDate();
 
 const formatDateLabel = (dateString) => new Date(`${dateString}T00:00:00`).toLocaleDateString("en-US", {
   month: "long",
@@ -31,11 +32,10 @@ const weatherStyles = {
 };
 
 export default function FinalPlannerPage() {
-  const { dateRange, setDateRange, currentActivities, setCurrentActivities, saveItinerary, deleteItinerary, clearCurrentPlan } = useTravel();
+  const { dateRange, setDateRange, guests, setGuests, currentActivities, setCurrentActivities, saveItinerary, deleteItinerary, clearCurrentPlan } = useTravel();
   const [startDate, setStartDate] = useState(defaultDate);
   const [endDate, setEndDate] = useState(defaultDate);
   const [mlrPrice, setMlrPrice] = useState("2999");
-  const [guests, setGuests] = useState(1);
   const [activities, setActivities] = useState([]);
   const [outfit, setOutfit] = useState(null);
   const [planner, setPlanner] = useState(null);
@@ -61,12 +61,13 @@ export default function FinalPlannerPage() {
     try {
       const trip = JSON.parse(savedTrip);
       const storedDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
-      const savedStartDate = trip.startDate || storedDates[0] || defaultDate;
-      const savedEndDate = trip.endDate || storedDates[storedDates.length - 1] || savedStartDate;
+      const storedStartDate = trip.startDate || storedDates[0] || defaultDate;
+      const savedEndDate = trip.endDate || storedDates[storedDates.length - 1] || storedStartDate;
+      const savedStartDate = clampToSelectableDate(storedStartDate);
       setActivities(Array.isArray(trip.activities) ? trip.activities.map((activity) => ({ ...activity, guests: Number(activity.guests) || Number(trip.guests) || 1 })) : []);
       setCurrentActivities(Array.isArray(trip.activities) ? trip.activities : []);
       setStartDate(savedStartDate);
-      setEndDate(savedEndDate);
+      setEndDate(clampToSelectableDate(savedEndDate));
       if (typeof trip.mlrPrice === "number") setMlrPrice(String(trip.mlrPrice));
       if (typeof trip.guests === "number") setGuests(trip.guests);
       setOutfit(trip.outfit || null);
@@ -159,6 +160,10 @@ export default function FinalPlannerPage() {
       setErrorMessage("Choose a valid start and end date.");
       return;
     }
+    if (isPastOrTodayDate(startDate)) {
+      setErrorMessage("Start date must be a future date, not today or in the past.");
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -232,6 +237,7 @@ export default function FinalPlannerPage() {
                 Start date
                 <input
                   type="date"
+                  min={getMinSelectableDate()}
                   value={startDate}
                   onChange={(event) => { const nextStartDate = event.target.value; const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate; setStartDate(nextStartDate); setEndDate(nextEndDate); saveTrip(activities, nextStartDate, nextEndDate); setPlanner(null); }}
                   className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 font-medium outline-none focus:border-slate-900"
@@ -241,7 +247,7 @@ export default function FinalPlannerPage() {
                 End date
                 <input
                   type="date"
-                  min={startDate}
+                  min={startDate || getMinSelectableDate()}
                   value={endDate}
                   onChange={(event) => { setEndDate(event.target.value); saveTrip(activities, startDate, event.target.value); setPlanner(null); }}
                   className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 font-medium outline-none focus:border-slate-900"
@@ -266,6 +272,9 @@ export default function FinalPlannerPage() {
                       <span>{activity.type} · {activity.destination}</span>
                       <span className="flex items-center gap-2 normal-case text-slate-700"><button type="button" onClick={() => changeActivityGuests(index, -1)} className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-300">−</button>{activity.guests} guest{activity.guests === 1 ? "" : "s"}<button type="button" onClick={() => changeActivityGuests(index, 1)} className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-300">+</button></span>
                     </div>
+                    {getGuestWarning(activity.guests) ? (
+                      <p className="mt-1.5 text-[11px] font-semibold text-amber-600">{getGuestWarning(activity.guests)}</p>
+                    ) : null}
                     <label className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
                       <span>Assign to</span>
                       <select

@@ -5,21 +5,22 @@ import { useRouter } from "next/navigation";
 import Footer from "./footer/Footer";
 import Header from "./header/Header";
 import { useTravel } from "./TravelContext";
+import { getGuestWarning, getMinSelectableDate } from "./tripUtils";
 
 export default function Home() {
   const router = useRouter();
-  const { dateRange, setDateRange } = useTravel();
+  const { dateRange, setDateRange, guests, setGuests } = useTravel();
   const [startDate, setStartDate] = useState(dateRange.startDate || "");
   const [endDate, setEndDate] = useState(dateRange.endDate || "");
-  const [guests, setGuests] = useState(1);
-  const [checkIn, setCheckIn] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
-  const today = new Date().toISOString().split("T")[0];
+  const minDate = getMinSelectableDate();
 
   useEffect(() => {
     if (dateRange.startDate) setStartDate(dateRange.startDate);
     if (dateRange.endDate) setEndDate(dateRange.endDate);
   }, [dateRange.endDate, dateRange.startDate]);
+
+  const guestWarning = getGuestWarning(guests);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -98,9 +99,13 @@ export default function Home() {
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Start date</p>
               <input
                 type="date"
-                min={today}
+                min={minDate}
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  const nextStartDate = e.target.value;
+                  setStartDate(nextStartDate);
+                  if (endDate && endDate < nextStartDate) setEndDate(nextStartDate);
+                }}
                 className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer"
               />
             </div>
@@ -108,7 +113,7 @@ export default function Home() {
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">End date</p>
               <input
                 type="date"
-                min={startDate > today ? startDate : today}
+                min={startDate || minDate}
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer"
@@ -136,6 +141,9 @@ export default function Home() {
             </button>
           </div>
         </div>
+        {guestWarning ? (
+          <p className="px-6 pb-2 pt-1 text-xs font-semibold text-amber-600">{guestWarning}</p>
+        ) : null}
       </div>
 
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">

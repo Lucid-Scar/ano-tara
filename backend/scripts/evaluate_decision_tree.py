@@ -9,14 +9,9 @@ from sklearn.metrics import (
     recall_score,
 )
 
-# ==============================================================================
-# PART 1: EVALUATING OBJECTIVE 2 (DECISION TREE WEATHER SAFETY)
-# ==============================================================================
 print("\n" + "=" * 70)
 print("  PART 1: DECISION TREE WEATHER SUITABILITY & SAFETY EVALUATION")
 print("=" * 70)
-
-# Generate a balanced validation matrix of 200 weather/activity scenarios
 np.random.seed(42)
 n_samples = 200
 activity_types = np.random.choice(["outdoor", "indoor"], size=n_samples, p=[0.5, 0.5])
@@ -27,10 +22,6 @@ eval_df = pd.DataFrame({
     "weather": weather_conditions
 })
 
-# Ground Truth Definition (Real-world tourist safety & feasibility):
-# - Outdoor during Rain = 0 (Unsafe / Severe Inconvenience)
-# - Outdoor during Sunny/Cloudy = 1 (Safe / Suitable)
-# - Indoor during any weather = 1 (Physically protected from rain/sun)
 def ground_truth_safety(row):
     if row["activity_type"] == "outdoor" and row["weather"] == "Rainy":
         return 0
@@ -38,9 +29,6 @@ def ground_truth_safety(row):
 
 eval_df["actual_safe"] = eval_df.apply(ground_truth_safety, axis=1)
 
-# Ano Tara Decision Tree Algorithm Logic (from main.py):
-# - Outdoor scheduled only on Sunny / Cloudy (1), flagged/locked on Rainy (0)
-# - Indoor scheduled preferentially on Rainy (1), locked on Sunny/Cloudy (0) to preserve fair-weather days for outdoor activities
 def dt_predicted_suitability(row):
     if row["activity_type"] == "outdoor" and row["weather"] in ["Sunny", "Cloudy"]:
         return 1
@@ -72,19 +60,13 @@ print(f"Recall    : {rec:.4f} ({rec*100:.2f}%)")
 print(f"F1-Score  : {f1:.4f} ({f1*100:.2f}%)")
 
 
-# ==============================================================================
-# PART 2: EVALUATING OBJECTIVE 4 (CROSS-REFERENCING MLR + DECISION TREE)
-# ==============================================================================
 print("\n" + "=" * 70)
 print("  PART 2: DYNAMIC DATA-FILTERING & CROSS-REFERENCING MODULE EVALUATION")
 print("=" * 70)
 
-# Simulate 200 cross-referencing test queries
-# Users input: target budget, activity preference, destination options
 np.random.seed(101)
 simulated_queries = 200
 
-# Synthetic candidate destination parameters
 user_budgets = np.random.uniform(4000, 14000, simulated_queries)
 predicted_mlr_prices = np.random.uniform(3500, 15000, simulated_queries)
 destination_forecasts = np.random.choice(["Sunny", "Cloudy", "Rainy"], simulated_queries, p=[0.4, 0.3, 0.3])
@@ -97,7 +79,6 @@ cross_df = pd.DataFrame({
     "activity_type": desired_activities
 })
 
-# Ground truth recommendation: Destination is valid ONLY if budget >= price AND weather is not hazardous
 def true_valid_recommendation(row):
     budget_ok = row["budget"] >= row["mlr_price"]
     weather_safe = not (row["activity_type"] == "outdoor" and row["weather"] == "Rainy")
@@ -106,8 +87,6 @@ def true_valid_recommendation(row):
 cross_df["weather"] = cross_df["forecast"]
 cross_df["expected_valid"] = cross_df.apply(true_valid_recommendation, axis=1)
 
-# Cross-Referencing Filter Execution in Ano Tara:
-# Evaluates MLR budget threshold AND Decision Tree suitability flag
 def system_cross_reference_filter(row):
     budget_pass = row["budget"] >= row["mlr_price"]
     dt_pass = dt_predicted_suitability(row)
@@ -115,7 +94,6 @@ def system_cross_reference_filter(row):
 
 cross_df["system_recommended"] = cross_df.apply(system_cross_reference_filter, axis=1)
 
-# Evaluate Cross-Referencing Module Metrics
 cr_cm = confusion_matrix(cross_df["expected_valid"], cross_df["system_recommended"])
 cr_tn, cr_fp, cr_fn, cr_tp = cr_cm.ravel()
 cr_acc = accuracy_score(cross_df["expected_valid"], cross_df["system_recommended"])
@@ -123,7 +101,6 @@ cr_prec = precision_score(cross_df["expected_valid"], cross_df["system_recommend
 cr_rec = recall_score(cross_df["expected_valid"], cross_df["system_recommended"])
 cr_f1 = f1_score(cross_df["expected_valid"], cross_df["system_recommended"])
 
-# Budget-only violations prevented
 budget_overruns_prevented = sum((cross_df["budget"] < cross_df["mlr_price"]) & (cross_df["system_recommended"] == 0))
 hazards_prevented = sum((cross_df["activity_type"] == "outdoor") & (cross_df["weather"] == "Rainy") & (cross_df["system_recommended"] == 0))
 

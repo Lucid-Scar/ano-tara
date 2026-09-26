@@ -504,6 +504,10 @@ img, video {
   margin-top: auto;
 }
 
+.-mt-2 {
+  margin-top: -.5rem;
+}
+
 .line-clamp-2 {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -2218,6 +2222,11 @@ img, video {
 
 .text-white\/90 {
   color: #ffffffe6;
+}
+
+.text-amber-600 {
+  --tw-text-opacity: 1;
+  color: rgb(217 119 6 / var(--tw-text-opacity));
 }
 
 .underline {

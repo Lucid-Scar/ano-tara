@@ -1,21 +1,3 @@
-"""Evaluate the outfit CNN against a folder-per-class test dataset.
-
-Expected layout (the folder name is the ground-truth label)::
-
-    cnn_test_images/
-        Warm-Weather/*.png
-        Cold-Weather/*.png
-        Rain-Weather/*.png
-
-Run from ``backend`` (or provide explicit paths)::
-
-    .\\venv\\Scripts\\python.exe app\\evaluatecnn.py
-    .\\venv\\Scripts\\python.exe app\\evaluatecnn.py --batch-size 16
-
-The preprocessing deliberately matches ``main.py`` so these metrics describe
-the predictions returned by the live ``/predict-outfit`` endpoint.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -27,7 +9,6 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Must be set before TensorFlow is imported.  It is also used by main.py.
 os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
@@ -84,10 +65,9 @@ def load_batch(samples: list[tuple[Path, int]]) -> tuple[np.ndarray, list[int], 
     failures: list[dict[str, str]] = []
     for path, label in samples:
         try:
-            # Same conversion, resize, and [-1, 1] normalization as main.py.
             with Image.open(path) as image:
-                array = np.asarray(image.convert("RGB").resize((224, 224)), dtype=np.float32)
-            images.append((array / 127.5) - 1.0)
+                array = np.asarray(image.convert("L").resize((28, 28)), dtype=np.float32)
+            images.append(np.expand_dims(array / 255.0, axis=-1))
             labels.append(label)
             paths.append(path)
         except (OSError, UnidentifiedImageError, ValueError) as exc:
@@ -139,13 +119,8 @@ def main() -> int:
     if not args.model.is_file():
         raise FileNotFoundError(f"Model file was not found: {args.model}")
     print("Loading model...")
-    try:
-        model = tf.keras.models.load_model(str(args.model), compile=False)
-    except (AttributeError, ImportError, TypeError, ValueError) as exc:
-        raise RuntimeError(
-            "Could not load the CNN. Use TensorFlow 2.19 plus tf-keras, as "
-            "specified in backend/requirements.txt."
-        ) from exc
+    print("Loading model...")
+    model = tf.keras.models.load_model(str(args.model), compile=False)
     expected_outputs = int(model.output_shape[-1])
     if expected_outputs != len(class_names):
         raise ValueError(f"Model has {expected_outputs} outputs but labels.txt has {len(class_names)} labels.")

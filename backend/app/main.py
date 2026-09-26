@@ -162,6 +162,40 @@ def slugify(text: str) -> str:
     return text.strip("-")
 
 
+CLOTHING_WEATHER_MAP = {
+    "t shirt top": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "shirt": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "dress": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "sandal": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "sneaker": {"conditions": ["Sunny", "Cloudy"], "phrase": "sunny or cool weather", "primary": "Sunny"},
+    "bag": {"conditions": ["Sunny", "Cloudy", "Rainy"], "phrase": "any weather", "primary": "Cloudy"},
+    "trouser": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "pullover": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "coat": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "ankle boot": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+}
+
+
+def classify_clothing_weather(category: str) -> dict[str, object]:
+    normalized = category.strip().lower().replace("-", " ").replace("_", " ")
+    mapping = CLOTHING_WEATHER_MAP.get(normalized)
+    if mapping:
+        return mapping
+    fallbacks = {
+        "t shirt top": CLOTHING_WEATHER_MAP["t shirt top"],
+        "shirt": CLOTHING_WEATHER_MAP["shirt"],
+        "dress": CLOTHING_WEATHER_MAP["dress"],
+        "sandal": CLOTHING_WEATHER_MAP["sandal"],
+        "sneaker": CLOTHING_WEATHER_MAP["sneaker"],
+        "bag": CLOTHING_WEATHER_MAP["bag"],
+        "trouser": CLOTHING_WEATHER_MAP["trouser"],
+        "pullover": CLOTHING_WEATHER_MAP["pullover"],
+        "coat": CLOTHING_WEATHER_MAP["coat"],
+        "ankle boot": CLOTHING_WEATHER_MAP["ankle boot"],
+    }
+    return fallbacks.get(normalized, {"conditions": ["Cloudy"], "phrase": "this trip's weather", "primary": "Cloudy"})
+
+
 DESTINATION_METADATA = {
     "Baguio": {
         "hotel_type": "City Hotel",
@@ -967,16 +1001,18 @@ def predict_outfit(payload: OutfitPayload):
         image = Image.open(BytesIO(image_bytes(payload))).convert("RGB").resize((224, 224))
         prediction = model.predict(np.expand_dims((np.asarray(image).astype(np.float32) / 127.5) - 1, 0), verbose=0)
         index = int(np.argmax(prediction)); category = class_names[index]
-        # Map CNN labels to the same destination weather vocabulary used by the planner.
-        label = category.lower().replace("-", " ")
-        if "rain" in label:
-            weather, suitability = "Rainy", "rainy weather"
-        elif "warm" in label or "hot" in label:
-            weather, suitability = "Sunny", "sunny, warm weather"
-        elif "cold" in label or "cool" in label:
-            weather, suitability = "Cloudy", "cool or cloudy weather, including sunny days with strong wind or a cool breeze"
-        else:
-            weather, suitability = "Cloudy", "this trip's weather"
-        return {"status": "success", "detected_category": category, "weather_suitability": suitability, "expected_condition": weather, "confidence_score": f"{float(prediction[0][index]) * 100:.1f}%", "message": f"This outfit looks best for {suitability}."}
+        weather_match = classify_clothing_weather(category)
+        weather = str(weather_match["primary"])
+        suitability = str(weather_match["phrase"])
+        conditions = weather_match["conditions"]
+        return {
+            "status": "success",
+            "detected_category": category,
+            "weather_suitability": suitability,
+            "expected_condition": weather,
+            "conditions": conditions,
+            "confidence_score": f"{float(prediction[0][index]) * 100:.1f}%",
+            "message": f"This outfit looks best for {suitability}.",
+        }
     except ValueError as exc: return {"status": "error", "message": str(exc)}
     except Exception as exc: return {"status": "error", "message": str(exc)}

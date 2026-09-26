@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
 import { useTravel } from "../TravelContext";
+import { clampToSelectableDate, getGuestWarning, getMinSelectableDate } from "../tripUtils";
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
@@ -41,13 +42,14 @@ function NearbyCard({ destination }) {
 }
 
 export default function SpecificDestinationsPage() {
-  const { dateRange, setDateRange, addActivity } = useTravel();
-  const [guests, setGuests] = useState(1); 
+  const { dateRange, setDateRange, guests, setGuests, addActivity } = useTravel();
   const [tripReady, setTripReady] = useState(false);
-  
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const minDate = getMinSelectableDate();
+
+  const [startDate, setStartDate] = useState(dateRange.startDate || minDate);
   const [endDate, setEndDate] = useState(() => {
-    const nextDay = new Date();
+    if (dateRange.endDate) return dateRange.endDate;
+    const nextDay = new Date(`${minDate}T00:00:00`);
     nextDay.setDate(nextDay.getDate() + 1);
     return nextDay.toISOString().split("T")[0];
   });
@@ -56,7 +58,6 @@ export default function SpecificDestinationsPage() {
   const [assignedDay, setAssignedDay] = useState("Day 1");
   const [toastMessage, setToastMessage] = useState("");
   
-  // CSV / MLR / Open-Meteo Weather State Management
   const [predictedPrice, setPredictedPrice] = useState("...");
   const [priceError, setPriceError] = useState("");
   const [pricingDetails, setPricingDetails] = useState(null);
@@ -80,7 +81,6 @@ export default function SpecificDestinationsPage() {
     setGuests((prev) => prev + 1);
   };
 
-  // Helper to format dates for the Header Display
   const formatDate = (dateString) => {
     if (!dateString) return "";
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -93,6 +93,8 @@ export default function SpecificDestinationsPage() {
   const displayRange = startDate
     ? `${formatDate(startDate)} - ${formatDate(endDate)}`
     : "Select dates";
+
+  const guestWarning = getGuestWarning(guests);
 
   useEffect(() => {
     if (dateRange.startDate) setStartDate(dateRange.startDate);
@@ -107,8 +109,8 @@ export default function SpecificDestinationsPage() {
         const storedDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
         const storedStartDate = trip.startDate || storedDates[0];
         const storedEndDate = trip.endDate || storedDates[storedDates.length - 1] || storedStartDate;
-        if (storedStartDate) setStartDate(storedStartDate);
-        if (storedEndDate) setEndDate(storedEndDate);
+        if (storedStartDate) setStartDate(clampToSelectableDate(storedStartDate));
+        if (storedEndDate) setEndDate(clampToSelectableDate(storedEndDate));
         if (trip.guests) setGuests(trip.guests);
         if (trip.roomType) setRoomType(trip.roomType);
       } catch {
@@ -161,7 +163,6 @@ export default function SpecificDestinationsPage() {
           setRecommendationReason(forecastData.activity_recommendation_reason || "");
           setWeatherComparison(forecastData.comparison || null);
         } else {
-          // Fallback mock activity tagging
           const isRainy = (destination.main_weather || "").toLowerCase().includes("rain");
           acts = acts.map((a) => {
             const isOutdoor = a.type === "outdoor";
@@ -442,6 +443,7 @@ export default function SpecificDestinationsPage() {
                       <input
                         id="start-date"
                         type="date"
+                        min={minDate}
                         value={startDate}
                         onChange={(e) => {
                           const nextStartDate = e.target.value;
@@ -458,7 +460,7 @@ export default function SpecificDestinationsPage() {
                       <input
                         id="end-date"
                         type="date"
-                        min={startDate}
+                        min={startDate || minDate}
                         value={endDate}
                         onChange={(e) => {
                           const nextEndDate = e.target.value;
@@ -527,6 +529,9 @@ export default function SpecificDestinationsPage() {
                        <button onClick={handlePlus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors">+</button>
                     </div>
                   </div>
+                  {guestWarning ? (
+                    <p className="mt-2 text-xs font-semibold text-amber-600">{guestWarning}</p>
+                  ) : null}
                 </div>
               </div>
 
