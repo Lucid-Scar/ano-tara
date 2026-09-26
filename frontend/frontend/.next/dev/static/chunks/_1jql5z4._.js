@@ -1,9 +1,666 @@
 (globalThis["TURBOPACK"] || (globalThis["TURBOPACK"] = [])).push([typeof document === "object" ? document.currentScript : undefined,
-"[project]/app/predict-outfit/page.js [app-client] (ecmascript)", ((__turbopack_context__, module, exports) => {
+"[project]/app/predict-outfit/page.js [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
 
-var e = new Error("Could not parse module '[project]/app/predict-outfit/page.js'\n\nMerge conflict marker encountered.");
-e.code = 'MODULE_UNPARSABLE';
-throw e;
+__turbopack_context__.s([
+    "default",
+    ()=>OutfitPlannerPage
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/client/app-dir/link.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ImageUploader$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/ImageUploader.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$OutfitImageCapture$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/OutfitImageCapture.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/app/tripUtils.js [app-client] (ecmascript)");
+;
+var _s = __turbopack_context__.k.signature();
+"use client";
+;
+;
+;
+;
+;
+const adviceByWeather = {
+    Sunny: "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
+    Rainy: "Bring a rain jacket or umbrella, quick-dry clothes, and waterproof shoes.",
+    Cloudy: "Comfortable layers and a light jacket are the safest choice."
+};
+function outfitExpectation(categoryOrSuitability) {
+    const raw = String(categoryOrSuitability || "").toLowerCase().replace(/_/g, " ").replace(/-/g, " ").trim();
+    const mapping = {
+        "t shirt top": {
+            conditions: [
+                "Sunny"
+            ],
+            phrase: "sunny, warm weather"
+        },
+        shirt: {
+            conditions: [
+                "Sunny"
+            ],
+            phrase: "sunny, warm weather"
+        },
+        dress: {
+            conditions: [
+                "Sunny"
+            ],
+            phrase: "sunny, warm weather"
+        },
+        sandal: {
+            conditions: [
+                "Sunny"
+            ],
+            phrase: "sunny, warm weather"
+        },
+        sneaker: {
+            conditions: [
+                "Sunny",
+                "Cloudy"
+            ],
+            phrase: "sunny or cool weather"
+        },
+        bag: {
+            conditions: [
+                "Sunny",
+                "Cloudy",
+                "Rainy"
+            ],
+            phrase: "any weather"
+        },
+        trouser: {
+            conditions: [
+                "Cloudy",
+                "Rainy"
+            ],
+            phrase: "cool, cloudy, or rainy weather"
+        },
+        pullover: {
+            conditions: [
+                "Cloudy",
+                "Rainy"
+            ],
+            phrase: "cool, cloudy, or rainy weather"
+        },
+        coat: {
+            conditions: [
+                "Cloudy",
+                "Rainy"
+            ],
+            phrase: "cool, cloudy, or rainy weather"
+        },
+        "ankle boot": {
+            conditions: [
+                "Cloudy",
+                "Rainy"
+            ],
+            phrase: "cool, cloudy, or rainy weather"
+        }
+    };
+    if (mapping[raw]) return mapping[raw];
+    return {
+        conditions: [
+            "Cloudy"
+        ],
+        phrase: "this trip's weather"
+    };
+}
+function OutfitPlannerPage() {
+    _s();
+    const [destinations, setDestinations] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [destination, setDestination] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
+    const [hotelType, setHotelType] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("Resort Hotel");
+    const [date, setDate] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
+    const [weather, setWeather] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    const [image, setImage] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
+    const [result, setResult] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    const [message, setMessage] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
+    const [loadingWeather, setLoadingWeather] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
+    const [loadingOutfit, setLoadingOutfit] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
+    const [captureSource, setCaptureSource] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
+    const [captureMode, setCaptureMode] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "OutfitPlannerPage.useEffect": ()=>{
+            let trip = {};
+            try {
+                trip = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+            } catch  {
+                window.localStorage.removeItem("anoTaraTrip");
+            }
+            const selectedDate = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])(trip.targetDates?.[0] || (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])());
+            setDate(selectedDate);
+            if (trip.outfit) {
+                if (trip.outfit.image) setImage(trip.outfit.image);
+            }
+            const savedPlace = trip.activities?.[0]?.destination || trip.destination || "";
+            let isMounted = true;
+            const loadDestinations = {
+                "OutfitPlannerPage.useEffect.loadDestinations": async ()=>{
+                    let list;
+                    try {
+                        const response = await fetch("http://localhost:8000/destinations");
+                        const data = await response.json();
+                        if (!response.ok || !Array.isArray(data.destinations) || !data.destinations.length) throw new Error("Destination data is unavailable.");
+                        list = data.destinations;
+                    } catch  {
+                        const { MOCK_DESTINATIONS } = await __turbopack_context__.A("[project]/app/destinations/mockDestinations.js [app-client] (ecmascript, async loader)");
+                        list = MOCK_DESTINATIONS;
+                    }
+                    if (!isMounted) return;
+                    setDestinations(list);
+                    const match = list.find({
+                        "OutfitPlannerPage.useEffect.loadDestinations": (item)=>item.name === savedPlace
+                    }["OutfitPlannerPage.useEffect.loadDestinations"]) || list[0];
+                    if (match) {
+                        setDestination(match.name);
+                        setHotelType(match.hotel_type || "Resort Hotel");
+                    }
+                }
+            }["OutfitPlannerPage.useEffect.loadDestinations"];
+            loadDestinations();
+            return ({
+                "OutfitPlannerPage.useEffect": ()=>{
+                    isMounted = false;
+                }
+            })["OutfitPlannerPage.useEffect"];
+        }
+    }["OutfitPlannerPage.useEffect"], []);
+    const onPlaceChange = (name)=>{
+        setDestination(name);
+        setWeather(null);
+        setResult(null);
+        const match = destinations.find((item)=>item.name === name);
+        if (match?.hotel_type) setHotelType(match.hotel_type);
+    };
+    const getWeather = async ()=>{
+        if (!destination || !date) {
+            setMessage("Choose a place and date first.");
+            return;
+        }
+        setLoadingWeather(true);
+        setMessage("");
+        try {
+            const match = destinations.find((item)=>item.name === destination);
+            const destId = match?.id || destination.toLowerCase().replace(/\s+/g, "-");
+            const response = await fetch(`http://localhost:8000/destinations/${destId}/forecast?date_str=${date}`);
+            const data = await response.json();
+            if (response.ok && data.forecast) {
+                setWeather({
+                    condition: data.forecast.condition,
+                    temperature: data.forecast.average_temperature,
+                    rainfall: data.forecast.precipitation_sum_mm,
+                    source: data.forecast.source,
+                    comparison: data.comparison?.summary
+                });
+            } else {
+                const priceResponse = await fetch("http://localhost:8000/predict-price", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        check_in: date,
+                        check_out: date,
+                        guests: 1,
+                        hotel_type: hotelType,
+                        room_type: "Standard Room",
+                        destination_name: destination
+                    })
+                });
+                const priceData = await priceResponse.json();
+                if (!priceResponse.ok) throw new Error(priceData.detail || "Could not get the weather forecast.");
+                setWeather({
+                    condition: priceData.weather.condition,
+                    temperature: priceData.weather.average_temperature,
+                    rainfall: priceData.weather.average_rainfall,
+                    source: priceData.source,
+                    comparison: priceData.comparison?.summary
+                });
+            }
+        } catch (error) {
+            setMessage(error.message || "Could not get weather.");
+        } finally{
+            setLoadingWeather(false);
+        }
+    };
+    const analyzeOutfit = async (dataUrl)=>{
+        setImage(dataUrl);
+        setResult(null);
+        setMessage("");
+        if (!destination) {
+            setMessage("Choose a place before uploading an outfit.");
+            return;
+        }
+        if (!weather) {
+            setMessage("Choose a date and check its predicted weather before uploading an outfit.");
+            return;
+        }
+        setLoadingOutfit(true);
+        try {
+            const response = await fetch("http://localhost:8000/predict-outfit", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    image_base64: dataUrl
+                })
+            });
+            const data = await response.json();
+            if (!response.ok || data.status === "error") throw new Error(data.message || "Outfit prediction failed.");
+            const expectation = outfitExpectation(data.detected_category || data.weather_suitability);
+            const matches = expectation.conditions.includes(weather.condition);
+            setResult({
+                ...data,
+                matches,
+                outfitPhrase: expectation.phrase,
+                advice: adviceByWeather[weather.condition]
+            });
+        } catch (error) {
+            setMessage(error.message || "Could not analyze outfit.");
+        } finally{
+            setLoadingOutfit(false);
+        }
+    };
+    const addToPlanner = ()=>{
+        if (!result || !weather) return;
+        const trip = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
+        window.localStorage.setItem("anoTaraTrip", JSON.stringify({
+            ...trip,
+            destination,
+            targetDates: [
+                date
+            ],
+            outfit: {
+                destination,
+                date,
+                weather: weather.condition,
+                temperature: weather.temperature,
+                rainfall: weather.rainfall,
+                category: result.detected_category,
+                confidence: result.confidence_score,
+                matches: result.matches,
+                outfitPhrase: result.outfitPhrase,
+                advice: result.advice,
+                image: image || null
+            }
+        }));
+        window.location.href = "/final-planner";
+    };
+    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
+        className: "min-h-screen bg-[#f5f7fa] px-4 py-5 text-slate-900 sm:px-8",
+        children: [
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "mx-auto max-w-5xl",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("header", {
+                        className: "flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                        href: "/",
+                                        className: "text-sm font-semibold text-slate-500 hover:text-slate-900",
+                                        children: "Back to home"
+                                    }, void 0, false, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 223,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
+                                        className: "mt-3 text-4xl font-black tracking-tight sm:text-6xl",
+                                        children: "Outfit Planner"
+                                    }, void 0, false, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 226,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                        className: "mt-2 text-slate-600",
+                                        children: "Pick a place and date, then see if your outfit matches the weather."
+                                    }, void 0, false, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 227,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/app/predict-outfit/page.js",
+                                lineNumber: 222,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                href: "/final-planner",
+                                className: "rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50",
+                                children: "Final planner"
+                            }, void 0, false, {
+                                fileName: "[project]/app/predict-outfit/page.js",
+                                lineNumber: 229,
+                                columnNumber: 11
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/app/predict-outfit/page.js",
+                        lineNumber: 221,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "mt-8 grid gap-8 lg:grid-cols-2",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "space-y-8",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
+                                        className: "rounded-2xl bg-white p-6 shadow-sm",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
+                                                className: "text-xl font-bold",
+                                                children: "1. Where do you plan to go?"
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 237,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
+                                                value: destination,
+                                                onChange: (event)=>onPlaceChange(event.target.value),
+                                                className: "mt-4 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 font-medium",
+                                                children: [
+                                                    !destination ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                        value: "",
+                                                        children: "Select a destination"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/app/predict-outfit/page.js",
+                                                        lineNumber: 243,
+                                                        columnNumber: 33
+                                                    }, this) : null,
+                                                    destinations.map((item)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                            value: item.name,
+                                                            children: item.name
+                                                        }, item.id || item.name, false, {
+                                                            fileName: "[project]/app/predict-outfit/page.js",
+                                                            lineNumber: 245,
+                                                            columnNumber: 19
+                                                        }, this))
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 238,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 236,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
+                                        className: "rounded-2xl bg-white p-6 shadow-sm",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
+                                                className: "text-xl font-bold",
+                                                children: "2. Which date do you plan to go?"
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 253,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                type: "date",
+                                                min: (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])(),
+                                                value: date,
+                                                onChange: (event)=>{
+                                                    setDate(event.target.value);
+                                                    setWeather(null);
+                                                    setResult(null);
+                                                },
+                                                className: "mt-4 w-full rounded-xl border border-slate-300 px-3 py-3 font-medium"
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 254,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                onClick: getWeather,
+                                                disabled: !destination || !date || loadingWeather,
+                                                className: "mt-4 w-full rounded-xl bg-[#b9f0c8] px-4 py-3 font-bold disabled:opacity-60",
+                                                children: loadingWeather ? "Checking weather..." : "Check predicted weather"
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 265,
+                                                columnNumber: 15
+                                            }, this),
+                                            weather ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                        className: "font-bold",
+                                                        children: [
+                                                            destination,
+                                                            ": ",
+                                                            weather.condition
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "[project]/app/predict-outfit/page.js",
+                                                        lineNumber: 274,
+                                                        columnNumber: 19
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                        className: "mt-1 text-sm",
+                                                        children: [
+                                                            weather.temperature,
+                                                            "°C average · ",
+                                                            weather.rainfall,
+                                                            " mm rain"
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "[project]/app/predict-outfit/page.js",
+                                                        lineNumber: 277,
+                                                        columnNumber: 19
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                        className: "mt-2 text-sm",
+                                                        children: adviceByWeather[weather.condition]
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/app/predict-outfit/page.js",
+                                                        lineNumber: 280,
+                                                        columnNumber: 19
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 273,
+                                                columnNumber: 17
+                                            }, this) : null
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 252,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/app/predict-outfit/page.js",
+                                lineNumber: 235,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
+                                className: "rounded-2xl bg-white p-6 shadow-sm",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
+                                        className: "text-xl font-bold",
+                                        children: "3. Upload your outfit to know if it is the perfect match"
+                                    }, void 0, false, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 287,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "mt-5",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: "mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900",
+                                                children: "Please crop one clothing/garment per image for the best results."
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 289,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "flex flex-wrap gap-3",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ImageUploader$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                                        onSelect: (dataUrl)=>{
+                                                            setCaptureSource(dataUrl);
+                                                            setCaptureMode("image");
+                                                        },
+                                                        label: "Upload outfit"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/app/predict-outfit/page.js",
+                                                        lineNumber: 291,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                        onClick: ()=>{
+                                                            setCaptureSource("");
+                                                            setCaptureMode("camera");
+                                                        },
+                                                        className: "inline-flex items-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold uppercase tracking-[0.15em] text-white shadow-sm hover:bg-slate-700",
+                                                        children: "Use camera"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/app/predict-outfit/page.js",
+                                                        lineNumber: 292,
+                                                        columnNumber: 17
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 290,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 288,
+                                        columnNumber: 13
+                                    }, this),
+                                    image ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
+                                        src: image,
+                                        alt: "Outfit preview",
+                                        className: "mt-5 h-56 w-full rounded-xl object-contain bg-slate-50"
+                                    }, void 0, false, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 295,
+                                        columnNumber: 22
+                                    }, this) : null,
+                                    loadingOutfit ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                        className: "mt-4 text-sm text-slate-500",
+                                        children: "CNN is analyzing your outfit..."
+                                    }, void 0, false, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 296,
+                                        columnNumber: 30
+                                    }, this) : null,
+                                    result ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: `mt-5 rounded-xl p-4 ${result.matches ? "bg-emerald-50 text-emerald-950" : "bg-amber-50 text-amber-950"}`,
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: "font-bold",
+                                                children: result.matches ? `Your outfit is a match for ${destination}.` : `Your outfit would not be a match for ${destination}.`
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 299,
+                                                columnNumber: 17
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: "mt-2 text-sm",
+                                                children: [
+                                                    "The destination is expected to be ",
+                                                    weather.condition.toLowerCase(),
+                                                    ", while your outfit is suited for ",
+                                                    result.outfitPhrase,
+                                                    "."
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 302,
+                                                columnNumber: 17
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: "mt-2 text-sm",
+                                                children: result.advice
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 305,
+                                                columnNumber: 17
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                onClick: addToPlanner,
+                                                className: "mt-4 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white",
+                                                children: "Add this to final planner"
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/page.js",
+                                                lineNumber: 306,
+                                                columnNumber: 17
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 298,
+                                        columnNumber: 15
+                                    }, this) : null,
+                                    message ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                        className: "mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700",
+                                        children: message
+                                    }, void 0, false, {
+                                        fileName: "[project]/app/predict-outfit/page.js",
+                                        lineNumber: 311,
+                                        columnNumber: 24
+                                    }, this) : null
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/app/predict-outfit/page.js",
+                                lineNumber: 286,
+                                columnNumber: 11
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/app/predict-outfit/page.js",
+                        lineNumber: 234,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "[project]/app/predict-outfit/page.js",
+                lineNumber: 220,
+                columnNumber: 7
+            }, this),
+            captureMode ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$OutfitImageCapture$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                source: captureSource,
+                mode: captureMode,
+                onCancel: ()=>setCaptureMode(""),
+                onSelect: (croppedImage)=>{
+                    setCaptureMode("");
+                    analyzeOutfit(croppedImage);
+                }
+            }, void 0, false, {
+                fileName: "[project]/app/predict-outfit/page.js",
+                lineNumber: 315,
+                columnNumber: 22
+            }, this) : null
+        ]
+    }, void 0, true, {
+        fileName: "[project]/app/predict-outfit/page.js",
+        lineNumber: 219,
+        columnNumber: 5
+    }, this);
+}
+_s(OutfitPlannerPage, "PzWe+BDCd+0QiGZholAXdD/qAIA=");
+_c = OutfitPlannerPage;
+var _c;
+__turbopack_context__.k.register(_c, "OutfitPlannerPage");
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
 }),
 "[project]/components/ImageUploader.js [app-client] (ecmascript)", ((__turbopack_context__) => {
 "use strict";
