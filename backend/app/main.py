@@ -1014,6 +1014,21 @@ def predict_outfit(payload: OutfitPayload):
         prediction = model.predict(input_tensor, verbose=0)
         
         index = int(np.argmax(prediction))
+        confidence = float(prediction[0][index])
+        category = class_names[index]
+
+        if category == "Bag" and confidence < 1.0:
+            return {
+                "status": "error", 
+                "message": "Unclear image detected. Please upload a clear photo of a primary garment (e.g., shirt, jacket, trousers)."
+            }
+
+        if confidence < 0.89:
+            return {
+                "status": "error", 
+                "message": f"Image not recognized clearly (Confidence: {confidence*100:.1f}%). Please upload a cropped photo of a clothing item."
+            }
+        
         category = class_names[index]
         weather_match = classify_clothing_weather(category)
         weather = str(weather_match["primary"])
@@ -1026,7 +1041,7 @@ def predict_outfit(payload: OutfitPayload):
             "weather_suitability": suitability,
             "expected_condition": weather,
             "conditions": conditions,
-            "confidence_score": f"{float(prediction[0][index]) * 100:.1f}%",
+            "confidence_score": f"{confidence * 100:.1f}%",
             "message": f"This outfit looks best for {suitability}.",
         }
     except ValueError as exc: 
