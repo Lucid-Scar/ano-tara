@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Footer from "./footer/Footer";
-import Header from "./header/Header";
 import { useTravel } from "./TravelContext";
 import { getGuestWarning, getMinSelectableDate } from "./tripUtils";
 
@@ -52,16 +51,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#FAFAFA]">
-      <Header
-        guests={guests}
-        onGuestDecrease={handleMinus}
-        onGuestIncrease={handlePlus}
-        selectedDate={startDate || "Select Date"}
-        searchHref={searchUrl}
-        isVisible={isScrolled}
-        fixed
-      />
-
       <section className="relative flex min-h-[500px] w-full flex-col bg-[url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')] bg-cover bg-center">
         <div className="absolute inset-0 bg-black/40"></div>
 

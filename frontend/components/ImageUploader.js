@@ -1,9 +1,15 @@
 "use client";
 
-export default function ImageUploader({ onSelect, className = "", label = "UPLOAD" }) {
+export default function ImageUploader({ onSelect, onError, maxBytes = 20 * 1024 * 1024, className = "", label = "UPLOAD" }) {
   const handleChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) {
+      return;
+    }
+
+    if (file.size > maxBytes) {
+      onError?.("Please choose an image smaller than 20MB.");
+      event.target.value = "";
       return;
     }
 
