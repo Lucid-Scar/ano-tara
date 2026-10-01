@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Footer from "./footer/Footer";
-import Header from "./header/Header";
 import { useTravel } from "./TravelContext";
 import { getGuestWarning, getMinSelectableDate } from "./tripUtils";
 
@@ -52,32 +51,17 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#FAFAFA]">
-      <Header
-        guests={guests}
-        onGuestDecrease={handleMinus}
-        onGuestIncrease={handlePlus}
-        selectedDate={startDate || "Select Date"}
-        searchHref={searchUrl}
-        isVisible={isScrolled}
-        fixed
-      />
-
       <section className="relative flex min-h-[500px] w-full flex-col bg-[url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')] bg-cover bg-center">
         <div className="absolute inset-0 bg-black/40"></div>
 
         <nav className="relative z-20 mx-auto flex w-full items-center justify-between px-6 py-4 sm:px-12">
           <div className="flex-1 hidden md:block"></div>
           <div className="flex flex-1 justify-center">
-            <img src="/ano_tara_logo.svg" alt="Ano Tara Logo" className="h-20 w-20 drop-shadow-lg" />
+            <img src="/LOGO-WHITE.svg" alt="Ano Tara Logo" className="h-20 w-20 drop-shadow-lg" />
           </div>
           <div className="flex flex-1 items-center justify-end gap-3">
-            <Link href="/" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
-              Log in
-            </Link>
-            <Link href="/" className="flex items-center gap-2 rounded-md bg-white px-5 py-2 text-sm font-bold text-red-500 shadow-sm transition hover:bg-gray-100">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              Sign up
-            </Link>
+            <Link href="/predict-outfit" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">Outfit planner</Link>
+            <Link href="/final-planner" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">Itinerary planner</Link>
           </div>
         </nav>
 
@@ -185,30 +169,9 @@ export default function Home() {
         </div>
         
         <div className="mt-16 flex justify-center">
-          <Link href="/all-experiences" className="rounded-lg border-2 border-red-400 px-8 py-3 font-semibold text-red-500 transition hover:bg-red-50">
+          <Link href="/destinations" className="rounded-lg border-2 border-red-400 px-8 py-3 font-semibold text-red-500 transition hover:bg-red-50">
             View All Experiences
           </Link>
-        </div>
-      </section>
-
-      <section className="relative w-full overflow-hidden bg-slate-900 shadow-lg min-h-[500px] flex items-center">
-        <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2400&q=80" alt="Promo Background" className="absolute inset-0 h-full w-full object-cover grayscale opacity-80" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
-
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:px-12">
-          <div className="flex w-full flex-col items-start md:w-3/4 lg:w-1/2">
-            <h2 className="mb-3 font-serif text-4xl font-black tracking-wide text-white drop-shadow-md sm:text-5xl">
-              Adventure Awaits. <br className="hidden sm:block" /> Tara Na!
-            </h2>
-            <p className="pt-4 mb-10 text-base leading-relaxed text-gray-300 drop-shadow-sm sm:text-lg">
-              Stop dreaming and start packing. From sun-kissed local beaches to vibrant cityscapes across the map, explore top-rated destinations tailored for your budget and style. Your next unforgettable story begins right here.
-            </p>
-            <Link href="/destinations">
-              <button className="rounded-full bg-[#b9f0c8] px-10 py-4 font-bold text-slate-900 shadow-[0_4px_14px_0_rgba(185,240,200,0.39)] transition hover:-translate-y-1 hover:shadow-[0_6px_20px_rgba(185,240,200,0.23)] active:translate-y-0">
-                Start Exploring Now
-              </button>
-            </Link>
-          </div>
         </div>
       </section>
 

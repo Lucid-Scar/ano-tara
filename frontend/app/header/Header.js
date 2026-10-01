@@ -45,7 +45,6 @@ export default function Header({
   selectedDate,
   dateLabel = selectedDate,
   searchHref,
-  showBackLink = false,
   isVisible = true,
   fixed = false,
 }) {
@@ -57,56 +56,13 @@ export default function Header({
     <header className={headerClassName}>
       <div className="flex flex-1 items-center">
         <Link href="/">
-          <img src="/ano_tara_logo.svg" alt="Ano Tara Logo" className={fixed ? "h-12 w-auto object-contain" : "h-10 w-auto object-contain cursor-pointer"} />
+          <img src="/LOGO-BLACK.svg" alt="Ano Tara Logo" className={fixed ? "h-12 w-auto object-contain" : "h-10 w-auto object-contain cursor-pointer"} />
         </Link>
-      </div>
-
-      <div className="hidden items-center justify-center lg:flex">
-        <div className={`flex items-center rounded-full border border-gray-200 bg-white py-1.5 pl-6 pr-2 shadow-sm ${fixed ? "py-2 border-gray-300 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-shadow hover:shadow-md" : "transition-shadow hover:shadow-md"}`}>
-          <div className="flex cursor-pointer items-center gap-3 pr-4 text-sm font-medium text-slate-700">
-            <CalendarIcon />
-            <span>{dateLabel}</span>
-          </div>
-
-          <div className="mx-2 h-6 w-px bg-gray-200"></div>
-
-          <div className="flex items-center gap-3 pl-4 pr-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <GuestIcon />
-              <span className="w-[64px]">{guests} Guests</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <button type="button" onClick={onGuestDecrease} aria-label="Decrease guests" className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100">-</button>
-              <button type="button" onClick={onGuestIncrease} aria-label="Increase guests" className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100">+</button>
-            </div>
-          </div>
-
-          {searchHref ? (
-            <Link href={searchHref} aria-label="Search destinations" className="ml-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#fcedec] text-[#d96a6a] transition-colors hover:bg-[#fadbd8]">
-              <SearchIcon />
-            </Link>
-          ) : (
-            <button type="button" aria-label="Search destinations" className="ml-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#fcedec] text-[#d96a6a] transition-colors hover:bg-[#fadbd8]">
-              <SearchIcon />
-            </button>
-          )}
-        </div>
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-3">
-        {showBackLink ? (
-          <Link href="/destinations" className="mr-2 hidden text-sm font-semibold text-slate-500 transition-colors hover:text-slate-900 sm:block">
-            Back to destinations
-          </Link>
-        ) : (
-          <Link href="/" className="rounded-md border border-gray-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-gray-50">
-            Log in
-          </Link>
-        )}
-        <Link href="/" className="flex items-center gap-2 rounded-md border border-[#d96a6a] px-5 py-2 text-sm font-semibold text-[#d96a6a] transition hover:bg-red-50">
-          <UserIcon />
-          Sign up
-        </Link>
+        <Link href="/predict-outfit" className="text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900">Outfit planner</Link>
+        <Link href="/final-planner" className="rounded-md border border-[#4a8b8b] px-4 py-2 text-sm font-semibold text-[#4a8b8b] transition hover:bg-teal-50">Final planner</Link>
       </div>
     </header>
   );

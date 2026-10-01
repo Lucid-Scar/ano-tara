@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { clampGuestCount, clampToSelectableDate, getMinSelectableDate } from "./tripUtils";
 
 const TravelContext = createContext(null);
@@ -21,24 +21,18 @@ export function TravelProvider({ children }) {
   const [dateRange, setDateRangeState] = useState({ startDate: "", endDate: "" });
   const [guests, setGuestsState] = useState(1);
   const [currentActivities, setCurrentActivities] = useState([]);
+  const [outfits, setOutfits] = useState([]);
   const [savedItineraries, setSavedItinerariesState] = useState([]);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // Working trip state (dates, guests, activities, outfits) is intentionally kept in memory only,
+  // so it clears on every browser refresh. Only generated planners persist across refreshes.
   useEffect(() => {
+    window.localStorage.removeItem(TRIP_STORAGE_KEY);
     try {
-      const trip = JSON.parse(window.localStorage.getItem(TRIP_STORAGE_KEY) || "{}");
-      const targetDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
-      setDateRangeState(sanitizeDateRange({
-        startDate: trip.startDate || targetDates[0] || "",
-        endDate: trip.endDate || targetDates[targetDates.length - 1] || targetDates[0] || "",
-      }));
-      setGuestsState(clampGuestCount(trip.guests || 1));
-      setCurrentActivities(Array.isArray(trip.activities) ? trip.activities : []);
-
       const saved = JSON.parse(window.localStorage.getItem(SAVED_STORAGE_KEY) || "[]");
       setSavedItinerariesState(Array.isArray(saved) ? saved : []);
     } catch {
-      window.localStorage.removeItem(TRIP_STORAGE_KEY);
       window.localStorage.removeItem(SAVED_STORAGE_KEY);
     } finally {
       setIsHydrated(true);
@@ -47,51 +41,54 @@ export function TravelProvider({ children }) {
 
   useEffect(() => {
     if (!isHydrated) return;
-    const current = JSON.parse(window.localStorage.getItem(TRIP_STORAGE_KEY) || "{}");
-    window.localStorage.setItem(TRIP_STORAGE_KEY, JSON.stringify({
-      ...current,
-      ...dateRange,
-      guests,
-      activities: currentActivities,
-    }));
     window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedItineraries));
-  }, [currentActivities, dateRange, guests, isHydrated, savedItineraries]);
+  }, [isHydrated, savedItineraries]);
 
   // Single source of truth: any page that updates the date range updates it everywhere.
-  const setDateRange = (nextRange) => {
+  const setDateRange = useCallback((nextRange) => {
     setDateRangeState((current) => sanitizeDateRange({ ...current, ...nextRange }));
-  };
+  }, []);
 
   // Single source of truth for pax; always kept at a sane, non-zero whole number.
-  const setGuests = (nextGuests) => {
+  const setGuests = useCallback((nextGuests) => {
     setGuestsState((current) => clampGuestCount(typeof nextGuests === "function" ? nextGuests(current) : nextGuests));
-  };
+  }, []);
 
-  const addActivity = (activity) => {
+  const addActivity = useCallback((activity) => {
     setCurrentActivities((current) => {
       const exists = current.some((item) => item.name === activity.name && item.destination === activity.destination);
       return exists ? current : [...current, activity];
     });
-  };
+  }, []);
 
-  const removeActivity = (index) => {
+  const removeActivity = useCallback((index) => {
     setCurrentActivities((current) => current.filter((_, activityIndex) => activityIndex !== index));
-  };
+  }, []);
 
-  const saveItinerary = (itinerary) => {
+  const updateActivity = useCallback((index, changes) => {
+    setCurrentActivities((current) => current.map((activity, activityIndex) => activityIndex === index ? { ...activity, ...changes } : activity));
+  }, []);
+
+  const hasActivityConflict = useCallback((activity, ignoreIndex = -1) => {
+    if (!activity?.assignedDay) return false;
+    return currentActivities.some((item, index) => index !== ignoreIndex && item.assignedDay === activity.assignedDay);
+  }, [currentActivities]);
+
+  const saveItinerary = useCallback((itinerary) => {
     setSavedItinerariesState((current) => [itinerary, ...current]);
-  };
+  }, []);
 
-  const deleteItinerary = (createdAt) => {
+  const deleteItinerary = useCallback((createdAt) => {
     setSavedItinerariesState((current) => current.filter((itinerary) => itinerary.createdAt !== createdAt));
-  };
+  }, []);
 
-  const clearCurrentPlan = () => {
+  const clearCurrentPlan = useCallback(() => {
     setDateRangeState({ startDate: "", endDate: "" });
     setGuestsState(1);
     setCurrentActivities([]);
+    setOutfits([]);
     window.localStorage.removeItem(TRIP_STORAGE_KEY);
-  };
+  }, []);
 
   const value = useMemo(() => ({
     dateRange,
@@ -102,11 +99,15 @@ export function TravelProvider({ children }) {
     setCurrentActivities,
     addActivity,
     removeActivity,
+    updateActivity,
+    hasActivityConflict,
+    outfits,
+    setOutfits,
     savedItineraries,
     saveItinerary,
     deleteItinerary,
     clearCurrentPlan,
-  }), [dateRange, guests, currentActivities, savedItineraries]);
+  }), [dateRange, guests, currentActivities, outfits, savedItineraries, setDateRange, setGuests, addActivity, removeActivity, updateActivity, hasActivityConflict, saveItinerary, deleteItinerary, clearCurrentPlan]);
 
   return <TravelContext.Provider value={value}>{children}</TravelContext.Provider>;
 }

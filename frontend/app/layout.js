@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'Ano Tara',
-  description: 'Frontend for CNN, MLR, and Decision Trees workflows',
+  description: 'Travel planning and outfit coordination for your next trip',
 };
 
 import './globals.css';

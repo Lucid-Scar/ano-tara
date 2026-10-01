@@ -28,3 +28,7 @@ backend/app/weather/202403_CombinedData.csv
 backend/app/weather
 backend/app/cnn_evaluation_images
 backend/app/training
+backend/app/model
+backend/app/model/keras_model.h5
+backend/data/destinations.csv
+backend/app/model/keras_model.h5
