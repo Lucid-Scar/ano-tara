@@ -104,6 +104,16 @@ function TravelProvider({ children }) {
     const removeActivity = (index)=>{
         setCurrentActivities((current)=>current.filter((_, activityIndex)=>activityIndex !== index));
     };
+    const updateActivity = (index, changes)=>{
+        setCurrentActivities((current)=>current.map((activity, activityIndex)=>activityIndex === index ? {
+                    ...activity,
+                    ...changes
+                } : activity));
+    };
+    const hasActivityConflict = (activity, ignoreIndex = -1)=>{
+        if (!activity?.assignedDay) return false;
+        return currentActivities.some((item, index)=>index !== ignoreIndex && item.assignedDay === activity.assignedDay);
+    };
     const saveItinerary = (itinerary)=>{
         setSavedItinerariesState((current)=>[
                 itinerary,
@@ -132,6 +142,8 @@ function TravelProvider({ children }) {
                 setCurrentActivities,
                 addActivity,
                 removeActivity,
+                updateActivity,
+                hasActivityConflict,
                 savedItineraries,
                 saveItinerary,
                 deleteItinerary,
@@ -148,7 +160,7 @@ function TravelProvider({ children }) {
         children: children
     }, void 0, false, {
         fileName: "[project]/app/TravelContext.js",
-        lineNumber: 111,
+        lineNumber: 122,
         columnNumber: 10
     }, this);
 }
