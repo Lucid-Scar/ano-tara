@@ -7,6 +7,14 @@ import { useTravel } from "../TravelContext";
 import { clampToSelectableDate, getGuestWarning, getMinSelectableDate } from "../tripUtils";
 
 const CARDS_PER_PAGE = 24;
+const activityImage = (activity, destination) => {
+  if (activity.image) return activity.image;
+  const name = `${activity.name || ""} ${activity.type || ""}`.toLowerCase();
+  if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
+  if (/museum|gallery|art|heritage|cultural/.test(name)) return "https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=1200&q=80";
+  if (/boat|island|beach|falls|nature|park|hiking|walking/.test(name)) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
+  return destination.image;
+};
 
 function ActivityDestinationCard({ item }) {
   return (
@@ -34,10 +42,7 @@ function ActivityDestinationCard({ item }) {
                 : "bg-teal-600/95 text-white"
             }`}
           >
-            <span>
-              {item.weatherTag === "Sunny" ? "☀️" : item.weatherTag === "Rainy" ? "🌧️" : "❄️"}
-            </span>
-            <span>{item.weatherTag}</span>
+            <span>{item.weatherTag} chance</span>
           </span>
         </div>
 
@@ -113,10 +118,13 @@ export default function DestinationsPage() {
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [weatherFilter, setWeatherFilter] = useState(null); // null | 'Sunny' | 'Rainy' | 'Cold'
+  const [activityTypeFilter, setActivityTypeFilter] = useState(null);
   const [visibleCardCount, setVisibleCardCount] = useState(CARDS_PER_PAGE);
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
+    const requestedActivityType = query.get("activityType");
+    if (requestedActivityType === "outdoor" || requestedActivityType === "indoor") setActivityTypeFilter(requestedActivityType);
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
     let stored = {};
     try {
@@ -212,7 +220,7 @@ export default function DestinationsPage() {
         hotelType: "Resort Hotel",
         base_price: dest.base_prices?.["Resort Hotel"] || MLR_BASE_PRICES["Resort Hotel"],
         weatherTag: outdoor.weather_tag || (isCold ? "Cold" : "Sunny"),
-        image: dest.image,
+        image: activityImage(outdoor, dest),
         description: dest.description,
         durationHours: outdoor.duration_hours || 4,
       });
@@ -228,7 +236,7 @@ export default function DestinationsPage() {
         hotelType: "City Hotel",
         base_price: dest.base_prices?.["City Hotel"] || MLR_BASE_PRICES["City Hotel"],
         weatherTag: indoor.weather_tag || (isCold ? "Cold" : "Rainy"),
-        image: dest.image,
+        image: activityImage(indoor, dest),
         description: dest.description,
         durationHours: indoor.duration_hours || 3,
       });
@@ -252,9 +260,11 @@ export default function DestinationsPage() {
         if (item.weatherTag !== weatherFilter) return false;
       }
 
+      if (activityTypeFilter !== null && item.activityType !== activityTypeFilter) return false;
+
       return true;
     });
-  }, [allActivities, searchQuery, weatherFilter]);
+  }, [activityTypeFilter, allActivities, searchQuery, weatherFilter]);
 
   const visibleActivities = filteredActivities.slice(0, visibleCardCount);
 
@@ -269,18 +279,19 @@ export default function DestinationsPage() {
   const clearAllFilters = () => {
     setSearchQuery("");
     setWeatherFilter(null);
+    setActivityTypeFilter(null);
   };
 
-  const isAnyFilterActive = searchQuery.trim() !== "" || weatherFilter !== null;
+  const isAnyFilterActive = searchQuery.trim() !== "" || weatherFilter !== null || activityTypeFilter !== null;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
       
       {/* HEADER WITH DYNAMIC DATE RANGE */}
-      <header className="sticky top-0 z-50 flex h-20 items-center justify-between bg-white px-6 lg:px-12 shadow-[0_2px_10px_rgba(0,0,0,0.03)] border-b border-gray-100">
+      <header className="legacy-destination-header sticky top-0 z-50 flex h-20 items-center justify-between bg-white px-6 lg:px-12 shadow-[0_2px_10px_rgba(0,0,0,0.03)] border-b border-gray-100">
         <div className="flex flex-1 items-center">
           <Link href="/">
-            <img src="/ano_tara_logo.svg" alt="Ano Tara Logo" className="h-10 w-auto object-contain cursor-pointer" />
+            <img src="/LOGO-BLACK.svg" alt="Ano Tara Logo" className="h-10 w-auto object-contain cursor-pointer" />
           </Link>
         </div>
 
@@ -410,7 +421,6 @@ export default function DestinationsPage() {
                         : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                     }`}
                   >
-                    <span>☀️</span>
                     Sunny
                   </button>
 
@@ -423,7 +433,6 @@ export default function DestinationsPage() {
                         : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                     }`}
                   >
-                    <span>🌧️</span>
                     Rainy
                   </button>
 
@@ -436,7 +445,6 @@ export default function DestinationsPage() {
                         : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                     }`}
                   >
-                    <span>❄️</span>
                     Cold
                   </button>
                 </div>
@@ -476,7 +484,7 @@ export default function DestinationsPage() {
         ) : (
           <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">
-              🔍
+              Search
             </div>
             <h3 className="text-lg font-bold text-slate-900">No matching activities found</h3>
             <p className="mt-1 text-sm text-slate-500">

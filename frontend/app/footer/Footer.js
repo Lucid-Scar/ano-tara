@@ -6,9 +6,7 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-6 sm:px-12">
         <div className="mb-12 grid grid-cols-1 gap-12 md:grid-cols-4">
           <div className="md:col-span-1">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-xl font-black tracking-tighter text-slate-900 italic">ano tara?</span>
-            </div>
+            <div className="mb-4 flex items-center gap-2"><img src="/LOGO-BLACK.svg" alt="Ano Tara Logo" className="h-9 w-auto" /></div>
             <p className="text-sm leading-relaxed text-slate-500">
               Kung saan maganda, mahal! We help you discover the perfect destinations tailored for your budget and style. Start your next great adventure with us.
             </p>
@@ -19,7 +17,7 @@ export default function Footer() {
             <h4 className="mb-4 font-bold text-slate-900">Explore</h4>
             <ul className="space-y-3 text-sm text-slate-500">
               <li><Link href="/destinations" className="transition-colors hover:text-slate-900">Destinations</Link></li>
-              <li><Link href="/all-experiences" className="transition-colors hover:text-slate-900">Experiences</Link></li>
+              <li><Link href="/destinations" className="transition-colors hover:text-slate-900">Experiences</Link></li>
               <li><Link href="/predict-outfit" className="transition-colors hover:text-slate-900">Outfit Tool</Link></li>
               <li><Link href="/about" className="transition-colors hover:text-slate-900">About Us</Link></li>
             </ul>
