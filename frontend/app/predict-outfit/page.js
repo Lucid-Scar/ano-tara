@@ -1,5 +1,7 @@
 "use client";
 
+export { default } from "./OutfitPlannerClient";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Footer from "../footer/Footer";
@@ -21,7 +23,7 @@ const generateDateRange = (startDate, endDate) => {
   return dates;
 };
 
-export default function OutfitPlannerPage() {
+function LegacyOutfitPlannerPage() {
   const { dateRange, currentActivities, outfits, setOutfits, savedItineraries } = useTravel();
   const [destinations, setDestinations] = useState([]); const [destination, setDestination] = useState(""); const [date, setDate] = useState(""); const [plannerDates, setPlannerDates] = useState([]); const [weather, setWeather] = useState(null); const [image, setImage] = useState(""); const [result, setResult] = useState(null); const [source, setSource] = useState("saved"); const [message, setMessage] = useState(""); const [loadingWeather, setLoadingWeather] = useState(false); const [loadingOutfit, setLoadingOutfit] = useState(false); const [captureSource, setCaptureSource] = useState(""); const [captureMode, setCaptureMode] = useState("");
 
