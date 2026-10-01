@@ -51,7 +51,7 @@ export default function OutfitPlannerPage() {
   const visibleOutfits = outfits.filter((outfit) => !outfit.deleted);
 
   return (
-    <main className="min-h-screen bg-[#f5f7fa] text-slate-900">
+    <main className="outfit-planner-shell min-h-screen bg-[#f5f7fa] text-slate-900">
       <Header showBackLink />
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-8">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Wardrobe workspace</p><h1 className="mt-2 text-4xl font-black tracking-tight sm:text-6xl">Attach outfit</h1><p className="mt-2 text-slate-600">Analyze each garment, categorize it, and assign it to a day.</p></div><Link href="/final-planner" className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Open final planner</Link></div>

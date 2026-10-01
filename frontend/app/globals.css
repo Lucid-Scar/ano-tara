@@ -10,6 +10,7 @@ body { margin: 0; min-height: 100vh; background: #fcfbf8; }
 .planner-panel-yellow, .planner-panel-green, .planner-panel-blue { background: transparent; }
 .planner-kicker { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; }
 .legacy-destination-header > div:nth-child(2) { display: none; }
+.outfit-planner-shell section { background: transparent !important; }
 
 @media (min-width: 1024px) {
   .planner-workspace > form { grid-column: span 1 / span 1; }

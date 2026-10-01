@@ -35,7 +35,7 @@ const generateDateRange = (startDate, endDate) => {
 function NearbyCard({ destination }) {
   const activity = destination.activities?.[0];
   return (
-    <Link href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-52 overflow-hidden rounded-2xl shadow-sm">
+    <Link href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-32 overflow-hidden rounded-xl shadow-sm">
       <img src={destination.image} alt={destination.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
       <p className="absolute bottom-4 left-4 text-sm font-medium text-white">{destination.name}</p>
@@ -100,6 +100,13 @@ function SpecificDestinationsContent() {
     : "Select dates";
 
   const guestWarning = getGuestWarning(guests);
+
+  const handleAssignedDayChange = (nextDay) => {
+    setAssignedDay(nextDay);
+    const dayIndex = Number(nextDay.replace("Day ", "")) - 1;
+    const selectedDate = generateDateRange(startDate, endDate)[dayIndex];
+    if (selectedDate) setPricingDate(selectedDate);
+  };
 
   useEffect(() => {
     if (dateRange.startDate) setStartDate(dateRange.startDate);
@@ -405,6 +412,12 @@ function SpecificDestinationsContent() {
                 <a href="#" className="mt-2 inline-block text-sm font-medium italic text-gray-500 underline transition-colors hover:text-[#76B3DD]">
                   look more here! Bookingsite.com
                 </a>
+                <div className="mt-6 border-t border-gray-200 pt-4">
+                  <h2 className="text-sm font-black uppercase tracking-wider text-slate-500">Next destinations</h2>
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {nearbyDestinations.slice(0, 3).map((dest) => <NearbyCard key={dest.id} destination={dest} />)}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -521,19 +534,12 @@ function SpecificDestinationsContent() {
                     <span>Assign to</span>
                     <select
                       value={assignedDay}
-                      onChange={(e) => setAssignedDay(e.target.value)}
+                      onChange={(e) => handleAssignedDayChange(e.target.value)}
                       className="max-w-[65%] rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold outline-none focus:border-gray-400"
                     >
                       {generateDateRange(startDate, endDate).map((date, index) => (
                         <option key={date} value={`Day ${index + 1}`}>Day {index + 1} · {formatDate(date)}</option>
                       ))}
-                    </select>
-                  </label>
-
-                  <label className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-slate-700">
-                    <span>Price this activity for</span>
-                    <select value={pricingDate} onChange={(event) => setPricingDate(event.target.value)} className="max-w-[65%] rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold outline-none focus:border-gray-400">
-                      {generateDateRange(startDate, endDate).map((date) => <option key={date} value={date}>{formatDate(date)}</option>)}
                     </select>
                   </label>
 
@@ -550,28 +556,17 @@ function SpecificDestinationsContent() {
                         className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
                       />
                     </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-slate-900 mb-2">How many guests?</label>
-                  <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4 transition-colors hover:border-gray-400">
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
-                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
-                      </svg>
-                      <span>Add guests</span>
+                    <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4">
+                      <span className="text-sm font-medium text-slate-700">Guests</span>
+                      <div className="flex items-center gap-3">
+                        <button type="button" onClick={handleMinus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">-</button>
+                        <span className="w-4 text-center font-bold text-slate-800">{guests}</span>
+                        <button type="button" onClick={handlePlus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">+</button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                       <button onClick={handleMinus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors">-</button>
-                       <span className="w-4 text-center font-bold text-slate-800">{guests}</span>
-                       <button onClick={handlePlus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors">+</button>
-                    </div>
-                  </div>
-                  {guestWarning ? (
-                    <p className="mt-2 text-xs font-semibold text-amber-600">{guestWarning}</p>
-                  ) : null}
+                    {guestWarning ? <p className="text-xs font-semibold text-amber-600">{guestWarning}</p> : null}
                 </div>
+              </div>
               </div>
 
               <button onClick={addToPlanner} type="button" className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#58a573] hover:bg-[#4d9064] px-8 py-3.5 text-base font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 mb-6">
@@ -603,15 +598,6 @@ function SpecificDestinationsContent() {
           </div>
         </div>
 
-        <div className="relative border-t border-gray-200 pt-12">
-          <h2 className="mb-8 text-2xl font-black text-slate-800 italic">Destinations around it!</h2>
-
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-            {nearbyDestinations.map((dest) => (
-              <NearbyCard key={dest.id} destination={dest} />
-            ))}
-          </div>
-        </div>
       </main>
 
       <Footer />
