@@ -4,10 +4,19 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
 import { useTravel } from "../TravelContext";
-import { clampToSelectableDate, getGuestWarning, getMinSelectableDate } from "../tripUtils";
+import { getGuestWarning, getMinSelectableDate, toDateString } from "../tripUtils";
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
+
+const activityImage = (activity, destination) => {
+  if (activity?.image) return activity.image;
+  const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
+  if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
+  if (/museum|gallery|art|heritage|cultural/.test(name)) return "https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=1200&q=80";
+  if (/boat|island|beach|falls|nature|park|hiking|walking/.test(name)) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
+  return destination.image;
+};
 
 const FALLBACK_DESTINATION = {
   id: "alaminos",
@@ -26,7 +35,7 @@ const generateDateRange = (startDate, endDate) => {
   const current = new Date(`${startDate}T00:00:00`);
   const last = new Date(`${endDate}T00:00:00`);
   while (current <= last) {
-    dates.push(current.toISOString().split("T")[0]);
+    dates.push(toDateString(current));
     current.setDate(current.getDate() + 1);
   }
   return dates;
@@ -34,11 +43,18 @@ const generateDateRange = (startDate, endDate) => {
 
 function NearbyCard({ destination }) {
   const activity = destination.activities?.[0];
+  const title = activity?.name || destination.name;
+  const image = activityImage(activity, destination);
+  const weatherTag = activity?.weather_tag || destination.main_weather || "Sunny";
   return (
     <Link href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-32 overflow-hidden rounded-xl shadow-sm">
-      <img src={destination.image} alt={destination.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
-      <p className="absolute bottom-4 left-4 text-sm font-medium text-white">{destination.name}</p>
+      <img src={image} alt={title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+      <span className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase text-white">{weatherTag} chance</span>
+      <div className="absolute bottom-2 left-2 right-2">
+        <p className="line-clamp-2 text-xs font-bold leading-snug text-white">{title}</p>
+        <p className="text-[10px] text-white/80">{destination.name}</p>
+      </div>
     </Link>
   );
 }
@@ -54,7 +70,7 @@ function SpecificDestinationsContent() {
     if (dateRange.endDate) return dateRange.endDate;
     const nextDay = new Date(`${minDate}T00:00:00`);
     nextDay.setDate(nextDay.getDate() + 1);
-    return nextDay.toISOString().split("T")[0];
+    return toDateString(nextDay);
   });
   const [roomType, setRoomType] = useState("Standard Room");
   const [selectedTime, setSelectedTime] = useState("10:00");
@@ -88,7 +104,7 @@ function SpecificDestinationsContent() {
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString("en-US", {
+    return new Date(`${dateString}T00:00:00`).toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -98,6 +114,10 @@ function SpecificDestinationsContent() {
   const displayRange = startDate
     ? `${formatDate(startDate)} - ${formatDate(endDate)}`
     : "Select dates";
+
+  const selectedActivityData = activityList.find((activity) => activity.name === selectedActivity)
+    || destinationDetails.activities?.find((activity) => activity.name === selectedActivity);
+  const selectedActivityImage = activityImage(selectedActivityData, destinationDetails);
 
   const guestWarning = getGuestWarning(guests);
 
@@ -121,25 +141,6 @@ function SpecificDestinationsContent() {
   }, [assignedDay, endDate, pricingDate, startDate]);
 
   useEffect(() => {
-    const storedTrip = window.localStorage.getItem("anoTaraTrip");
-    if (storedTrip) {
-      try {
-        const trip = JSON.parse(storedTrip);
-        const storedDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
-        const storedStartDate = trip.startDate || storedDates[0];
-        const storedEndDate = trip.endDate || storedDates[storedDates.length - 1] || storedStartDate;
-        if (storedStartDate) {
-          const nextStart = clampToSelectableDate(storedStartDate);
-          setStartDate(nextStart);
-          setPricingDate(nextStart);
-        }
-        if (storedEndDate) setEndDate(clampToSelectableDate(storedEndDate));
-        if (trip.guests) setGuests(trip.guests);
-        if (trip.roomType) setRoomType(trip.roomType);
-      } catch {
-        window.localStorage.removeItem("anoTaraTrip");
-      }
-    }
     setTripReady(true);
   }, []);
 
@@ -219,11 +220,11 @@ function SpecificDestinationsContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            check_in: pricingDate || startDate || new Date().toISOString().split("T")[0],
+            check_in: pricingDate || startDate || toDateString(new Date()),
             check_out: (() => {
               const nextDate = new Date(`${pricingDate || startDate}T00:00:00`);
               nextDate.setDate(nextDate.getDate() + 1);
-              return nextDate.toISOString().split("T")[0];
+              return toDateString(nextDate);
             })(),
             guests,
             hotel_type: chosenHotelType,
@@ -268,29 +269,9 @@ function SpecificDestinationsContent() {
     };
   }, [endDate, guests, pricingDate, roomType, searchParams, startDate, tripReady]);
 
-  useEffect(() => {
-    if (!tripReady) return;
-    const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
-    window.localStorage.setItem("anoTaraTrip", JSON.stringify({
-      ...stored,
-      startDate,
-      endDate,
-      targetDates: generateDateRange(startDate, endDate),
-      guests,
-      roomType,
-    }));
-  }, [endDate, guests, roomType, startDate, tripReady]);
-
   const addToPlanner = () => {
-    const storedTrip = window.localStorage.getItem("anoTaraTrip");
-    let trip = { activities: [], startDate, endDate, targetDates: generateDateRange(startDate, endDate), mlrPrice: Number(predictedPrice.replace(/,/g, "")) || 2999, guests, roomType };
-    try {
-      if (storedTrip) trip = { ...trip, ...JSON.parse(storedTrip) };
-    } catch {
-      window.localStorage.removeItem("anoTaraTrip");
-    }
-    const currentActivities = activityList.length > 0 ? activityList : (destinationDetails.activities || []);
-    const activity = currentActivities.find((item) => item.name === selectedActivity) || currentActivities[0];
+    const currentActivitiesList = activityList.length > 0 ? activityList : (destinationDetails.activities || []);
+    const activity = currentActivitiesList.find((item) => item.name === selectedActivity) || currentActivitiesList[0];
     if (hasActivityConflict({ ...activity, assignedDay })) {
       setToastMessage("This day already has an activity. Choose another day before adding this one.");
       window.setTimeout(() => setToastMessage(""), 3000);
@@ -302,21 +283,14 @@ function SpecificDestinationsContent() {
       assignedDay,
       assigned_day: assignedDay,
       guests,
+      time: selectedTime,
+      roomType,
+      image: selectedActivityImage,
       weather: weatherForecast?.condition || destinationDetails.main_weather || "Sunny",
       weather_forecast: weatherForecast,
     };
-    if (!trip.activities.some((item) => item.name === selected.name && item.destination === selected.destination)) {
-      trip.activities = [...trip.activities, selected];
-    }
     addActivity(selected);
     setDateRange({ startDate, endDate });
-    trip.startDate = startDate;
-    trip.endDate = endDate;
-    trip.targetDates = generateDateRange(startDate, endDate);
-    trip.guests = guests;
-    trip.roomType = roomType;
-    trip.mlrPrice = Number(predictedPrice.replace(/,/g, "")) || 2999;
-    window.localStorage.setItem("anoTaraTrip", JSON.stringify(trip));
     setToastMessage("Activity added to your itinerary.");
     window.setTimeout(() => setToastMessage(""), 3000);
   };
@@ -366,12 +340,25 @@ function SpecificDestinationsContent() {
           <Link href="/predict-outfit" className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors mr-2 hidden sm:block">
             Outfit planner
           </Link>
-          <Link href="/" className="flex items-center gap-2 rounded-md border border-[#d96a6a] px-5 py-2 text-sm font-semibold text-[#d96a6a] transition hover:bg-red-50">
+          <Link href="/final-planner" className="flex items-center gap-2 rounded-md border border-[#d96a6a] px-5 py-2 text-sm font-semibold text-[#d96a6a] transition hover:bg-red-50">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             Final planner
           </Link>
         </div>
       </header>
+
+      <div className="activity-date-strip border-b border-slate-200 bg-white px-6 py-4 lg:px-12">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-slate-500">Trip dates</p>
+            <p className="text-sm font-semibold text-slate-700">Dates are shared with your itinerary.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="text-xs font-bold text-slate-500">Start<input type="date" min={minDate} value={startDate} onChange={(event) => { const nextStartDate = event.target.value; const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate; setStartDate(nextStartDate); setEndDate(nextEndDate); setDateRange({ startDate: nextStartDate, endDate: nextEndDate }); }} className="ml-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800" /></label>
+            <label className="text-xs font-bold text-slate-500">End<input type="date" min={startDate || minDate} value={endDate} onChange={(event) => { const nextEndDate = event.target.value; setEndDate(nextEndDate); setDateRange({ startDate, endDate: nextEndDate }); }} className="ml-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800" /></label>
+          </div>
+        </div>
+      </div>
 
       {isLoading ? <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white/95"><div className="text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#4a8b8b]" /><p className="mt-4 text-sm font-bold text-slate-700">Loading destination details...</p></div></div> : null}
       <main className="mx-auto w-full max-w-[1400px] px-6 lg:px-12 py-10 flex-grow">
@@ -381,7 +368,7 @@ function SpecificDestinationsContent() {
           
           <div className="flex-1 flex flex-col w-full max-w-4xl">
             <div className="w-full h-[400px] lg:h-[500px] overflow-hidden rounded-[2rem] shadow-sm mb-8 bg-gray-100">
-              <img src={destinationDetails.image} alt={destinationDetails.name} className="h-full w-full object-cover" />
+              <img src={selectedActivityImage} alt={selectedActivity || destinationDetails.name} className="h-full w-full object-cover" />
             </div>
             
             <div className="flex flex-col px-2 sm:px-4">
@@ -426,7 +413,7 @@ function SpecificDestinationsContent() {
             <div className="rounded-[2rem] border border-gray-100 bg-white p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.06)] relative z-10">
               
               <div className="mb-6 pb-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Estimated MLR Cost</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Estimated cost</p>
                 <div className="flex items-baseline gap-2">
                   <h3 className="text-[2rem] font-black text-[#0f172a]">{priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
                   <span className="text-sm text-gray-500 font-medium">total for {guests} {guests === 1 ? 'guest' : 'guests'}</span>
@@ -481,42 +468,6 @@ function SpecificDestinationsContent() {
               <div className="mb-6 grid w-full grid-cols-1 gap-6">
                 
                 <div>
-                  <label className="block text-sm font-bold text-slate-900 mb-2">When are you going?</label>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 transition-colors hover:border-gray-400">
-                      <label htmlFor="start-date" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Start date</label>
-                      <input
-                        id="start-date"
-                        type="date"
-                        min={minDate}
-                        value={startDate}
-                        onChange={(e) => {
-                          const nextStartDate = e.target.value;
-                          const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate;
-                          setStartDate(nextStartDate);
-                          setEndDate(nextEndDate);
-                          setDateRange({ startDate: nextStartDate, endDate: nextEndDate });
-                        }}
-                        className="w-full bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer sm:text-sm"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 rounded-xl border border-gray-300 px-3 py-2 transition-colors hover:border-gray-400">
-                      <label htmlFor="end-date" className="text-[10px] font-bold uppercase tracking-wide text-gray-400">End date</label>
-                      <input
-                        id="end-date"
-                        type="date"
-                        min={startDate || minDate}
-                        value={endDate}
-                        onChange={(e) => {
-                          const nextEndDate = e.target.value;
-                          setEndDate(nextEndDate);
-                          setDateRange({ startDate, endDate: nextEndDate });
-                        }}
-                        className="w-full bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer sm:text-sm"
-                      />
-                    </div>
-                  </div>
-
                   <div className="mt-3">
                     <label htmlFor="room-type" className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">Room type</label>
                     <select
@@ -544,24 +495,25 @@ function SpecificDestinationsContent() {
                   </label>
 
                   <div className="flex flex-col gap-3">
-                    {/* Time Input */}
-                    <div className="flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-3 hover:border-gray-400 transition-colors cursor-pointer">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 shrink-0">
-                        <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
-                      </svg>
-                      <input 
-                        type="time" 
-                        value={selectedTime}
-                        onChange={(e) => setSelectedTime(e.target.value)}
-                        className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4">
-                      <span className="text-sm font-medium text-slate-700">Guests</span>
-                      <div className="flex items-center gap-3">
-                        <button type="button" onClick={handleMinus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">-</button>
-                        <span className="w-4 text-center font-bold text-slate-800">{guests}</span>
-                        <button type="button" onClick={handlePlus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">+</button>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-3 hover:border-gray-400 transition-colors cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 shrink-0">
+                          <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <input 
+                          type="time" 
+                          value={selectedTime}
+                          onChange={(e) => setSelectedTime(e.target.value)}
+                          className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4">
+                        <span className="text-sm font-medium text-slate-700">Guests</span>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={handleMinus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">-</button>
+                          <span className="w-4 text-center font-bold text-slate-800">{guests}</span>
+                          <button type="button" onClick={handlePlus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">+</button>
+                        </div>
                       </div>
                     </div>
                     {guestWarning ? <p className="text-xs font-semibold text-amber-600">{guestWarning}</p> : null}

@@ -2,15 +2,25 @@
 
 export const MAX_TYPICAL_GUESTS = 10;
 
+// Formats a Date using its LOCAL calendar day (never toISOString, which converts to UTC
+// and silently shifts the date backwards by a day in positive UTC-offset timezones like
+// Asia/Manila). This is the single source of truth for turning a Date into "YYYY-MM-DD".
+export function toDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function getTodayDateString() {
-  return new Date().toISOString().split("T")[0];
+  return toDateString(new Date());
 }
 
 // Earliest date a trip may start: today and past dates are not selectable.
 export function getMinSelectableDate() {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return tomorrow.toISOString().split("T")[0];
+  return toDateString(tomorrow);
 }
 
 export function isPastOrTodayDate(dateString) {

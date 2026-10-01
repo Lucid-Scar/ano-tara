@@ -125,19 +125,11 @@ export default function DestinationsPage() {
     const query = new URLSearchParams(window.location.search);
     const requestedActivityType = query.get("activityType");
     if (requestedActivityType === "outdoor" || requestedActivityType === "indoor") setActivityTypeFilter(requestedActivityType);
-    const storedTrip = window.localStorage.getItem("anoTaraTrip");
-    let stored = {};
-    try {
-      stored = storedTrip ? JSON.parse(storedTrip) : {};
-    } catch {
-      window.localStorage.removeItem("anoTaraTrip");
-    }
-    const nextCheckIn = query.get("startDate") || query.get("date") || query.get("checkIn") || stored.targetDates?.[0];
+    const nextCheckIn = query.get("startDate") || query.get("date") || query.get("checkIn");
     if (nextCheckIn) setCheckIn(clampToSelectableDate(nextCheckIn));
-    const nextEndDate = query.get("endDate") || stored.endDate;
+    const nextEndDate = query.get("endDate");
     if (nextEndDate) setEndDate(clampToSelectableDate(nextEndDate));
     if (query.get("guests")) setGuests(Number(query.get("guests")) || 1);
-    else if (stored.guests) setGuests(stored.guests);
 
     let isMounted = true;
 
@@ -164,9 +156,7 @@ export default function DestinationsPage() {
   useEffect(() => {
     if (!tripReady) return;
     setDateRange({ startDate: checkIn, endDate: endDate || checkIn });
-    const stored = JSON.parse(window.localStorage.getItem("anoTaraTrip") || "{}");
-    window.localStorage.setItem("anoTaraTrip", JSON.stringify({ ...stored, startDate: checkIn, endDate: endDate || checkIn, targetDates: checkIn ? [checkIn, ...(endDate && endDate !== checkIn ? [endDate] : [])] : [], guests }));
-  }, [checkIn, endDate, guests, tripReady]);
+  }, [checkIn, endDate, tripReady]);
 
   const handleMinus = (e) => {
     e.preventDefault();

@@ -48,6 +48,7 @@ class ActivityPayload(BaseModel):
     destination: str = Field(default="General itinerary", min_length=1)
     guests: int = Field(default=1, ge=1)
     assigned_day: str | None = None
+    time: str | None = None
 
 
 class ItineraryPayload(BaseModel):
@@ -913,6 +914,7 @@ def generate_itinerary(payload: ItineraryPayload):
             "destination": destination,
             "assigned_day": activity.assigned_day,
             "guests": activity.guests,
+            "time": activity.time,
             "weather": matched_fc["condition"],
             "weather_forecast": matched_fc,
             "decision_features": decision_features,
@@ -1023,7 +1025,7 @@ def predict_outfit(payload: OutfitPayload):
                 "message": "Unclear image detected. Please upload a clear photo of a primary garment (e.g., shirt, jacket, trousers)."
             }
 
-        if confidence < 0.89:
+        if confidence < 0.50:
             return {
                 "status": "error", 
                 "message": f"Image not recognized clearly (Confidence: {confidence*100:.1f}%). Please upload a cropped photo of a clothing item."

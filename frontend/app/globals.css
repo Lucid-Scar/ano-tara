@@ -18,15 +18,16 @@ body { margin: 0; min-height: 100vh; background: #fcfbf8; }
 }
 
 @media print {
-  @page { size: landscape; margin: 10mm; }
+  @page { size: landscape; margin: 0; }
   body { background: white; }
   .planner-shell { padding: 0; background: white; }
   .planner-shell > div { max-width: none; }
+  .planner-shell > div:last-child { padding: 0 !important; }
   .planner-controls,
   .planner-shell form,
   .planner-shell > div > .planner-workspace > :not(.planner-document),
   .planner-shell > div > .planner-controls { display: none !important; }
-  .planner-document { width: 100%; padding: 12mm !important; background: white !important; }
+  .planner-document { width: 100vw; min-height: 100vh; margin: 0 !important; padding: 0 !important; background-image: url('/plannerbg.png') !important; background-size: cover; background-position: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .planner-document .planner-print-controls { display: none !important; }
   .planner-document > p { display: none !important; }
   .planner-document .planner-landscape { width: 100%; max-width: none; margin: 0; }
