@@ -39,23 +39,18 @@ function TravelProvider({ children }) {
     });
     const [guests, setGuestsState] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(1);
     const [currentActivities, setCurrentActivities] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [outfits, setOutfits] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
     const [savedItineraries, setSavedItinerariesState] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
     const [isHydrated, setIsHydrated] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
+    // Working trip state (dates, guests, activities, outfits) is intentionally kept in memory only,
+    // so it clears on every browser refresh. Only generated planners persist across refreshes.
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "TravelProvider.useEffect": ()=>{
+            window.localStorage.removeItem(TRIP_STORAGE_KEY);
             try {
-                const trip = JSON.parse(window.localStorage.getItem(TRIP_STORAGE_KEY) || "{}");
-                const targetDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
-                setDateRangeState(sanitizeDateRange({
-                    startDate: trip.startDate || targetDates[0] || "",
-                    endDate: trip.endDate || targetDates[targetDates.length - 1] || targetDates[0] || ""
-                }));
-                setGuestsState((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampGuestCount"])(trip.guests || 1));
-                setCurrentActivities(Array.isArray(trip.activities) ? trip.activities : []);
                 const saved = JSON.parse(window.localStorage.getItem(SAVED_STORAGE_KEY) || "[]");
                 setSavedItinerariesState(Array.isArray(saved) ? saved : []);
             } catch  {
-                window.localStorage.removeItem(TRIP_STORAGE_KEY);
                 window.localStorage.removeItem(SAVED_STORAGE_KEY);
             } finally{
                 setIsHydrated(true);
@@ -65,73 +60,108 @@ function TravelProvider({ children }) {
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "TravelProvider.useEffect": ()=>{
             if (!isHydrated) return;
-            const current = JSON.parse(window.localStorage.getItem(TRIP_STORAGE_KEY) || "{}");
-            window.localStorage.setItem(TRIP_STORAGE_KEY, JSON.stringify({
-                ...current,
-                ...dateRange,
-                guests,
-                activities: currentActivities
-            }));
             window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedItineraries));
         }
     }["TravelProvider.useEffect"], [
-        currentActivities,
-        dateRange,
-        guests,
         isHydrated,
         savedItineraries
     ]);
     // Single source of truth: any page that updates the date range updates it everywhere.
-    const setDateRange = (nextRange)=>{
-        setDateRangeState((current)=>sanitizeDateRange({
-                ...current,
-                ...nextRange
-            }));
-    };
+    const setDateRange = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[setDateRange]": (nextRange)=>{
+            setDateRangeState({
+                "TravelProvider.useCallback[setDateRange]": (current)=>sanitizeDateRange({
+                        ...current,
+                        ...nextRange
+                    })
+            }["TravelProvider.useCallback[setDateRange]"]);
+        }
+    }["TravelProvider.useCallback[setDateRange]"], []);
     // Single source of truth for pax; always kept at a sane, non-zero whole number.
-    const setGuests = (nextGuests)=>{
-        setGuestsState((current)=>(0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampGuestCount"])(typeof nextGuests === "function" ? nextGuests(current) : nextGuests));
-    };
-    const addActivity = (activity)=>{
-        setCurrentActivities((current)=>{
-            const exists = current.some((item)=>item.name === activity.name && item.destination === activity.destination);
-            return exists ? current : [
-                ...current,
-                activity
-            ];
-        });
-    };
-    const removeActivity = (index)=>{
-        setCurrentActivities((current)=>current.filter((_, activityIndex)=>activityIndex !== index));
-    };
-    const updateActivity = (index, changes)=>{
-        setCurrentActivities((current)=>current.map((activity, activityIndex)=>activityIndex === index ? {
-                    ...activity,
-                    ...changes
-                } : activity));
-    };
-    const hasActivityConflict = (activity, ignoreIndex = -1)=>{
-        if (!activity?.assignedDay) return false;
-        return currentActivities.some((item, index)=>index !== ignoreIndex && item.assignedDay === activity.assignedDay);
-    };
-    const saveItinerary = (itinerary)=>{
-        setSavedItinerariesState((current)=>[
-                itinerary,
-                ...current
-            ]);
-    };
-    const deleteItinerary = (createdAt)=>{
-        setSavedItinerariesState((current)=>current.filter((itinerary)=>itinerary.createdAt !== createdAt));
-    };
-    const clearCurrentPlan = ()=>{
-        setDateRangeState({
-            startDate: "",
-            endDate: ""
-        });
-        setGuestsState(1);
-        setCurrentActivities([]);
-        window.localStorage.removeItem(TRIP_STORAGE_KEY);
-    };
+    const setGuests = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[setGuests]": (nextGuests)=>{
+            setGuestsState({
+                "TravelProvider.useCallback[setGuests]": (current)=>(0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampGuestCount"])(typeof nextGuests === "function" ? nextGuests(current) : nextGuests)
+            }["TravelProvider.useCallback[setGuests]"]);
+        }
+    }["TravelProvider.useCallback[setGuests]"], []);
+    const addActivity = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[addActivity]": (activity)=>{
+            setCurrentActivities({
+                "TravelProvider.useCallback[addActivity]": (current)=>{
+                    const exists = current.some({
+                        "TravelProvider.useCallback[addActivity].exists": (item)=>item.name === activity.name && item.destination === activity.destination
+                    }["TravelProvider.useCallback[addActivity].exists"]);
+                    return exists ? current : [
+                        ...current,
+                        activity
+                    ];
+                }
+            }["TravelProvider.useCallback[addActivity]"]);
+        }
+    }["TravelProvider.useCallback[addActivity]"], []);
+    const removeActivity = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[removeActivity]": (index)=>{
+            setCurrentActivities({
+                "TravelProvider.useCallback[removeActivity]": (current)=>current.filter({
+                        "TravelProvider.useCallback[removeActivity]": (_, activityIndex)=>activityIndex !== index
+                    }["TravelProvider.useCallback[removeActivity]"])
+            }["TravelProvider.useCallback[removeActivity]"]);
+        }
+    }["TravelProvider.useCallback[removeActivity]"], []);
+    const updateActivity = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[updateActivity]": (index, changes)=>{
+            setCurrentActivities({
+                "TravelProvider.useCallback[updateActivity]": (current)=>current.map({
+                        "TravelProvider.useCallback[updateActivity]": (activity, activityIndex)=>activityIndex === index ? {
+                                ...activity,
+                                ...changes
+                            } : activity
+                    }["TravelProvider.useCallback[updateActivity]"])
+            }["TravelProvider.useCallback[updateActivity]"]);
+        }
+    }["TravelProvider.useCallback[updateActivity]"], []);
+    const hasActivityConflict = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[hasActivityConflict]": (activity, ignoreIndex = -1)=>{
+            if (!activity?.assignedDay) return false;
+            return currentActivities.some({
+                "TravelProvider.useCallback[hasActivityConflict]": (item, index)=>index !== ignoreIndex && item.assignedDay === activity.assignedDay
+            }["TravelProvider.useCallback[hasActivityConflict]"]);
+        }
+    }["TravelProvider.useCallback[hasActivityConflict]"], [
+        currentActivities
+    ]);
+    const saveItinerary = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[saveItinerary]": (itinerary)=>{
+            setSavedItinerariesState({
+                "TravelProvider.useCallback[saveItinerary]": (current)=>[
+                        itinerary,
+                        ...current
+                    ]
+            }["TravelProvider.useCallback[saveItinerary]"]);
+        }
+    }["TravelProvider.useCallback[saveItinerary]"], []);
+    const deleteItinerary = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[deleteItinerary]": (createdAt)=>{
+            setSavedItinerariesState({
+                "TravelProvider.useCallback[deleteItinerary]": (current)=>current.filter({
+                        "TravelProvider.useCallback[deleteItinerary]": (itinerary)=>itinerary.createdAt !== createdAt
+                    }["TravelProvider.useCallback[deleteItinerary]"])
+            }["TravelProvider.useCallback[deleteItinerary]"]);
+        }
+    }["TravelProvider.useCallback[deleteItinerary]"], []);
+    const clearCurrentPlan = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[clearCurrentPlan]": ()=>{
+            setDateRangeState({
+                startDate: "",
+                endDate: ""
+            });
+            setGuestsState(1);
+            setCurrentActivities([]);
+            setOutfits([]);
+            window.localStorage.removeItem(TRIP_STORAGE_KEY);
+        }
+    }["TravelProvider.useCallback[clearCurrentPlan]"], []);
     const value = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
         "TravelProvider.useMemo[value]": ()=>({
                 dateRange,
@@ -144,6 +174,8 @@ function TravelProvider({ children }) {
                 removeActivity,
                 updateActivity,
                 hasActivityConflict,
+                outfits,
+                setOutfits,
                 savedItineraries,
                 saveItinerary,
                 deleteItinerary,
@@ -153,18 +185,28 @@ function TravelProvider({ children }) {
         dateRange,
         guests,
         currentActivities,
-        savedItineraries
+        outfits,
+        savedItineraries,
+        setDateRange,
+        setGuests,
+        addActivity,
+        removeActivity,
+        updateActivity,
+        hasActivityConflict,
+        saveItinerary,
+        deleteItinerary,
+        clearCurrentPlan
     ]);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(TravelContext.Provider, {
         value: value,
         children: children
     }, void 0, false, {
         fileName: "[project]/app/TravelContext.js",
-        lineNumber: 122,
+        lineNumber: 112,
         columnNumber: 10
     }, this);
 }
-_s(TravelProvider, "k4h8h6D2Qc6qid7DsRYjYWy/cac=");
+_s(TravelProvider, "27bFO9EpxVH4Zo03OsxHkKYBL84=");
 _c = TravelProvider;
 function useTravel() {
     _s1();
@@ -199,16 +241,24 @@ __turbopack_context__.s([
     "isGuestCountUnusual",
     ()=>isGuestCountUnusual,
     "isPastOrTodayDate",
-    ()=>isPastOrTodayDate
+    ()=>isPastOrTodayDate,
+    "toDateString",
+    ()=>toDateString
 ]);
 const MAX_TYPICAL_GUESTS = 10;
+function toDateString(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
 function getTodayDateString() {
-    return new Date().toISOString().split("T")[0];
+    return toDateString(new Date());
 }
 function getMinSelectableDate() {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split("T")[0];
+    return toDateString(tomorrow);
 }
 function isPastOrTodayDate(dateString) {
     if (!dateString) return false;
