@@ -78,6 +78,15 @@ export function TravelProvider({ children }) {
     setCurrentActivities((current) => current.filter((_, activityIndex) => activityIndex !== index));
   };
 
+  const updateActivity = (index, changes) => {
+    setCurrentActivities((current) => current.map((activity, activityIndex) => activityIndex === index ? { ...activity, ...changes } : activity));
+  };
+
+  const hasActivityConflict = (activity, ignoreIndex = -1) => {
+    if (!activity?.assignedDay) return false;
+    return currentActivities.some((item, index) => index !== ignoreIndex && item.assignedDay === activity.assignedDay);
+  };
+
   const saveItinerary = (itinerary) => {
     setSavedItinerariesState((current) => [itinerary, ...current]);
   };
@@ -102,6 +111,8 @@ export function TravelProvider({ children }) {
     setCurrentActivities,
     addActivity,
     removeActivity,
+    updateActivity,
+    hasActivityConflict,
     savedItineraries,
     saveItinerary,
     deleteItinerary,

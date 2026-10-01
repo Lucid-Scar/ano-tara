@@ -2,60 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light;
-}
+:root { color-scheme: light; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-height: 100vh; background: #fcfbf8; }
+* { box-sizing: border-box; }
+.planner-panel { border-radius: 1rem; padding: 1.5rem; }
+.planner-panel-yellow, .planner-panel-green, .planner-panel-blue { background: transparent; }
+.planner-kicker { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; }
+.legacy-destination-header > div:nth-child(2) { display: none; }
+.outfit-planner-shell section { background: transparent !important; }
 
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: #fcfbf8;
-}
-
-* {
-  box-sizing: border-box;
+@media (min-width: 1024px) {
+  .planner-workspace > form { grid-column: span 1 / span 1; }
+  .planner-workspace > .planner-document { grid-column: 1 / -1; }
 }
 
 @media print {
-  @page {
-    margin: 12mm;
-  }
-
-  body {
-    background: white;
-  }
-
-  .planner-shell {
-    padding: 0;
-    background: white;
-  }
-
-  .planner-shell > div {
-    max-width: none;
-  }
-
+  @page { size: landscape; margin: 10mm; }
+  body { background: white; }
+  .planner-shell { padding: 0; background: white; }
+  .planner-shell > div { max-width: none; }
   .planner-controls,
   .planner-shell form,
-  .planner-shell header .planner-controls,
-  .planner-shell > div > section:last-child {
-    display: none !important;
-  }
-
-  .planner-document {
-    width: 100%;
-  }
-
-  .planner-title {
-    break-after: avoid;
-  }
-
-  .planner-document article {
-    break-inside: avoid;
-    border: 1px solid #d9dee7;
-    box-shadow: none;
-  }
+  .planner-shell > div > .planner-workspace > :not(.planner-document),
+  .planner-shell > div > .planner-controls { display: none !important; }
+  .planner-document { width: 100%; padding: 12mm !important; background: white !important; }
+  .planner-document .planner-print-controls { display: none !important; }
+  .planner-document > p { display: none !important; }
+  .planner-document .planner-landscape { width: 100%; max-width: none; margin: 0; }
+  .planner-document .planner-landscape { min-width: 0 !important; }
+  .planner-document article { break-inside: avoid; border: 1px solid #d9dee7; box-shadow: none; }
 }

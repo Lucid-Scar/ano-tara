@@ -11,12 +11,40 @@ export default function Home() {
   const { dateRange, setDateRange, guests, setGuests } = useTravel();
   const [startDate, setStartDate] = useState(dateRange.startDate || "");
   const [endDate, setEndDate] = useState(dateRange.endDate || "");
+  const [experienceCounts, setExperienceCounts] = useState({ outdoor: 0, indoor: 0 });
   const minDate = getMinSelectableDate();
 
   useEffect(() => {
     if (dateRange.startDate) setStartDate(dateRange.startDate);
     if (dateRange.endDate) setEndDate(dateRange.endDate);
   }, [dateRange.endDate, dateRange.startDate]);
+
+  useEffect(() => {
+    let active = true;
+    const loadExperienceCounts = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/destinations");
+        const data = await response.json();
+        if (!response.ok || !Array.isArray(data.destinations)) throw new Error();
+        const counts = data.destinations.reduce((result, destination) => {
+          (destination.activities || []).forEach((activity) => {
+            if (activity.type === "outdoor") result.outdoor += 1;
+            if (activity.type === "indoor") result.indoor += 1;
+          });
+          return result;
+        }, { outdoor: 0, indoor: 0 });
+        if (active) setExperienceCounts(counts);
+      } catch {
+        const { MOCK_DESTINATIONS } = await import("./destinations/mockDestinations");
+        if (active) setExperienceCounts(MOCK_DESTINATIONS.reduce((result, destination) => {
+          (destination.activities || []).forEach((activity) => { if (activity.type === "outdoor") result.outdoor += 1; if (activity.type === "indoor") result.indoor += 1; });
+          return result;
+        }, { outdoor: 0, indoor: 0 }));
+      }
+    };
+    loadExperienceCounts();
+    return () => { active = false; };
+  }, []);
 
   const guestWarning = getGuestWarning(guests);
 
@@ -60,7 +88,7 @@ export default function Home() {
           <div className="flex-1 hidden md:block"></div>
 
           <div className="flex flex-1 justify-center">
-            <img src="/ano_tara_logo.svg" alt="Ano Tara Logo" className="h-20 w-20 drop-shadow-lg" />
+            <img src="/LOGO-WHITE.svg" alt="Ano Tara Logo" className="h-20 w-20 drop-shadow-lg" />
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-3">
@@ -68,11 +96,7 @@ export default function Home() {
               Outfit Planner
             </Link>
             <Link href="/final-planner" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
-              Planner
-            </Link>
-            <Link href="/" className="flex items-center gap-2 rounded-md bg-white px-5 py-2 text-sm font-bold text-red-500 shadow-sm transition hover:bg-gray-100">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              Sign up
+              Itinerary planner
             </Link>
           </div>
         </nav>
@@ -157,7 +181,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Link href="/destinations" className="relative h-[26rem] rounded-3xl overflow-hidden group cursor-pointer shadow-md block">
+          <Link href="/destinations?activityType=outdoor" className="relative h-[26rem] rounded-3xl overflow-hidden group cursor-pointer shadow-md block">
             <img src="https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=800&q=80" alt="Beach" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e]/90 via-[#1a1a2e]/40 to-transparent" />
             
@@ -167,12 +191,12 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">Beach</h3>
-                <p className="text-sm text-slate-300">16 experiences</p>
+                <p className="text-sm text-slate-300">{experienceCounts.outdoor} experiences</p>
               </div>
             </div>
           </Link>
 
-          <Link href="/destinations" className="relative h-[26rem] rounded-3xl overflow-hidden group cursor-pointer shadow-md block">
+          <Link href="/destinations?activityType=indoor" className="relative h-[26rem] rounded-3xl overflow-hidden group cursor-pointer shadow-md block">
             <img src="https://images.unsplash.com/photo-1518398046578-8cca57782e17?auto=format&fit=crop&w=800&q=80" alt="City Tour" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e]/90 via-[#1a1a2e]/40 to-transparent" />
             
@@ -182,75 +206,36 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">City Tour</h3>
-                <p className="text-sm text-slate-300">14 experiences</p>
+                <p className="text-sm text-slate-300">{experienceCounts.indoor} experiences</p>
               </div>
             </div>
           </Link>
         </div>
         
         <div className="mt-16 flex justify-center">
-          <Link href="/all-experiences" className="rounded-lg border-2 border-red-400 px-8 py-3 font-semibold text-red-500 transition hover:bg-red-50">
+          <Link href="/destinations" className="rounded-lg border-2 border-red-400 px-8 py-3 font-semibold text-red-500 transition hover:bg-red-50">
             View All Experiences
           </Link>
         </div>
       </section>
 
-      {/* --- OUTFIT PLANNER CTA --- */}
-      <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-        <div className="overflow-hidden rounded-3xl bg-[#eef6f1] shadow-sm">
-          <div className="grid items-center gap-8 lg:grid-cols-2">
-            <div className="px-8 py-12 sm:px-12">
-              <h2 className="font-serif text-4xl font-black tracking-wide text-slate-900 sm:text-5xl">
-                Ano? Tara?
-              </h2>
-              <p className="mt-4 max-w-md text-base leading-relaxed text-slate-600 sm:text-lg">
-                Try our outfit matcher to see if your outfit is fit for the day and destination you want to go!
-              </p>
-              <Link
-                href="/predict-outfit"
-                className="mt-8 inline-flex rounded-full bg-[#b9f0c8] px-8 py-3.5 font-bold text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:brightness-95"
-              >
-                Try Outfit Matcher
-              </Link>
-            </div>
-            <div className="grid grid-cols-3 gap-2 p-4 sm:gap-3 sm:p-6 lg:min-h-[320px]">
-              <img
-                src="https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=600&q=80"
-                alt="Casual shirts on a rack"
-                className="h-40 w-full rounded-2xl object-cover sm:h-full sm:min-h-[280px]"
-              />
-              <img
-                src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=600&q=80"
-                alt="Travel-ready clothing flat lay"
-                className="h-40 w-full rounded-2xl object-cover sm:h-full sm:min-h-[280px]"
-              />
-              <img
-                src="https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=600&q=80"
-                alt="Layered coat and outfit pieces"
-                className="h-40 w-full rounded-2xl object-cover sm:h-full sm:min-h-[280px]"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* --- FULL-WIDTH PROMO BANNER SECTION --- */}
       <section className="relative w-full overflow-hidden bg-slate-900 shadow-lg min-h-[500px] flex items-center">
-        <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2400&q=80" alt="Promo Background" className="absolute inset-0 h-full w-full object-cover grayscale opacity-80" />
+        <img src="https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=2400&q=80" alt="Clothing rack" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:px-12">
           <div className="flex w-full flex-col items-start md:w-3/4 lg:w-1/2">
             <h2 className="mb-3 font-serif text-4xl font-black tracking-wide text-white drop-shadow-md sm:text-5xl">
-              Adventure Awaits. <br className="hidden sm:block" /> Tara Na!
+              Ano? Tara? Outfit matcher
             </h2>
 
             <p className="pt-4 mb-10 text-base leading-relaxed text-gray-300 drop-shadow-sm sm:text-lg">
-              Stop dreaming and start packing. From sun-kissed local beaches to vibrant cityscapes across the map, explore top-rated destinations tailored for your budget and style. Your next unforgettable story begins right here.
+              Check whether each garment fits the weather and destination before you pack.
             </p>
-            <Link href="/destinations">
+            <Link href="/predict-outfit">
               <button className="rounded-full bg-[#b9f0c8] px-10 py-4 font-bold text-slate-900 shadow-[0_4px_14px_0_rgba(185,240,200,0.39)] transition hover:-translate-y-1 hover:shadow-[0_6px_20px_rgba(185,240,200,0.23)] active:translate-y-0">
-                Start Exploring Now
+                Try outfit matcher
               </button>
             </Link>
           </div>

@@ -1,6 +1,7 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
 import { useTravel } from "../TravelContext";
 import { clampToSelectableDate, getGuestWarning, getMinSelectableDate } from "../tripUtils";
@@ -32,8 +33,9 @@ const generateDateRange = (startDate, endDate) => {
 };
 
 function NearbyCard({ destination }) {
+  const activity = destination.activities?.[0];
   return (
-    <Link href={`/specific-destinations?id=${destination.id}`} className="group relative block h-52 overflow-hidden rounded-2xl shadow-sm">
+    <Link href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-32 overflow-hidden rounded-xl shadow-sm">
       <img src={destination.image} alt={destination.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
       <p className="absolute bottom-4 left-4 text-sm font-medium text-white">{destination.name}</p>
@@ -41,8 +43,9 @@ function NearbyCard({ destination }) {
   );
 }
 
-export default function SpecificDestinationsPage() {
-  const { dateRange, setDateRange, guests, setGuests, addActivity } = useTravel();
+function SpecificDestinationsContent() {
+  const { dateRange, setDateRange, guests, setGuests, addActivity, currentActivities, hasActivityConflict } = useTravel();
+  const searchParams = useSearchParams();
   const [tripReady, setTripReady] = useState(false);
   const minDate = getMinSelectableDate();
 
@@ -56,7 +59,9 @@ export default function SpecificDestinationsPage() {
   const [roomType, setRoomType] = useState("Standard Room");
   const [selectedTime, setSelectedTime] = useState("10:00");
   const [assignedDay, setAssignedDay] = useState("Day 1");
+  const [pricingDate, setPricingDate] = useState(dateRange.startDate || minDate);
   const [toastMessage, setToastMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   
   const [predictedPrice, setPredictedPrice] = useState("...");
   const [priceError, setPriceError] = useState("");
@@ -96,10 +101,24 @@ export default function SpecificDestinationsPage() {
 
   const guestWarning = getGuestWarning(guests);
 
+  const handleAssignedDayChange = (nextDay) => {
+    setAssignedDay(nextDay);
+    const dayIndex = Number(nextDay.replace("Day ", "")) - 1;
+    const selectedDate = generateDateRange(startDate, endDate)[dayIndex];
+    if (selectedDate) setPricingDate(selectedDate);
+  };
+
   useEffect(() => {
     if (dateRange.startDate) setStartDate(dateRange.startDate);
     if (dateRange.endDate) setEndDate(dateRange.endDate);
   }, [dateRange.endDate, dateRange.startDate]);
+
+  useEffect(() => {
+    const dates = generateDateRange(startDate, endDate);
+    const assignedIndex = Number(assignedDay.replace("Day ", "")) - 1;
+    if (dates.length && (assignedIndex < 0 || assignedIndex >= dates.length)) setAssignedDay(`Day ${dates.length}`);
+    if (dates.length && !dates.includes(pricingDate)) setPricingDate(dates[0]);
+  }, [assignedDay, endDate, pricingDate, startDate]);
 
   useEffect(() => {
     const storedTrip = window.localStorage.getItem("anoTaraTrip");
@@ -109,7 +128,11 @@ export default function SpecificDestinationsPage() {
         const storedDates = Array.isArray(trip.targetDates) ? trip.targetDates : [];
         const storedStartDate = trip.startDate || storedDates[0];
         const storedEndDate = trip.endDate || storedDates[storedDates.length - 1] || storedStartDate;
-        if (storedStartDate) setStartDate(clampToSelectableDate(storedStartDate));
+        if (storedStartDate) {
+          const nextStart = clampToSelectableDate(storedStartDate);
+          setStartDate(nextStart);
+          setPricingDate(nextStart);
+        }
         if (storedEndDate) setEndDate(clampToSelectableDate(storedEndDate));
         if (trip.guests) setGuests(trip.guests);
         if (trip.roomType) setRoomType(trip.roomType);
@@ -122,12 +145,16 @@ export default function SpecificDestinationsPage() {
 
   useEffect(() => {
     if (!tripReady) return;
-    const searchParams = new URLSearchParams(window.location.search);
-    const destinationId = searchParams.get("id") || FALLBACK_DESTINATION.id;
-    const activityParam = searchParams.get("activity");
+    const currentQuery = new URLSearchParams(searchParams.toString());
+    const destinationId = currentQuery.get("id") || FALLBACK_DESTINATION.id;
+    const activityParam = currentQuery.get("activity");
     let isMounted = true;
+    setIsLoading(true);
 
     const loadDestinationAndWeather = async () => {
+      setWeatherForecast(null);
+      setWeatherComparison(null);
+      setRecommendationReason("");
       const { MOCK_DESTINATIONS } = await import("../destinations/mockDestinations");
       const mockDestination = MOCK_DESTINATIONS.find((destination) => destination.id === destinationId) || MOCK_DESTINATIONS[0] || FALLBACK_DESTINATION;
       if (!isMounted) return;
@@ -192,8 +219,12 @@ export default function SpecificDestinationsPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            check_in: startDate || new Date().toISOString().split("T")[0],
-            check_out: endDate,
+            check_in: pricingDate || startDate || new Date().toISOString().split("T")[0],
+            check_out: (() => {
+              const nextDate = new Date(`${pricingDate || startDate}T00:00:00`);
+              nextDate.setDate(nextDate.getDate() + 1);
+              return nextDate.toISOString().split("T")[0];
+            })(),
             guests,
             hotel_type: chosenHotelType,
             room_type: roomType,
@@ -209,6 +240,7 @@ export default function SpecificDestinationsPage() {
           setPredictedPrice(price.total_price.toLocaleString());
           setPricingDetails(price);
           setPriceError("");
+          setIsLoading(false);
         } else {
           throw new Error(price.detail || "Price prediction is unavailable.");
         }
@@ -226,6 +258,7 @@ export default function SpecificDestinationsPage() {
         }));
         setActivityList(acts);
         if (acts[0]) setSelectedActivity(acts[0].name);
+        setIsLoading(false);
       }
     };
 
@@ -233,7 +266,7 @@ export default function SpecificDestinationsPage() {
     return () => {
       isMounted = false;
     };
-  }, [endDate, guests, roomType, startDate, tripReady]);
+  }, [endDate, guests, pricingDate, roomType, searchParams, startDate, tripReady]);
 
   useEffect(() => {
     if (!tripReady) return;
@@ -258,6 +291,11 @@ export default function SpecificDestinationsPage() {
     }
     const currentActivities = activityList.length > 0 ? activityList : (destinationDetails.activities || []);
     const activity = currentActivities.find((item) => item.name === selectedActivity) || currentActivities[0];
+    if (hasActivityConflict({ ...activity, assignedDay })) {
+      setToastMessage("This day already has an activity. Choose another day before adding this one.");
+      window.setTimeout(() => setToastMessage(""), 3000);
+      return;
+    }
     const selected = {
       ...activity,
       destination: destinationDetails.name,
@@ -287,10 +325,10 @@ export default function SpecificDestinationsPage() {
     <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
       
       {/* HEADER WITH DYNAMIC DATE RANGE */}
-      <header className="sticky top-0 z-50 flex h-20 items-center justify-between bg-white px-6 lg:px-12 shadow-[0_2px_10px_rgba(0,0,0,0.03)] border-b border-gray-100">
+      <header className="legacy-destination-header sticky top-0 z-50 flex h-20 items-center justify-between bg-white px-6 lg:px-12 shadow-[0_2px_10px_rgba(0,0,0,0.03)] border-b border-gray-100">
         <div className="flex flex-1 items-center">
           <Link href="/">
-            <img src="/ano_tara_logo.svg" alt="Ano Tara Logo" className="h-10 w-auto object-contain cursor-pointer" />
+            <img src="/LOGO-BLACK.svg" alt="Ano Tara Logo" className="h-10 w-auto object-contain cursor-pointer" />
           </Link>
         </div>
 
@@ -325,17 +363,19 @@ export default function SpecificDestinationsPage() {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-3">
-          <Link href="/destinations" className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors mr-2 hidden sm:block">
-            Back to destinations
+          <Link href="/predict-outfit" className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors mr-2 hidden sm:block">
+            Outfit planner
           </Link>
           <Link href="/" className="flex items-center gap-2 rounded-md border border-[#d96a6a] px-5 py-2 text-sm font-semibold text-[#d96a6a] transition hover:bg-red-50">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Sign up
+            Final planner
           </Link>
         </div>
       </header>
 
+      {isLoading ? <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white/95"><div className="text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#4a8b8b]" /><p className="mt-4 text-sm font-bold text-slate-700">Loading destination details...</p></div></div> : null}
       <main className="mx-auto w-full max-w-[1400px] px-6 lg:px-12 py-10 flex-grow">
+        <Link href="/destinations" className="mb-6 inline-flex rounded-lg border-2 border-slate-900 px-4 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-900 hover:text-white">Back to destinations</Link>
         
         <div className="flex flex-col lg:flex-row gap-12 items-start mb-16">
           
@@ -372,6 +412,12 @@ export default function SpecificDestinationsPage() {
                 <a href="#" className="mt-2 inline-block text-sm font-medium italic text-gray-500 underline transition-colors hover:text-[#76B3DD]">
                   look more here! Bookingsite.com
                 </a>
+                <div className="mt-6 border-t border-gray-200 pt-4">
+                  <h2 className="text-sm font-black uppercase tracking-wider text-slate-500">Next destinations</h2>
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {nearbyDestinations.slice(0, 3).map((dest) => <NearbyCard key={dest.id} destination={dest} />)}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -405,14 +451,13 @@ export default function SpecificDestinationsPage() {
                           ? 'bg-sky-100 text-sky-800 border border-sky-200'
                           : 'bg-slate-200 text-slate-800 border border-slate-300'
                       }`}>
-                        <span>{weatherForecast.condition === 'Sunny' ? '☀️' : weatherForecast.condition === 'Rainy' ? '🌧️' : '⛅'}</span>
                         {weatherForecast.condition}
                       </span>
                     </div>
 
                     <div className="mt-2 flex items-baseline justify-between text-xs text-slate-700 font-medium">
                       <span>Temp: {weatherForecast.average_temperature}°C</span>
-                      <span>Rain: {weatherForecast.precipitation_sum_mm} mm ({weatherForecast.precipitation_probability}% prob)</span>
+                      <span>Rain chance: {weatherForecast.precipitation_sum_mm} mm ({weatherForecast.precipitation_probability}%)</span>
                     </div>
 
                     <div className="mt-2 rounded-xl bg-white p-2.5 border border-slate-100">
@@ -489,7 +534,7 @@ export default function SpecificDestinationsPage() {
                     <span>Assign to</span>
                     <select
                       value={assignedDay}
-                      onChange={(e) => setAssignedDay(e.target.value)}
+                      onChange={(e) => handleAssignedDayChange(e.target.value)}
                       className="max-w-[65%] rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold outline-none focus:border-gray-400"
                     >
                       {generateDateRange(startDate, endDate).map((date, index) => (
@@ -511,28 +556,17 @@ export default function SpecificDestinationsPage() {
                         className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
                       />
                     </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-slate-900 mb-2">How many guests?</label>
-                  <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4 transition-colors hover:border-gray-400">
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
-                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
-                      </svg>
-                      <span>Add guests</span>
+                    <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4">
+                      <span className="text-sm font-medium text-slate-700">Guests</span>
+                      <div className="flex items-center gap-3">
+                        <button type="button" onClick={handleMinus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">-</button>
+                        <span className="w-4 text-center font-bold text-slate-800">{guests}</span>
+                        <button type="button" onClick={handlePlus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">+</button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                       <button onClick={handleMinus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors">-</button>
-                       <span className="w-4 text-center font-bold text-slate-800">{guests}</span>
-                       <button onClick={handlePlus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors">+</button>
-                    </div>
-                  </div>
-                  {guestWarning ? (
-                    <p className="mt-2 text-xs font-semibold text-amber-600">{guestWarning}</p>
-                  ) : null}
+                    {guestWarning ? <p className="text-xs font-semibold text-amber-600">{guestWarning}</p> : null}
                 </div>
+              </div>
               </div>
 
               <button onClick={addToPlanner} type="button" className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#58a573] hover:bg-[#4d9064] px-8 py-3.5 text-base font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 mb-6">
@@ -541,6 +575,7 @@ export default function SpecificDestinationsPage() {
                 </svg>
                 Add to Itinerary
               </button>
+              <Link href="/final-planner" className="mb-6 block text-center text-sm font-black text-[#4a8b8b] underline">Open itinerary planner</Link>
 
               {toastMessage ? (
                 <div role="status" className="fixed bottom-6 right-6 z-[60] rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl">
@@ -563,18 +598,13 @@ export default function SpecificDestinationsPage() {
           </div>
         </div>
 
-        <div className="relative border-t border-gray-200 pt-12">
-          <h2 className="mb-8 text-2xl font-black text-slate-800 italic">Destinations around it!</h2>
-
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-            {nearbyDestinations.map((dest) => (
-              <NearbyCard key={dest.id} destination={dest} />
-            ))}
-          </div>
-        </div>
       </main>
 
       <Footer />
     </div>
   );
+}
+
+export default function SpecificDestinationsPage() {
+  return <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm font-bold text-slate-600">Loading destination details...</div>}><SpecificDestinationsContent /></Suspense>;
 }
