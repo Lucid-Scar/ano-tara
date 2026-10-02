@@ -354,10 +354,6 @@ img, video {
   right: .5rem;
 }
 
-.right-3 {
-  right: .75rem;
-}
-
 .right-3\.5 {
   right: .875rem;
 }
@@ -384,10 +380,6 @@ img, video {
 
 .top-28 {
   top: 7rem;
-}
-
-.top-3 {
-  top: .75rem;
 }
 
 .top-3\.5 {
@@ -2776,10 +2768,6 @@ body {
 
 .group:hover .group-hover\:z-20 {
   z-index: 20;
-}
-
-.group:hover .group-hover\:flex {
-  display: flex;
 }
 
 .group:hover .group-hover\:rotate-0 {
