@@ -12,7 +12,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 ;
 function Footer() {
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("footer", {
-        className: "mt-auto border-t border-slate-200 bg-white pt-16 pb-8",
+        className: "mt-auto w-full bg-transparent pt-16 pb-8",
         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
             className: "mx-auto max-w-6xl px-6 sm:px-12",
             children: [
@@ -624,7 +624,7 @@ function Home() {
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                                         href: "/predict-outfit",
-                                        className: "rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10",
+                                        className: "planner-nav-link",
                                         children: "Outfit Planner"
                                     }, void 0, false, {
                                         fileName: "[project]/app/page.js",
@@ -633,8 +633,8 @@ function Home() {
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                                         href: "/final-planner",
-                                        className: "rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10",
-                                        children: "Itinerary planner"
+                                        className: "planner-nav-link",
+                                        children: "Itinerary Planner"
                                     }, void 0, false, {
                                         fileName: "[project]/app/page.js",
                                         lineNumber: 98,
@@ -1270,7 +1270,7 @@ function Home() {
                             children: [
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
                                     className: "mb-3 font-serif text-4xl font-black tracking-wide text-white drop-shadow-md sm:text-5xl",
-                                    children: "Ano? Tara? Outfit matcher"
+                                    children: "Ano Tara? Outfit matcher"
                                 }, void 0, false, {
                                     fileName: "[project]/app/page.js",
                                     lineNumber: 229,

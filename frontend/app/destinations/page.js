@@ -7,14 +7,14 @@ import { useTravel } from "../TravelContext";
 import { clampToSelectableDate, getGuestWarning, getMinSelectableDate } from "../tripUtils";
 
 const CARDS_PER_PAGE = 24;
-const activityImage = (activity, destination) => {
-  if (activity.image) return activity.image;
+const activityFallbackImage = (activity, destination) => {
   const name = `${activity.name || ""} ${activity.type || ""}`.toLowerCase();
   if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
   if (/museum|gallery|art|heritage|cultural/.test(name)) return "https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=1200&q=80";
   if (/boat|island|beach|falls|nature|park|hiking|walking/.test(name)) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
   return destination.image;
 };
+const activityImage = (activity, destination) => activity.image || activityFallbackImage(activity, destination);
 
 function ActivityDestinationCard({ item }) {
   return (
@@ -26,6 +26,7 @@ function ActivityDestinationCard({ item }) {
         <img
           src={item.image}
           alt={`${item.activityName} in ${item.cityName}`}
+          onError={(event) => { if (event.currentTarget.src !== item.fallbackImage) event.currentTarget.src = item.fallbackImage; else event.currentTarget.style.visibility = "hidden"; }}
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           loading="lazy"
         />
@@ -211,6 +212,7 @@ export default function DestinationsPage() {
         base_price: dest.base_prices?.["Resort Hotel"] || MLR_BASE_PRICES["Resort Hotel"],
         weatherTag: outdoor.weather_tag || (isCold ? "Cold" : "Sunny"),
         image: activityImage(outdoor, dest),
+        fallbackImage: activityFallbackImage(outdoor, dest),
         description: dest.description,
         durationHours: outdoor.duration_hours || 4,
       });
@@ -227,6 +229,7 @@ export default function DestinationsPage() {
         base_price: dest.base_prices?.["City Hotel"] || MLR_BASE_PRICES["City Hotel"],
         weatherTag: indoor.weather_tag || (isCold ? "Cold" : "Rainy"),
         image: activityImage(indoor, dest),
+        fallbackImage: activityFallbackImage(indoor, dest),
         description: dest.description,
         durationHours: indoor.duration_hours || 3,
       });
@@ -320,11 +323,11 @@ export default function DestinationsPage() {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-3">
-          <Link href="/predict-outfit" className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors mr-2 hidden sm:block">
+          <Link href="/predict-outfit" className="planner-nav-link hidden sm:inline-flex">
             Outfit Planner
           </Link>
-          <Link href="/final-planner" className="rounded-md border border-[#4a8b8b] px-4 py-2 text-sm font-semibold text-[#4a8b8b] transition hover:bg-teal-50">
-            Final Planner
+          <Link href="/final-planner" className="planner-nav-link">
+            Itinerary Planner
           </Link>
         </div>
       </header>

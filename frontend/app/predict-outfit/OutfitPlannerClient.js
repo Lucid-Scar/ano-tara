@@ -37,7 +37,7 @@ const generateDateRange = (startDate, endDate) => {
 };
 
 export default function OutfitPlannerClient() {
-  const { dateRange, currentActivities, outfits, setOutfits, savedItineraries } = useTravel();
+  const { outfits, setOutfits, savedItineraries } = useTravel();
   const [destinations, setDestinations] = useState([]);
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState("");
@@ -53,21 +53,24 @@ export default function OutfitPlannerClient() {
   const [captureMode, setCaptureMode] = useState("");
   const [outfitSets, setOutfitSets] = useState([{ id: "outfit-set-1", name: "Outfit 1" }]);
   const [activeOutfitSetId, setActiveOutfitSetId] = useState("outfit-set-1");
+  const [selectedPlannerId, setSelectedPlannerId] = useState("");
 
-  const readFromItinerary = () => {
-    const latest = savedItineraries[0];
-    const itineraryDates = latest?.itinerary?.map((day) => day.date || day.day).filter(Boolean) || [];
-    const contextDates = generateDateRange(dateRange.startDate, dateRange.endDate);
-    const dates = contextDates.length ? contextDates : itineraryDates;
-    const savedDestination = currentActivities[0]?.destination || latest?.itinerary?.[0]?.destination || "";
-    return { dates: dates.map(clampToSelectableDate), destination: savedDestination };
+  const selectedSavedPlanner = savedItineraries.find((planner) => planner.createdAt === selectedPlannerId) || savedItineraries[0];
+  const readFromItinerary = (planner = selectedSavedPlanner) => {
+    const dates = planner?.itinerary?.map((day) => day.date || day.day).filter(Boolean) || [];
+    const firstDay = planner?.itinerary?.[0];
+    const savedDestination = firstDay?.scheduled_activities?.[0]?.destination || firstDay?.destination || "";
+    return { dates, destination: savedDestination };
+  };
+
+  const locationsForDate = (planner, selectedDate) => {
+    const day = planner?.itinerary?.find((item) => (item.date || item.day) === selectedDate);
+    const locations = (day?.scheduled_activities || []).map((activity) => activity.destination || activity.location).filter(Boolean);
+    if (!locations.length && day?.destination) locations.push(day.destination);
+    return [...new Set(locations)];
   };
 
   useEffect(() => {
-    const saved = readFromItinerary();
-    setPlannerDates(saved.dates);
-    setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate()));
-    setDestination(saved.destination);
     let active = true;
     const load = async () => {
       let list;
@@ -82,12 +85,32 @@ export default function OutfitPlannerClient() {
       }
       if (!active) return;
       setDestinations(list);
-      if (!saved.destination) setDestination(list[0]?.name || "");
     };
     load();
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!destination && destinations.length && !savedItineraries.length) setDestination(destinations[0].name);
+  }, [destination, destinations, savedItineraries.length]);
+
+  useEffect(() => {
+    if (savedItineraries.some((planner) => planner.createdAt === selectedPlannerId)) return;
+    const planner = savedItineraries[0];
+    setSelectedPlannerId(planner?.createdAt || "");
+    const saved = readFromItinerary(planner);
+    setPlannerDates(saved.dates);
+    setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate()));
+    if (saved.destination) setDestination(saved.destination);
+    setWeather(null);
+  }, [savedItineraries, selectedPlannerId]);
+
+  const selectedPlannerLocations = source === "saved" ? locationsForDate(selectedSavedPlanner, date) : [];
+  const savedPlannerLocations = source === "saved" ? [...new Set((selectedSavedPlanner?.itinerary || []).flatMap((day) => locationsForDate(selectedSavedPlanner, day.date || day.day)))] : [];
+  const locationOptions = source === "saved" && selectedPlannerLocations.length
+    ? selectedPlannerLocations
+    : source === "saved" && savedPlannerLocations.length ? savedPlannerLocations : destinations.map((item) => item.name);
 
   const availableOutfitSets = [...outfitSets];
   outfits.forEach((outfit) => {
@@ -114,13 +137,24 @@ export default function OutfitPlannerClient() {
     setOutfitSets((current) => [...current, next]);
     setActiveOutfitSetId(next.id);
   };
+  const removeActiveOutfitSet = () => {
+    if (availableOutfitSets.length <= 1) return;
+    const remaining = availableOutfitSets.filter((set) => set.id !== activeOutfitSetId);
+    const fallback = remaining[0];
+    setOutfitSets(remaining);
+    setOutfits((current) => current.map((outfit) => (outfit.outfitSetId || "outfit-set-1") === activeOutfitSetId
+      ? { ...outfit, outfitSetId: fallback.id, outfitSetName: fallback.name }
+      : outfit));
+    setActiveOutfitSetId(fallback.id);
+  };
   const useSavedPlanner = () => {
-    const saved = readFromItinerary();
+    const saved = readFromItinerary(selectedSavedPlanner);
     setSource("saved");
     setPlannerDates(saved.dates);
     setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate()));
     setDestination(saved.destination || destination);
-    setMessage(saved.dates.length ? "Saved planner dates and destination loaded." : "No saved itinerary dates were found yet. Add activities in the itinerary planner first.");
+    setWeather(null);
+    setMessage(saved.dates.length ? "Saved planner dates and destination loaded." : "No saved planners were found. Generate a planner first.");
   };
   const getWeather = async () => {
     if (!destination || !date) { setMessage("Choose a place and date first."); return; }
@@ -200,24 +234,29 @@ export default function OutfitPlannerClient() {
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Wardrobe workspace</p>
             <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-6xl">Attach outfit</h1>
           </div>
-          <Link href="/final-planner" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white">Open final planner</Link>
+          <Link href="/final-planner" className="planner-nav-link">Itinerary Planner</Link>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-lg border border-slate-200 p-6">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">01 / Outfit source</p>
             <h2 className="mt-2 text-2xl font-black">Where is this outfit for?</h2>
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button type="button" onClick={useSavedPlanner} className={`rounded-lg px-3 py-2 text-sm font-bold ${source === "saved" ? "bg-slate-900 text-white" : "border border-slate-300"}`}>Use saved planner</button>
-              <button type="button" onClick={() => { setSource("new"); setPlannerDates([]); }} className={`rounded-lg px-3 py-2 text-sm font-bold ${source === "new" ? "bg-slate-900 text-white" : "border border-slate-300"}`}>New location</button>
+              <button type="button" onClick={() => { setSource("new"); setPlannerDates([]); setDate(clampToSelectableDate(getMinSelectableDate())); setDestination(destinations[0]?.name || ""); setWeather(null); setResult(null); setImage(""); setMessage(""); }} className={`rounded-lg px-3 py-2 text-sm font-bold ${source === "new" ? "bg-slate-900 text-white" : "border border-slate-300"}`}>New location</button>
             </div>
+            {source === "saved" && savedItineraries.length ? <label className="mt-4 block text-sm font-bold">Saved planner
+              <select value={selectedSavedPlanner?.createdAt || ""} onChange={(event) => { const planner = savedItineraries.find((item) => item.createdAt === event.target.value); setSelectedPlannerId(event.target.value); const saved = readFromItinerary(planner); setPlannerDates(saved.dates); setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate())); setDestination(saved.destination); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3">
+                {savedItineraries.map((planner) => <option key={planner.createdAt} value={planner.createdAt}>{planner.name || "Saved itinerary"} · {planner.itinerary?.length || 0} days</option>)}
+              </select>
+            </label> : null}
             <label className="mt-5 block text-sm font-bold">Location
               <select value={destination} onChange={(event) => { setDestination(event.target.value); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3">
-                {destinations.map((item) => <option key={item.id || item.name}>{item.name}</option>)}
+                {locationOptions.map((name) => <option key={name}>{name}</option>)}
               </select>
             </label>
             <label className="mt-4 block text-sm font-bold">Plan date
-              <input type="date" min={getMinSelectableDate()} value={date} onChange={(event) => { setDate(event.target.value); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3" />
+              {source === "saved" && plannerDates.length ? <select value={date} onChange={(event) => { const nextDate = event.target.value; setDate(nextDate); setDestination(locationsForDate(selectedSavedPlanner, nextDate)[0] || destination); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3">{plannerDates.map((plannerDate, index) => <option key={plannerDate} value={plannerDate}>Day {index + 1} · {formatDate(plannerDate)}</option>)}</select> : <input type="date" min={getMinSelectableDate()} value={date} onChange={(event) => { setDate(event.target.value); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3" />}
             </label>
             <button type="button" onClick={getWeather} disabled={loadingWeather} className="mt-4 w-full rounded-lg bg-slate-900 px-4 py-3 font-bold text-white disabled:opacity-50">{loadingWeather ? "Checking weather..." : "Check predicted weather"}</button>
             {weather ? <div className="mt-4 border-t border-slate-200 pt-4">
@@ -227,7 +266,7 @@ export default function OutfitPlannerClient() {
             </div> : null}
           </section>
 
-          <section className="rounded-lg border border-slate-200 p-6">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">02 / Capture</p>
             <h2 className="mt-2 text-2xl font-black">Add one garment</h2>
             <p className="mt-2 text-sm text-slate-600">JPG and image files up to 20MB are supported.</p>
@@ -241,9 +280,13 @@ export default function OutfitPlannerClient() {
                   {availableOutfitSets.map((set) => <option key={set.id} value={set.id}>{set.name}</option>)}
                 </select>
               </label>
-              <button type="button" onClick={createOutfitSet} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold">Create another outfit</button>
+              <div className="flex gap-2">
+                <button type="button" onClick={createOutfitSet} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold">Create outfit</button>
+                <button type="button" onClick={removeActiveOutfitSet} disabled={availableOutfitSets.length <= 1} title="Remove the selected outfit set and move its garments to another set" className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-40">Remove set</button>
+              </div>
             </div>
             {image ? <GarmentImage src={image} alt="Garment preview" imageClassName="object-contain" className="mt-5 h-48 w-full rounded-lg bg-slate-50" /> : null}
+            {image ? <button type="button" onClick={() => analyzeOutfit(image)} disabled={!destination || !weather || loadingOutfit || loadingWeather} className="mt-3 rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Re-analyze garment</button> : null}
             {loadingOutfit ? <p className="mt-4 text-sm font-semibold text-slate-600">Analyzing garment...</p> : null}
             {result ? <div className="mt-5 border-t border-slate-200 pt-4">
               <p className="font-bold">{result.matches ? "Weather match" : "Needs adjustment"}</p>
@@ -263,7 +306,7 @@ export default function OutfitPlannerClient() {
           </section>
         </div>
 
-        <section className="mt-6 rounded-lg border border-slate-200 p-6">
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-black uppercase tracking-wider text-slate-500">03 / Accepted garments</p>
           <h2 className="mt-2 text-2xl font-black">Outfits by itinerary day</h2>
           <p className="mt-2 text-sm text-slate-600">Group multiple garments into one outfit, then create another outfit for the same day.</p>

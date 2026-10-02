@@ -17,6 +17,13 @@ function sanitizeDateRange({ startDate, endDate }) {
   return { startDate: nextStart, endDate: nextEnd };
 }
 
+function defaultPlannerName(planner) {
+  const firstDay = planner?.itinerary?.[0];
+  const destination = firstDay?.scheduled_activities?.[0]?.destination || firstDay?.destination;
+  const date = firstDay?.date;
+  return [destination, date].filter(Boolean).join(" - ") || "Saved itinerary";
+}
+
 export function TravelProvider({ children }) {
   const [dateRange, setDateRangeState] = useState({ startDate: "", endDate: "" });
   const [guests, setGuestsState] = useState(1);
@@ -31,7 +38,10 @@ export function TravelProvider({ children }) {
     window.localStorage.removeItem(TRIP_STORAGE_KEY);
     try {
       const saved = JSON.parse(window.localStorage.getItem(SAVED_STORAGE_KEY) || "[]");
-      setSavedItinerariesState(Array.isArray(saved) ? saved : []);
+      setSavedItinerariesState(Array.isArray(saved) ? saved.map((planner) => ({
+        ...planner,
+        name: typeof planner.name === "string" && planner.name.trim() ? planner.name : defaultPlannerName(planner),
+      })) : []);
     } catch {
       window.localStorage.removeItem(SAVED_STORAGE_KEY);
     } finally {
@@ -82,6 +92,14 @@ export function TravelProvider({ children }) {
     setSavedItinerariesState((current) => current.filter((itinerary) => itinerary.createdAt !== createdAt));
   }, []);
 
+  const renameItinerary = useCallback((createdAt, name) => {
+    setSavedItinerariesState((current) => current.map((itinerary) => itinerary.createdAt === createdAt ? { ...itinerary, name } : itinerary));
+  }, []);
+
+  const clearSavedItineraries = useCallback(() => {
+    setSavedItinerariesState([]);
+  }, []);
+
   const clearCurrentPlan = useCallback(() => {
     setDateRangeState({ startDate: "", endDate: "" });
     setGuestsState(1);
@@ -106,8 +124,10 @@ export function TravelProvider({ children }) {
     savedItineraries,
     saveItinerary,
     deleteItinerary,
+    renameItinerary,
+    clearSavedItineraries,
     clearCurrentPlan,
-  }), [dateRange, guests, currentActivities, outfits, savedItineraries, setDateRange, setGuests, addActivity, removeActivity, updateActivity, hasActivityConflict, saveItinerary, deleteItinerary, clearCurrentPlan]);
+  }), [dateRange, guests, currentActivities, outfits, savedItineraries, setDateRange, setGuests, addActivity, removeActivity, updateActivity, hasActivityConflict, saveItinerary, deleteItinerary, renameItinerary, clearSavedItineraries, clearCurrentPlan]);
 
   return <TravelContext.Provider value={value}>{children}</TravelContext.Provider>;
 }
