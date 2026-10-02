@@ -92,11 +92,11 @@ export default function Home() {
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-3">
-            <Link href="/predict-outfit" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
+            <Link href="/predict-outfit" className="planner-nav-link">
               Outfit Planner
             </Link>
-            <Link href="/final-planner" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
-              Itinerary planner
+            <Link href="/final-planner" className="planner-nav-link">
+              Itinerary Planner
             </Link>
           </div>
         </nav>
@@ -227,7 +227,7 @@ export default function Home() {
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:px-12">
           <div className="flex w-full flex-col items-start md:w-3/4 lg:w-1/2">
             <h2 className="mb-3 font-serif text-4xl font-black tracking-wide text-white drop-shadow-md sm:text-5xl">
-              Ano? Tara? Outfit matcher
+              Ano Tara? Outfit matcher
             </h2>
 
             <p className="pt-4 mb-10 text-base leading-relaxed text-gray-300 drop-shadow-sm sm:text-lg">

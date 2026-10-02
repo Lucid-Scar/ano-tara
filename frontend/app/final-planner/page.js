@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { TriangleAlert } from "lucide-react";
 import GarmentImage from "../../components/GarmentImage";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
@@ -19,13 +18,14 @@ const generateDateRange = (startDate, endDate) => {
 const valueFrom = (item, keys) => keys.map((key) => item?.[key]).find((value) => value !== undefined && value !== null && value !== "");
 const getTime = (activity) => { const start = valueFrom(activity, ["time", "schedule", "start_time"]); const end = valueFrom(activity, ["end_time"]); return start && end ? `${start} - ${end}` : start || "Time to be confirmed"; };
 const getStay = (activity) => { const checkIn = valueFrom(activity, ["check_in", "checkIn", "checkin"]); const checkOut = valueFrom(activity, ["check_out", "checkOut", "checkout"]); return checkIn || checkOut ? `Check-in ${checkIn || "-"} · Check-out ${checkOut || "-"}` : "No check-in details"; };
-const dayImage = (activity) => {
-  if (activity?.image) return activity.image;
+const fallbackDayImage = (activity) => {
   const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
   if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
   if (/museum|gallery|art|heritage|cultural/.test(name)) return "https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=1200&q=80";
   return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
 };
+const dayImage = (activity) => activity?.image || fallbackDayImage(activity);
+const isValidActivityTime = (value) => typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) && value >= "06:00" && value <= "23:00";
 const describeWeather = (day) => {
   const forecast = day.weather_forecast || {};
   const historical = day.historical_weather || {};
@@ -51,7 +51,7 @@ const groupOutfits = (items) => items.reduce((groups, item) => {
 }, []);
 
 export default function FinalPlannerPage() {
-  const { dateRange, setDateRange, guests, currentActivities, setCurrentActivities, updateActivity, hasActivityConflict, outfits, setOutfits, savedItineraries, saveItinerary, deleteItinerary, clearCurrentPlan } = useTravel();
+  const { dateRange, setDateRange, guests, currentActivities, setCurrentActivities, hasActivityConflict, outfits, setOutfits, savedItineraries, saveItinerary, deleteItinerary, renameItinerary, clearSavedItineraries, clearCurrentPlan } = useTravel();
   const [startDate, setStartDate] = useState(""); const [endDate, setEndDate] = useState(""); const [activities, setActivities] = useState([]); const [planner, setPlanner] = useState(null); const [isLoading, setIsLoading] = useState(false); const [errorMessage, setErrorMessage] = useState(""); const [warningActivityIndex, setWarningActivityIndex] = useState(-1); const [showSavedPlanners, setShowSavedPlanners] = useState(false);
 
   useEffect(() => { if (dateRange.startDate) setStartDate(dateRange.startDate); if (dateRange.endDate) setEndDate(dateRange.endDate); }, [dateRange.endDate, dateRange.startDate]);
@@ -61,8 +61,20 @@ export default function FinalPlannerPage() {
   const commitActivities = (nextActivities) => { setActivities(nextActivities); setCurrentActivities(nextActivities); setPlanner(null); };
   const changeActivity = (index, changes) => {
     const next = activities.map((activity, activityIndex) => activityIndex === index ? { ...activity, ...changes } : activity);
-    if (changes.assignedDay && hasActivityConflict(next[index], index)) { setWarningActivityIndex(index); setErrorMessage("Only one activity per day. Choosing this day will swap the activities."); return; }
-    setWarningActivityIndex(-1); setErrorMessage(""); updateActivity(index, changes); commitActivities(next);
+    if (changes.assignedDay && hasActivityConflict(next[index], index)) {
+      const otherIndex = next.findIndex((activity, activityIndex) => activityIndex !== index && activity.assignedDay === changes.assignedDay);
+      if (otherIndex >= 0 && activities[index]?.assignedDay) {
+        const previousDay = activities[index].assignedDay;
+        next[otherIndex] = { ...next[otherIndex], assignedDay: previousDay, assigned_day: previousDay };
+      }
+    }
+    const ordered = next
+      .map((activity, originalIndex) => ({ activity, originalIndex, day: Number(String(activity.assignedDay || "").replace("Day ", "")) || Number.MAX_SAFE_INTEGER }))
+      .sort((left, right) => left.day - right.day || left.originalIndex - right.originalIndex)
+      .map(({ activity }) => activity);
+    setWarningActivityIndex(-1);
+    setErrorMessage("");
+    commitActivities(ordered);
   };
   const changeActivityGuests = (index, amount) => changeActivity(index, { guests: Math.max(1, (Number(activities[index]?.guests) || 1) + amount) });
   const removeOutfit = (id) => setOutfits((current) => current.filter((outfit) => outfit.id !== id));
@@ -82,6 +94,11 @@ export default function FinalPlannerPage() {
     setErrorMessage("");
     const targetDates = generateDateRange(startDate, endDate);
     if (!targetDates.length || isPastOrTodayDate(startDate)) { setErrorMessage("Choose a valid future date range."); return; }
+    const hasInvalidSchedule = activities.some((activity) => {
+      const dayIndex = Number(String(activity.assignedDay || "").replace("Day ", "")) - 1;
+      return !targetDates[dayIndex] || !isValidActivityTime(activity.time);
+    });
+    if (hasInvalidSchedule) { setErrorMessage("Each activity needs a valid trip day and a time between 6:00 AM and 11:00 PM."); return; }
     setIsLoading(true);
     try {
       const primaryActivity = activities[0];
@@ -105,6 +122,7 @@ export default function FinalPlannerPage() {
       if (!response.ok) throw new Error(data?.detail?.[0]?.msg || data?.detail || "Could not generate the planner.");
       const newPlanner = {
         ...data,
+        name: `${primaryActivity.destination || "Travel"} itinerary - ${formatDate(startDate)}`,
         outfits,
         priceEstimate: { amount: mlrPrice, source: priceData.source, destination: primaryActivity.destination },
         createdAt: new Date().toLocaleString(),
@@ -116,12 +134,13 @@ export default function FinalPlannerPage() {
     } finally { setIsLoading(false); }
   };
   const printPlanner = () => { if (!planner) return; window.print(); };
-  const itineraryDays = (planner?.itinerary || []).map((day, index) => ({ ...day, dayNumber: `Day ${index + 1}`, dateLabel: formatDate(day.date || day.day), weatherDescription: describeWeather(day), activities: (day.scheduled_activities || []).map((activity) => ({ ...activity, location: activity.location || activity.destination, price: Number(activity.price ?? ((activity.price_range?.min || 0) + (activity.price_range?.max || 0)) / 2), guests: Number(activity.guests) || guests })) })).filter((day) => day.activities.length);
+  const itineraryDays = (planner?.itinerary || []).map((day, index) => ({ ...day, dayNumber: `Day ${index + 1}`, dateLabel: formatDate(day.date || day.day), weatherDescription: describeWeather(day), activities: (day.scheduled_activities || []).map((activity) => ({ ...activity, location: activity.location || activity.destination, price: Number(activity.price ?? ((activity.price_range?.min || 0) + (activity.price_range?.max || 0)) / 2), guests: Number(activity.guests) || guests })) }));
 
   return (
     <main className="planner-shell min-h-screen bg-[#f5f7fa] text-slate-900">
       <div className="planner-controls"><Header /></div>
-      <div className="w-full px-4 py-8 sm:px-8">
+      <div className="w-full py-8">
+        <div className="px-4 sm:px-8">
         <div className="planner-controls mb-8 flex flex-wrap items-end justify-between gap-4">
           <div><p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Trip workspace</p><h1 className="mt-2 text-4xl font-black tracking-tight sm:text-6xl">Itinerary planner</h1></div>
           <div className="flex items-center gap-3">
@@ -132,13 +151,17 @@ export default function FinalPlannerPage() {
 
         {showSavedPlanners ? (
           <div className="planner-controls mb-8 rounded-lg border border-slate-200 bg-white p-4">
-            <p className="text-sm font-bold text-slate-700">Previously generated planners</p>
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm font-bold text-slate-700">Previously generated planners</p>
+              {savedItineraries.length ? <button type="button" onClick={() => { if (window.confirm("Clear all saved planners? This cannot be undone.")) clearSavedItineraries(); }} className="rounded-md border border-rose-200 px-3 py-2 text-sm font-bold text-rose-700">Clear all</button> : null}
+            </div>
             {savedItineraries.length ? (
               <div className="mt-3 space-y-2">
                 {savedItineraries.map((item) => (
-                  <div key={item.createdAt} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3">
+                  <div key={item.createdAt} className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 p-3">
+                    <input aria-label="Saved planner name" value={item.name || ""} onChange={(event) => renameItinerary(item.createdAt, event.target.value)} onBlur={() => { if (!item.name?.trim()) renameItinerary(item.createdAt, "Saved itinerary"); }} className="min-w-48 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold" />
                     <button type="button" onClick={() => { setPlanner(item); setShowSavedPlanners(false); }} className="text-left text-sm font-bold text-slate-800 hover:underline">
-                      {item.itinerary?.length || 0} day itinerary · {item.createdAt}
+                      Open · {item.itinerary?.length || 0} days · {item.createdAt}
                     </button>
                     <button type="button" onClick={() => deleteItinerary(item.createdAt)} className="text-xs font-bold text-rose-600">Delete</button>
                   </div>
@@ -148,8 +171,8 @@ export default function FinalPlannerPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
-          <form onSubmit={generatePlanner} className="planner-controls max-h-[calc(100vh-9rem)] overflow-y-auto pr-2 lg:sticky lg:top-24">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,4fr)] lg:items-start">
+          <form onSubmit={generatePlanner} className="planner-controls max-h-[calc(100vh-9rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
             <section className="border-b border-slate-200 pb-6">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">01 / Travel details</p>
               <h2 className="mt-2 text-2xl font-black">Selected trip</h2>
@@ -162,19 +185,20 @@ export default function FinalPlannerPage() {
             <section className="py-6">
               <div className="flex items-center justify-between"><h3 className="text-sm font-black uppercase tracking-wider">Activities</h3><Link href="/destinations" className="text-sm font-bold underline">Choose more</Link></div>
               <p className="mt-2 text-sm text-slate-600">Choose a different day to swap with the activity currently assigned there.</p>
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {activities.map((activity, index) => (
-                  <article key={`${activity.name}-${index}`} className="rounded-lg border border-slate-200 bg-white p-4">
+                  <article key={`${activity.name}-${index}`} className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
                     <div className="flex justify-between gap-3">
                       <div><h4 className="font-black">{activity.name}</h4><p className="mt-1 text-xs text-slate-500">{activity.destination} · {activity.type || "Activity"}</p></div>
                       <button type="button" onClick={() => commitActivities(activities.filter((_, activityIndex) => activityIndex !== index))} className="text-xs font-bold text-rose-600">Remove</button>
                     </div>
                     <div className="mt-4 grid gap-3 text-xs font-bold sm:grid-cols-2">
                       <div className="flex items-center gap-2"><span>Guests</span><button type="button" onClick={() => changeActivityGuests(index, -1)} className="h-6 w-6 rounded-full border">-</button><span>{activity.guests || 1}</span><button type="button" onClick={() => changeActivityGuests(index, 1)} className="h-6 w-6 rounded-full border">+</button></div>
-                      <label>Day<select value={activity.assignedDay || "Day 1"} onChange={(event) => changeActivity(index, { assignedDay: event.target.value })} className="ml-2 rounded border border-slate-300 bg-white px-2 py-1">{dates.map((date, dayIndex) => <option key={date} value={`Day ${dayIndex + 1}`}>Day {dayIndex + 1} · {formatDate(date)}</option>)}</select></label>
+                      <label>Day<select value={dates.some((_, dayIndex) => activity.assignedDay === `Day ${dayIndex + 1}`) ? activity.assignedDay : ""} onChange={(event) => changeActivity(index, { assignedDay: event.target.value })} className="ml-2 rounded border border-slate-300 bg-white px-2 py-1"><option value="" disabled>Select day</option>{dates.map((date, dayIndex) => <option key={date} value={`Day ${dayIndex + 1}`}>Day {dayIndex + 1} · {formatDate(date)}</option>)}</select></label>
                     </div>
                     {warningActivityIndex === index ? <p className="mt-2 text-[11px] font-semibold text-amber-700">{errorMessage}</p> : null}
-                    <p className="mt-3 text-xs text-slate-600">Time: {getTime(activity)} · {getStay(activity)}</p>
+                    <label className="mt-3 block text-xs font-bold">Time<input type="time" min="06:00" max="23:00" value={activity.time || ""} onChange={(event) => changeActivity(index, { time: event.target.value })} className="ml-2 rounded border border-slate-300 bg-white px-2 py-1" /></label>
+                    <p className="mt-1 text-xs text-slate-600">{getStay(activity)}</p>
                     {getGuestWarning(activity.guests) ? <p className="mt-1 text-[11px] font-semibold text-amber-700">{getGuestWarning(activity.guests)}</p> : null}
                   </article>
                 ))}
@@ -213,7 +237,7 @@ export default function FinalPlannerPage() {
             {errorMessage && warningActivityIndex < 0 ? <p className="mt-3 bg-rose-50 p-3 text-sm font-semibold text-rose-700">{errorMessage}</p> : null}
           </form>
 
-          <aside className="planner-controls lg:sticky lg:top-24">
+          <aside className="planner-controls rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">02 / Travel summary</p>
             <h2 className="mt-2 text-2xl font-black">Daily conditions</h2>
             <div className="mt-5 space-y-4">
@@ -240,55 +264,64 @@ export default function FinalPlannerPage() {
           </aside>
         </div>
 
-        <section aria-live="polite" className="planner-document mt-12 bg-[url('/plannerbg.png')] bg-cover bg-center p-4 sm:p-8">
+        <section aria-live="polite" className="planner-document mt-12 bg-[url('/plannerbg.png')] bg-cover bg-center p-0 sm:p-8">
           <div className="planner-print-controls mb-4 flex justify-end">{planner ? <button type="button" onClick={printPlanner} className="rounded-lg bg-white px-4 py-2 text-sm font-black text-slate-900 shadow">Print planner</button> : null}</div>
           {planner ? (
-            <div className="planner-landscape mx-auto max-w-7xl p-2 sm:p-4">
-              <div className="mb-5 flex flex-wrap items-end justify-between gap-3 rounded-lg bg-white/95 p-4 shadow">
-                <div><p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Ano Tara travel plan</p><h2 className="mt-1 text-3xl font-black text-slate-950">Itinerary overview</h2></div>
-                <p className="text-sm font-bold text-slate-800">{itineraryDays.length} planned day{itineraryDays.length === 1 ? "" : "s"}</p>
-              </div>
-              <div className="grid gap-4">
+            <div className="planner-landscape mx-auto max-w-7xl p-0 sm:p-4">
+              <header className="itinerary-overview-header mb-3 rounded bg-white/95 px-4 py-2 text-center shadow-sm">
+                <p className="text-xs font-bold text-slate-700">Ano Tara Travel Plan</p>
+                <h2 className="text-2xl font-black leading-tight text-slate-950">Itinerary Planner</h2>
+                <div className="mt-1 flex items-center justify-between gap-3 text-xs font-bold text-slate-800">
+                  <p>{itineraryDays.length} Planned Days</p>
+                  <p>Total Price: PHP {Number(planner.final_mlr_price || planner.priceEstimate?.amount || 0).toLocaleString()}</p>
+                </div>
+              </header>
+              <div className="itinerary-day-grid">
                 {itineraryDays.map((day, index) => {
                   const dayOutfits = outfitsForDay(day.date, index);
+                  const outfitItems = dayOutfits.flatMap((group) => group.items).slice(0, 4);
                   const heroImage = dayImage(day.activities[0]);
                   return (
-                    <article key={day.dayNumber} className="overflow-hidden rounded-lg bg-white shadow-lg">
-                      <img src={heroImage} alt={day.activities[0]?.name || day.dayNumber} className="h-32 w-full object-cover" />
-                      <div className="p-4">
-                        <p className="text-xs font-black uppercase text-slate-500">{day.dayNumber}</p>
-                        <p className="mt-1 text-sm font-bold">{day.dateLabel}</p>
-                        {dayOutfits.length ? <div className="mt-3 space-y-2">{groupOutfits(dayOutfits).map((group) => <div key={group.key}>
-                          <p className="text-xs font-black text-slate-700">{group.name}</p>
-                          <div className="mt-1 flex flex-wrap gap-2">{group.items.map((item) => <GarmentImage key={item.id} src={item.image} alt={`${item.category} outfit`} className="h-10 w-10 rounded" />)}</div>
-                        </div>)}</div> : null}
-                        <p className="mt-3 text-xs leading-5 text-slate-600">{day.weatherDescription}</p>
-                        <div className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-200 pt-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {day.activities.map((activity, activityIndex) => (
-                          <div key={`${activity.name}-${activityIndex}`} className="min-w-0 rounded border border-slate-200 p-3">
-                            {activity.hazard_flag ? <div role="alert" className="mb-3 flex items-center gap-2 border-2 border-rose-700 bg-rose-50 p-2 text-sm font-black text-rose-900">
-                              <TriangleAlert aria-hidden="true" className="h-5 w-5 shrink-0" />
-                              <span>SAFETY ALERT · Outdoor activity during rainy weather</span>
-                            </div> : null}
-                            <h3 className="font-black">{activity.name}</h3>
-                            <p className="mt-1 text-xs text-slate-600">{activity.location || activity.destination}</p>
-                            <p className="mt-2 text-xs text-slate-600">{getTime(activity)} · {activity.guests} guests · PHP {Number(activity.price || 0).toLocaleString()}</p>
-                            <p className="mt-1 text-xs text-slate-600">{getStay(activity)}</p>
+                    <article key={day.dayNumber} className="itinerary-day-card">
+                      <div className="itinerary-day-heading">
+                        <h3>{day.dayNumber}</h3>
+                        <p>{day.dateLabel}</p>
+                      </div>
+                      <img src={heroImage} alt={day.activities[0]?.name || day.dayNumber} onError={(event) => { const fallback = fallbackDayImage(day.activities[0]); if (event.currentTarget.src !== fallback) event.currentTarget.src = fallback; else event.currentTarget.style.visibility = "hidden"; }} className="itinerary-day-image" />
+                      <div className="itinerary-day-content">
+                        <div className="itinerary-activity-details">
+                          <p className="itinerary-section-label">Activity Details</p>
+                          {day.activities.length ? day.activities.map((activity, activityIndex) => (
+                            <div key={`${activity.name}-${activityIndex}`}>
+                              {activity.hazard_flag ? <p role="alert" className="mb-1 text-[10px] font-black text-rose-800">Safety alert: rainy outdoor activity</p> : null}
+                              <p className="font-bold">{activity.name}</p>
+                              <p>{activity.location || activity.destination}</p>
+                              <p>Price: PHP {Number(activity.price || 0).toLocaleString()}</p>
+                              <p>Time: {getTime(activity)}</p>
+                            </div>
+                          )) : <p>No activity assigned.</p>}
+                        </div>
+                        <div className="itinerary-outfit-section">
+                          <p className="itinerary-section-label text-right">Outfit</p>
+                          <div className="itinerary-outfit-slots">
+                            {outfitItems.map((item) => <GarmentImage key={item.id} src={item.image} alt={`${item.category} outfit`} className="h-10 w-10 border border-slate-200 bg-white" />)}
+                            {Array.from({ length: 4 - outfitItems.length }, (_, slot) => <div key={`empty-${slot}`} aria-hidden="true" className="h-10 w-10 border border-slate-200 bg-white/80" />)}
                           </div>
-                          ))}
+                        </div>
+                        <div className="itinerary-weather-details">
+                          <p className="itinerary-section-label">Weather details</p>
+                          <p>{day.weatherDescription}</p>
                         </div>
                       </div>
                     </article>
                   );
                 })}
               </div>
-              <div className="mt-6 rounded-lg bg-white/95 p-4 text-right text-sm font-black text-slate-950 shadow">
-                <p>MLR-based estimated trip price: PHP {Number(planner.final_mlr_price || planner.priceEstimate?.amount || 0).toLocaleString()}</p>
-                {planner.priceEstimate?.source ? <p className="mt-1 text-xs font-semibold text-slate-700">{planner.priceEstimate.source} · {planner.priceEstimate.destination}</p> : null}
-              </div>
+              {planner.priceEstimate?.source ? <p className="mt-2 text-center text-[10px] font-semibold text-white drop-shadow">{planner.priceEstimate.source} · {planner.priceEstimate.destination}</p> : null}
             </div>
           ) : <p className="bg-white p-6 text-center text-sm text-slate-600">Generate a plan to see the print-ready travel plan.</p>}
         </section>
+        </div>
         <div className="planner-controls"><Footer /></div>
       </div>
     </main>

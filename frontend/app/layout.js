@@ -8,7 +8,7 @@ import { TravelProvider } from './TravelContext';
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body className="antialiased text-slate-950">
         <TravelProvider>{children}</TravelProvider>
       </body>

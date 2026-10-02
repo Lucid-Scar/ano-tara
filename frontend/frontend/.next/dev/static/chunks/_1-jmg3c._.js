@@ -31,6 +31,15 @@ function sanitizeDateRange({ startDate, endDate }) {
         endDate: nextEnd
     };
 }
+function defaultPlannerName(planner) {
+    const firstDay = planner?.itinerary?.[0];
+    const destination = firstDay?.scheduled_activities?.[0]?.destination || firstDay?.destination;
+    const date = firstDay?.date;
+    return [
+        destination,
+        date
+    ].filter(Boolean).join(" - ") || "Saved itinerary";
+}
 function TravelProvider({ children }) {
     _s();
     const [dateRange, setDateRangeState] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])({
@@ -49,7 +58,12 @@ function TravelProvider({ children }) {
             window.localStorage.removeItem(TRIP_STORAGE_KEY);
             try {
                 const saved = JSON.parse(window.localStorage.getItem(SAVED_STORAGE_KEY) || "[]");
-                setSavedItinerariesState(Array.isArray(saved) ? saved : []);
+                setSavedItinerariesState(Array.isArray(saved) ? saved.map({
+                    "TravelProvider.useEffect": (planner)=>({
+                            ...planner,
+                            name: typeof planner.name === "string" && planner.name.trim() ? planner.name : defaultPlannerName(planner)
+                        })
+                }["TravelProvider.useEffect"]) : []);
             } catch  {
                 window.localStorage.removeItem(SAVED_STORAGE_KEY);
             } finally{
@@ -150,6 +164,23 @@ function TravelProvider({ children }) {
             }["TravelProvider.useCallback[deleteItinerary]"]);
         }
     }["TravelProvider.useCallback[deleteItinerary]"], []);
+    const renameItinerary = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[renameItinerary]": (createdAt, name)=>{
+            setSavedItinerariesState({
+                "TravelProvider.useCallback[renameItinerary]": (current)=>current.map({
+                        "TravelProvider.useCallback[renameItinerary]": (itinerary)=>itinerary.createdAt === createdAt ? {
+                                ...itinerary,
+                                name
+                            } : itinerary
+                    }["TravelProvider.useCallback[renameItinerary]"])
+            }["TravelProvider.useCallback[renameItinerary]"]);
+        }
+    }["TravelProvider.useCallback[renameItinerary]"], []);
+    const clearSavedItineraries = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "TravelProvider.useCallback[clearSavedItineraries]": ()=>{
+            setSavedItinerariesState([]);
+        }
+    }["TravelProvider.useCallback[clearSavedItineraries]"], []);
     const clearCurrentPlan = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
         "TravelProvider.useCallback[clearCurrentPlan]": ()=>{
             setDateRangeState({
@@ -179,6 +210,8 @@ function TravelProvider({ children }) {
                 savedItineraries,
                 saveItinerary,
                 deleteItinerary,
+                renameItinerary,
+                clearSavedItineraries,
                 clearCurrentPlan
             })
     }["TravelProvider.useMemo[value]"], [
@@ -195,6 +228,8 @@ function TravelProvider({ children }) {
         hasActivityConflict,
         saveItinerary,
         deleteItinerary,
+        renameItinerary,
+        clearSavedItineraries,
         clearCurrentPlan
     ]);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(TravelContext.Provider, {
@@ -202,11 +237,11 @@ function TravelProvider({ children }) {
         children: children
     }, void 0, false, {
         fileName: "[project]/app/TravelContext.js",
-        lineNumber: 112,
+        lineNumber: 132,
         columnNumber: 10
     }, this);
 }
-_s(TravelProvider, "27bFO9EpxVH4Zo03OsxHkKYBL84=");
+_s(TravelProvider, "eIwrUWI6iCS7f8kKV8venJTVH6Y=");
 _c = TravelProvider;
 function useTravel() {
     _s1();

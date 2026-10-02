@@ -60,8 +60,8 @@ export default function Home() {
             <img src="/LOGO-WHITE.svg" alt="Ano Tara Logo" className="h-20 w-20 drop-shadow-lg" />
           </div>
           <div className="flex flex-1 items-center justify-end gap-3">
-            <Link href="/predict-outfit" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">Outfit planner</Link>
-            <Link href="/final-planner" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">Itinerary planner</Link>
+            <Link href="/predict-outfit" className="planner-nav-link">Outfit Planner</Link>
+            <Link href="/final-planner" className="planner-nav-link">Itinerary Planner</Link>
           </div>
         </nav>
 

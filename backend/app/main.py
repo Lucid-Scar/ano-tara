@@ -669,10 +669,33 @@ def image_bytes(payload: OutfitPayload) -> bytes:
     raise ValueError("Provide either image_url or image_base64")
 
 
-print("Loading CNN Model... this might take a few seconds...")
-model = tf.keras.models.load_model(str(MODEL_PATH), compile=False)
-with LABELS_PATH.open(encoding="utf-8") as labels_file:
-    class_names = [line.strip().split(" ", 1)[-1] for line in labels_file if line.strip()]
+model = None
+class_names = []
+
+
+def load_outfit_model() -> bool:
+    global model, class_names
+    if model is not None:
+        return True
+    if not MODEL_PATH.is_file():
+        return False
+    try:
+        print("Loading CNN Model... this might take a few seconds...")
+        loaded_model = tf.keras.models.load_model(str(MODEL_PATH), compile=False)
+        with LABELS_PATH.open(encoding="utf-8") as labels_file:
+            loaded_class_names = [line.strip().split(" ", 1)[-1] for line in labels_file if line.strip()]
+        if not loaded_class_names:
+            raise ValueError("The CNN labels file is empty.")
+        model = loaded_model
+        class_names = loaded_class_names
+        return True
+    except Exception as error:
+        print(f"CNN model unavailable; outfit prediction is disabled: {error}")
+        return False
+
+
+if not load_outfit_model():
+    print(f"CNN model not loaded at {MODEL_PATH}; outfit prediction will retry when requested.")
 
 
 @app.get("/")
@@ -1010,6 +1033,8 @@ def generate_itinerary(payload: ItineraryPayload):
 
 @app.post("/predict-outfit")
 def predict_outfit(payload: OutfitPayload):
+    if not load_outfit_model():
+        raise HTTPException(status_code=503, detail="Outfit prediction is unavailable because the CNN model could not be loaded.")
     try:
         image = Image.open(BytesIO(image_bytes(payload)))
         array = np.asarray(image.convert("RGB").resize((224, 224)), dtype=np.float32)

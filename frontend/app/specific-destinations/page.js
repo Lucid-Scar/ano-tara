@@ -9,14 +9,14 @@ import { getGuestWarning, getMinSelectableDate, toDateString } from "../tripUtil
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
 
-const activityImage = (activity, destination) => {
-  if (activity?.image) return activity.image;
+const activityFallbackImage = (activity, destination) => {
   const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
   if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
   if (/museum|gallery|art|heritage|cultural/.test(name)) return "https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=1200&q=80";
   if (/boat|island|beach|falls|nature|park|hiking|walking/.test(name)) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
   return destination.image;
 };
+const activityImage = (activity, destination) => activity?.image || activityFallbackImage(activity, destination);
 
 const FALLBACK_DESTINATION = {
   id: "alaminos",
@@ -76,6 +76,7 @@ function SpecificDestinationsContent() {
   const [selectedTime, setSelectedTime] = useState("10:00");
   const [assignedDay, setAssignedDay] = useState("Day 1");
   const [pricingDate, setPricingDate] = useState(dateRange.startDate || minDate);
+  const [failedActivityImage, setFailedActivityImage] = useState("");
   const [toastMessage, setToastMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
@@ -117,7 +118,8 @@ function SpecificDestinationsContent() {
 
   const selectedActivityData = activityList.find((activity) => activity.name === selectedActivity)
     || destinationDetails.activities?.find((activity) => activity.name === selectedActivity);
-  const selectedActivityImage = activityImage(selectedActivityData, destinationDetails);
+  const requestedActivityImage = activityImage(selectedActivityData, destinationDetails);
+  const selectedActivityImage = failedActivityImage === requestedActivityImage ? activityFallbackImage(selectedActivityData, destinationDetails) : requestedActivityImage;
 
   const guestWarning = getGuestWarning(guests);
 
@@ -176,7 +178,7 @@ function SpecificDestinationsContent() {
         let forecastResponse;
         let forecastData = {};
         try {
-          forecastResponse = await fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${startDate}`);
+          forecastResponse = await fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${pricingDate || startDate}`);
           forecastData = forecastResponse.ok ? await forecastResponse.json() : {};
         } catch (error) {
           console.warn("Weather forecast is unavailable; continuing with destination pricing", error);
@@ -270,6 +272,14 @@ function SpecificDestinationsContent() {
   }, [endDate, guests, pricingDate, roomType, searchParams, startDate, tripReady]);
 
   const addToPlanner = () => {
+    if (!generateDateRange(startDate, endDate).includes(pricingDate)) {
+      setToastMessage("Choose a valid trip day before adding this activity.");
+      return;
+    }
+    if (selectedTime < "06:00" || selectedTime > "23:00") {
+      setToastMessage("Choose an activity time between 6:00 AM and 11:00 PM.");
+      return;
+    }
     const currentActivitiesList = activityList.length > 0 ? activityList : (destinationDetails.activities || []);
     const activity = currentActivitiesList.find((item) => item.name === selectedActivity) || currentActivitiesList[0];
     if (hasActivityConflict({ ...activity, assignedDay })) {
@@ -337,12 +347,12 @@ function SpecificDestinationsContent() {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-3">
-          <Link href="/predict-outfit" className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors mr-2 hidden sm:block">
-            Outfit planner
+          <Link href="/predict-outfit" className="planner-nav-link hidden sm:inline-flex">
+            Outfit Planner
           </Link>
-          <Link href="/final-planner" className="flex items-center gap-2 rounded-md border border-[#d96a6a] px-5 py-2 text-sm font-semibold text-[#d96a6a] transition hover:bg-red-50">
+          <Link href="/final-planner" className="planner-nav-link">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Final planner
+            Itinerary Planner
           </Link>
         </div>
       </header>
@@ -360,7 +370,6 @@ function SpecificDestinationsContent() {
         </div>
       </div>
 
-      {isLoading ? <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white/95"><div className="text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#4a8b8b]" /><p className="mt-4 text-sm font-bold text-slate-700">Loading destination details...</p></div></div> : null}
       <main className="mx-auto w-full max-w-[1400px] px-6 lg:px-12 py-10 flex-grow">
         <Link href="/destinations" className="mb-6 inline-flex rounded-lg border-2 border-slate-900 px-4 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-900 hover:text-white">Back to destinations</Link>
         
@@ -368,7 +377,7 @@ function SpecificDestinationsContent() {
           
           <div className="flex-1 flex flex-col w-full max-w-4xl">
             <div className="w-full h-[400px] lg:h-[500px] overflow-hidden rounded-[2rem] shadow-sm mb-8 bg-gray-100">
-              <img src={selectedActivityImage} alt={selectedActivity || destinationDetails.name} className="h-full w-full object-cover" />
+              <img src={selectedActivityImage} alt={selectedActivity || destinationDetails.name} onError={(event) => { if (event.currentTarget.src !== activityFallbackImage(selectedActivityData, destinationDetails)) setFailedActivityImage(requestedActivityImage); else event.currentTarget.style.visibility = "hidden"; }} className="h-full w-full object-cover" />
             </div>
             
             <div className="flex flex-col px-2 sm:px-4">
@@ -390,7 +399,8 @@ function SpecificDestinationsContent() {
               
               <div className="mt-2">
                 <p className="text-sm font-bold uppercase tracking-wider text-gray-400">Total estimated cost</p>
-                <h3 className="text-4xl font-black text-[#860001]">{priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
+                <h3 className="text-4xl font-black text-[#860001]">{isLoading ? "Predicting..." : priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
+                {isLoading ? <p role="status" className="mt-2 text-sm font-semibold text-slate-500">Loading price prediction...</p> : null}
                 {pricingDetails ? (
                   <p className="mt-2 text-sm text-gray-500">
                     PHP {pricingDetails.daily_price.toLocaleString()} / night for {pricingDetails.length_of_stay} {pricingDetails.length_of_stay === 1 ? "night" : "nights"}
@@ -415,7 +425,7 @@ function SpecificDestinationsContent() {
               <div className="mb-6 pb-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Estimated cost</p>
                 <div className="flex items-baseline gap-2">
-                  <h3 className="text-[2rem] font-black text-[#0f172a]">{priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
+                  <h3 className="text-[2rem] font-black text-[#0f172a]">{isLoading ? "Predicting..." : priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
                   <span className="text-sm text-gray-500 font-medium">total for {guests} {guests === 1 ? 'guest' : 'guests'}</span>
                 </div>
                 {pricingDetails ? (
@@ -442,9 +452,10 @@ function SpecificDestinationsContent() {
                       </span>
                     </div>
 
-                    <div className="mt-2 flex items-baseline justify-between text-xs text-slate-700 font-medium">
+                    <div className="mt-2 flex flex-wrap items-baseline justify-between gap-1 text-xs font-medium text-slate-700">
                       <span>Temp: {weatherForecast.average_temperature}°C</span>
-                      <span>Rain chance: {weatherForecast.precipitation_sum_mm} mm ({weatherForecast.precipitation_probability}%)</span>
+                      <span>Rain chance: {weatherForecast.precipitation_probability == null ? "Unavailable" : `${weatherForecast.precipitation_probability}%`}</span>
+                      <span>{weatherForecast.precipitation_sum_mm ?? "-"} mm expected</span>
                     </div>
 
                     <div className="mt-2 rounded-xl bg-white p-2.5 border border-slate-100">
@@ -462,7 +473,7 @@ function SpecificDestinationsContent() {
                       ) : null}
                     </div>
                   </div>
-                ) : null}
+                ) : isLoading ? <p role="status" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">Loading weather prediction for {formatDate(pricingDate)}...</p> : null}
               </div>
 
               <div className="mb-6 grid w-full grid-cols-1 gap-6">
@@ -504,6 +515,8 @@ function SpecificDestinationsContent() {
                           type="time" 
                           value={selectedTime}
                           onChange={(e) => setSelectedTime(e.target.value)}
+                          min="06:00"
+                          max="23:00"
                           className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
                         />
                       </div>

@@ -61,8 +61,8 @@ export default function Header({
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-3">
-        <Link href="/predict-outfit" className="text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900">Outfit planner</Link>
-        <Link href="/final-planner" className="rounded-md border border-[#4a8b8b] px-4 py-2 text-sm font-semibold text-[#4a8b8b] transition hover:bg-teal-50">Final planner</Link>
+        <Link href="/predict-outfit" className="planner-nav-link">Outfit Planner</Link>
+        <Link href="/final-planner" className="planner-nav-link">Itinerary Planner</Link>
       </div>
     </header>
   );
