@@ -153,37 +153,39 @@ export default function OutfitPlannerClient() {
       });
       const data = await response.json();
       if (!response.ok || data.status === "error") throw new Error(data.message || "Outfit prediction failed.");
-      const expectation = getExpectation(data.detected_category || data.weather_suitability);
-      setResult({ ...data, category: "Top", matches: expectation.conditions.includes(weather.condition), outfitPhrase: expectation.phrase, advice: adviceByWeather[weather.condition] });
+      
+      // FIX: Rely entirely on the backend's weather logic instead of getExpectation()
+      setResult({ 
+        ...data, 
+        category: "Top", 
+        matches: data.conditions.includes(weather.condition), 
+        outfitPhrase: data.weather_suitability, 
+        advice: adviceByWeather[weather.condition] 
+      }); 
     } catch (error) {
       setMessage(error.message || "Could not analyze outfit.");
     } finally { setLoadingOutfit(false); }
   };
   const acceptOutfit = () => {
-    if (!result || !weather) return;
-    const assignedDate = date || plannerDates[0] || clampToSelectableDate(getMinSelectableDate());
-    const dayIndex = Math.max(0, plannerDates.indexOf(assignedDate));
-    const outfitSet = availableOutfitSets.find((item) => item.id === activeOutfitSetId) || availableOutfitSets[0];
+    if (!result || !image) return;
+    const outfitSet = availableOutfitSets.find((set) => set.id === activeOutfitSetId) || availableOutfitSets[0];
     setOutfits((current) => [...current, {
-      id: `${Date.now()}`,
-      destination,
-      date: assignedDate,
-      weather: weather.condition,
-      temperature: weather.temperature,
-      rainfall: weather.rainfall,
+      id: `outfit-${Date.now()}`,
+      image,
       category: result.category,
-      detectedCategory: result.detected_category,
-      confidence: result.confidence_score,
+      destination,
+      weather: weather.condition,
       matches: result.matches,
       outfitPhrase: result.outfitPhrase,
       advice: result.advice,
-      image,
-      day: `Day ${dayIndex + 1}`,
-      outfitSetId: outfitSet.id,
-      outfitSetName: outfitSet.name,
+      date,
+      day: `Day ${Math.max(0, plannerDates.indexOf(date)) + 1}`,
+      outfitSetId: outfitSet?.id || "outfit-set-1",
+      outfitSetName: outfitSet?.name || "Outfit 1",
     }]);
     setResult(null);
     setImage("");
+    setMessage("Garment added to the outfit.");
   };
   const updateOutfit = (id, changes) => setOutfits((current) => current.map((outfit) => outfit.id === id ? { ...outfit, ...changes } : outfit));
   const deleteOutfit = (id) => setOutfits((current) => current.filter((outfit) => outfit.id !== id));

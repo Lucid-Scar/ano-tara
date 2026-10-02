@@ -1,4 +1,3 @@
-import os
 import csv
 import re
 from base64 import b64decode
@@ -13,7 +12,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-os.environ["TF_USE_LEGACY_KERAS"] = "1"
 import numpy as np
 import requests
 import tensorflow as tf
@@ -164,16 +162,24 @@ def slugify(text: str) -> str:
 
 
 CLOTHING_WEATHER_MAP = {
-    "t shirt top": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "shirt": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "dress": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "sandal": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "sneaker": {"conditions": ["Sunny", "Cloudy"], "phrase": "sunny or cool weather", "primary": "Sunny"},
-    "bag": {"conditions": ["Sunny", "Cloudy", "Rainy"], "phrase": "any weather", "primary": "Cloudy"},
-    "trouser": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "pullover": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "coat": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "ankle boot": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    # Warm Weather (Sunny)
+    "kaos": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "kemeja": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "polo": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "celana pendek": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "gaun": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    "rok": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
+    
+    # Cool/Rainy Weather (Cloudy/Rainy)
+    "hoodie": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "sweater": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "jaket": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "jaket denim": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "jaket olahraga": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "mantel": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "blazer": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "celana panjang": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "jeans": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
 }
 
 
@@ -182,20 +188,25 @@ def classify_clothing_weather(category: str) -> dict[str, object]:
     mapping = CLOTHING_WEATHER_MAP.get(normalized)
     if mapping:
         return mapping
+        
     fallbacks = {
-        "t shirt top": CLOTHING_WEATHER_MAP["t shirt top"],
-        "shirt": CLOTHING_WEATHER_MAP["shirt"],
-        "dress": CLOTHING_WEATHER_MAP["dress"],
-        "sandal": CLOTHING_WEATHER_MAP["sandal"],
-        "sneaker": CLOTHING_WEATHER_MAP["sneaker"],
-        "bag": CLOTHING_WEATHER_MAP["bag"],
-        "trouser": CLOTHING_WEATHER_MAP["trouser"],
-        "pullover": CLOTHING_WEATHER_MAP["pullover"],
-        "coat": CLOTHING_WEATHER_MAP["coat"],
-        "ankle boot": CLOTHING_WEATHER_MAP["ankle boot"],
+        "kaos": CLOTHING_WEATHER_MAP["kaos"],
+        "kemeja": CLOTHING_WEATHER_MAP["kemeja"],
+        "polo": CLOTHING_WEATHER_MAP["polo"],
+        "celana pendek": CLOTHING_WEATHER_MAP["celana pendek"],
+        "gaun": CLOTHING_WEATHER_MAP["gaun"],
+        "rok": CLOTHING_WEATHER_MAP["rok"],
+        "hoodie": CLOTHING_WEATHER_MAP["hoodie"],
+        "sweater": CLOTHING_WEATHER_MAP["sweater"],
+        "jaket": CLOTHING_WEATHER_MAP["jaket"],
+        "jaket denim": CLOTHING_WEATHER_MAP["jaket denim"],
+        "jaket olahraga": CLOTHING_WEATHER_MAP["jaket olahraga"],
+        "mantel": CLOTHING_WEATHER_MAP["mantel"],
+        "blazer": CLOTHING_WEATHER_MAP["blazer"],
+        "celana panjang": CLOTHING_WEATHER_MAP["celana panjang"],
+        "jeans": CLOTHING_WEATHER_MAP["jeans"],
     }
-    return fallbacks.get(normalized, {"conditions": ["Cloudy"], "phrase": "this trip's weather", "primary": "Cloudy"})
-
+    return fallbacks.get(normalized, {"conditions": ["Cloudy"], "phrase": "mild or unpredictable conditions", "primary": "Cloudy"})
 
 DESTINATION_METADATA = {
     "Baguio": {
@@ -1000,35 +1011,24 @@ def generate_itinerary(payload: ItineraryPayload):
 @app.post("/predict-outfit")
 def predict_outfit(payload: OutfitPayload):
     try:
-        # 1. Open the image from the decoded bytes
         image = Image.open(BytesIO(image_bytes(payload)))
-        
-        # 2. Convert to "L" (Grayscale) and resize to 28x28 pixels
-        array = np.asarray(image.convert("L").resize((28, 28)), dtype=np.float32)
-        
-        # 3. Normalize pixel values to [0, 1] and add the channel dimension -> (28, 28, 1)
-        processed_image = np.expand_dims(array / 255.0, axis=-1)
-        
-        # 4. Add the batch dimension -> (1, 28, 28, 1)
-        input_tensor = np.expand_dims(processed_image, axis=0)
-        
-        # 5. Pass to the CNN
+        array = np.asarray(image.convert("RGB").resize((224, 224)), dtype=np.float32)
+        input_tensor = np.expand_dims(array, axis=0)
         prediction = model.predict(input_tensor, verbose=0)
         
         index = int(np.argmax(prediction))
         confidence = float(prediction[0][index])
         category = class_names[index]
 
-        if category == "Bag" and confidence < 1.0:
-            return {
-                "status": "error", 
-                "message": "Unclear image detected. Please upload a clear photo of a primary garment (e.g., shirt, jacket, trousers)."
-            }
+        print(f"\n--- AI PREDICTION LOG ---")
+        print(f"Raw Output Array: {prediction[0]}")
+        print(f"Top Guess: {category} | Confidence: {confidence * 100:.2f}%")
+        print(f"-------------------------\n")
 
-        if confidence < 0.50:
+        if confidence < 0.60:
             return {
                 "status": "error", 
-                "message": f"Image not recognized clearly (Confidence: {confidence*100:.1f}%). Please upload a cropped photo of a clothing item."
+                "message": f"Clothing not recognized clearly (Confidence: {confidence*100:.1f}%). Please upload a cropped photo of a clothing item, preferably taken in good lighting and with the item centered in the frame."
             }
         
         category = class_names[index]
