@@ -12,7 +12,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 ;
 function Footer() {
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("footer", {
-        className: "mt-auto border-t border-slate-200 bg-white pt-16 pb-8",
+        className: "mt-auto w-full bg-transparent pt-16 pb-8",
         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
             className: "mx-auto max-w-6xl px-6 sm:px-12",
             children: [
@@ -673,8 +673,8 @@ function Header({ guests, onGuestDecrease, onGuestIncrease, selectedDate, dateLa
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                         href: "/predict-outfit",
-                        className: "text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900",
-                        children: "Outfit planner"
+                        className: "planner-nav-link",
+                        children: "Outfit Planner"
                     }, void 0, false, {
                         fileName: "[project]/app/header/Header.js",
                         lineNumber: 64,
@@ -682,8 +682,8 @@ function Header({ guests, onGuestDecrease, onGuestIncrease, selectedDate, dateLa
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                         href: "/final-planner",
-                        className: "rounded-md border border-[#4a8b8b] px-4 py-2 text-sm font-semibold text-[#4a8b8b] transition hover:bg-teal-50",
-                        children: "Final planner"
+                        className: "planner-nav-link",
+                        children: "Itinerary Planner"
                     }, void 0, false, {
                         fileName: "[project]/app/header/Header.js",
                         lineNumber: 65,
@@ -804,7 +804,7 @@ const generateDateRange = (startDate, endDate)=>{
 };
 function OutfitPlannerClient() {
     _s();
-    const { dateRange, currentActivities, outfits, setOutfits, savedItineraries } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useTravel"])();
+    const { outfits, setOutfits, savedItineraries } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useTravel"])();
     const [destinations, setDestinations] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
     const [destination, setDestination] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
     const [date, setDate] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
@@ -825,23 +825,27 @@ function OutfitPlannerClient() {
         }
     ]);
     const [activeOutfitSetId, setActiveOutfitSetId] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("outfit-set-1");
-    const readFromItinerary = ()=>{
-        const latest = savedItineraries[0];
-        const itineraryDates = latest?.itinerary?.map((day)=>day.date || day.day).filter(Boolean) || [];
-        const contextDates = generateDateRange(dateRange.startDate, dateRange.endDate);
-        const dates = contextDates.length ? contextDates : itineraryDates;
-        const savedDestination = currentActivities[0]?.destination || latest?.itinerary?.[0]?.destination || "";
+    const [selectedPlannerId, setSelectedPlannerId] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
+    const selectedSavedPlanner = savedItineraries.find((planner)=>planner.createdAt === selectedPlannerId) || savedItineraries[0];
+    const readFromItinerary = (planner = selectedSavedPlanner)=>{
+        const dates = planner?.itinerary?.map((day)=>day.date || day.day).filter(Boolean) || [];
+        const firstDay = planner?.itinerary?.[0];
+        const savedDestination = firstDay?.scheduled_activities?.[0]?.destination || firstDay?.destination || "";
         return {
-            dates: dates.map(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"]),
+            dates,
             destination: savedDestination
         };
     };
+    const locationsForDate = (planner, selectedDate)=>{
+        const day = planner?.itinerary?.find((item)=>(item.date || item.day) === selectedDate);
+        const locations = (day?.scheduled_activities || []).map((activity)=>activity.destination || activity.location).filter(Boolean);
+        if (!locations.length && day?.destination) locations.push(day.destination);
+        return [
+            ...new Set(locations)
+        ];
+    };
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "OutfitPlannerClient.useEffect": ()=>{
-            const saved = readFromItinerary();
-            setPlannerDates(saved.dates);
-            setDate(saved.dates[0] || (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])()));
-            setDestination(saved.destination);
             let active = true;
             const load = {
                 "OutfitPlannerClient.useEffect.load": async ()=>{
@@ -857,7 +861,6 @@ function OutfitPlannerClient() {
                     }
                     if (!active) return;
                     setDestinations(list);
-                    if (!saved.destination) setDestination(list[0]?.name || "");
                 }
             }["OutfitPlannerClient.useEffect.load"];
             load();
@@ -869,6 +872,37 @@ function OutfitPlannerClient() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         }
     }["OutfitPlannerClient.useEffect"], []);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "OutfitPlannerClient.useEffect": ()=>{
+            if (!destination && destinations.length && !savedItineraries.length) setDestination(destinations[0].name);
+        }
+    }["OutfitPlannerClient.useEffect"], [
+        destination,
+        destinations,
+        savedItineraries.length
+    ]);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "OutfitPlannerClient.useEffect": ()=>{
+            if (savedItineraries.some({
+                "OutfitPlannerClient.useEffect": (planner)=>planner.createdAt === selectedPlannerId
+            }["OutfitPlannerClient.useEffect"])) return;
+            const planner = savedItineraries[0];
+            setSelectedPlannerId(planner?.createdAt || "");
+            const saved = readFromItinerary(planner);
+            setPlannerDates(saved.dates);
+            setDate(saved.dates[0] || (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])()));
+            if (saved.destination) setDestination(saved.destination);
+            setWeather(null);
+        }
+    }["OutfitPlannerClient.useEffect"], [
+        savedItineraries,
+        selectedPlannerId
+    ]);
+    const selectedPlannerLocations = source === "saved" ? locationsForDate(selectedSavedPlanner, date) : [];
+    const savedPlannerLocations = source === "saved" ? [
+        ...new Set((selectedSavedPlanner?.itinerary || []).flatMap((day)=>locationsForDate(selectedSavedPlanner, day.date || day.day)))
+    ] : [];
+    const locationOptions = source === "saved" && selectedPlannerLocations.length ? selectedPlannerLocations : source === "saved" && savedPlannerLocations.length ? savedPlannerLocations : destinations.map((item)=>item.name);
     const availableOutfitSets = [
         ...outfitSets
     ];
@@ -909,13 +943,26 @@ function OutfitPlannerClient() {
             ]);
         setActiveOutfitSetId(next.id);
     };
+    const removeActiveOutfitSet = ()=>{
+        if (availableOutfitSets.length <= 1) return;
+        const remaining = availableOutfitSets.filter((set)=>set.id !== activeOutfitSetId);
+        const fallback = remaining[0];
+        setOutfitSets(remaining);
+        setOutfits((current)=>current.map((outfit)=>(outfit.outfitSetId || "outfit-set-1") === activeOutfitSetId ? {
+                    ...outfit,
+                    outfitSetId: fallback.id,
+                    outfitSetName: fallback.name
+                } : outfit));
+        setActiveOutfitSetId(fallback.id);
+    };
     const useSavedPlanner = ()=>{
-        const saved = readFromItinerary();
+        const saved = readFromItinerary(selectedSavedPlanner);
         setSource("saved");
         setPlannerDates(saved.dates);
         setDate(saved.dates[0] || (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])()));
         setDestination(saved.destination || destination);
-        setMessage(saved.dates.length ? "Saved planner dates and destination loaded." : "No saved itinerary dates were found yet. Add activities in the itinerary planner first.");
+        setWeather(null);
+        setMessage(saved.dates.length ? "Saved planner dates and destination loaded." : "No saved planners were found. Generate a planner first.");
     };
     const getWeather = async ()=>{
         if (!destination || !date) {
@@ -1022,7 +1069,7 @@ function OutfitPlannerClient() {
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$header$2f$Header$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {}, void 0, false, {
                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                lineNumber: 196,
+                lineNumber: 230,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1038,7 +1085,7 @@ function OutfitPlannerClient() {
                                         children: "Wardrobe workspace"
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 200,
+                                        lineNumber: 234,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
@@ -1046,42 +1093,42 @@ function OutfitPlannerClient() {
                                         children: "Attach outfit"
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 201,
+                                        lineNumber: 235,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                lineNumber: 199,
+                                lineNumber: 233,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                                 href: "/final-planner",
-                                className: "rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white",
-                                children: "Open final planner"
+                                className: "planner-nav-link",
+                                children: "Itinerary Planner"
                             }, void 0, false, {
                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                lineNumber: 203,
+                                lineNumber: 237,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                        lineNumber: 198,
+                        lineNumber: 232,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "grid gap-6 lg:grid-cols-2",
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
-                                className: "rounded-lg border border-slate-200 p-6",
+                                className: "rounded-lg border border-slate-200 bg-white p-6 shadow-sm",
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                         className: "text-xs font-black uppercase tracking-wider text-slate-500",
                                         children: "01 / Outfit source"
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 208,
+                                        lineNumber: 242,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
@@ -1089,7 +1136,7 @@ function OutfitPlannerClient() {
                                         children: "Where is this outfit for?"
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 209,
+                                        lineNumber: 243,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1102,7 +1149,7 @@ function OutfitPlannerClient() {
                                                 children: "Use saved planner"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 211,
+                                                lineNumber: 245,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1110,20 +1157,66 @@ function OutfitPlannerClient() {
                                                 onClick: ()=>{
                                                     setSource("new");
                                                     setPlannerDates([]);
+                                                    setDate((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])()));
+                                                    setDestination(destinations[0]?.name || "");
+                                                    setWeather(null);
+                                                    setResult(null);
+                                                    setImage("");
+                                                    setMessage("");
                                                 },
                                                 className: `rounded-lg px-3 py-2 text-sm font-bold ${source === "new" ? "bg-slate-900 text-white" : "border border-slate-300"}`,
                                                 children: "New location"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 212,
+                                                lineNumber: 246,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 210,
+                                        lineNumber: 244,
                                         columnNumber: 13
                                     }, this),
+                                    source === "saved" && savedItineraries.length ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
+                                        className: "mt-4 block text-sm font-bold",
+                                        children: [
+                                            "Saved planner",
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
+                                                value: selectedSavedPlanner?.createdAt || "",
+                                                onChange: (event)=>{
+                                                    const planner = savedItineraries.find((item)=>item.createdAt === event.target.value);
+                                                    setSelectedPlannerId(event.target.value);
+                                                    const saved = readFromItinerary(planner);
+                                                    setPlannerDates(saved.dates);
+                                                    setDate(saved.dates[0] || (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["clampToSelectableDate"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])()));
+                                                    setDestination(saved.destination);
+                                                    setWeather(null);
+                                                },
+                                                className: "mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3",
+                                                children: savedItineraries.map((planner)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                        value: planner.createdAt,
+                                                        children: [
+                                                            planner.name || "Saved itinerary",
+                                                            " · ",
+                                                            planner.itinerary?.length || 0,
+                                                            " days"
+                                                        ]
+                                                    }, planner.createdAt, true, {
+                                                        fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
+                                                        lineNumber: 250,
+                                                        columnNumber: 52
+                                                    }, this))
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
+                                                lineNumber: 249,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
+                                        lineNumber: 248,
+                                        columnNumber: 62
+                                    }, this) : null,
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
                                         className: "mt-5 block text-sm font-bold",
                                         children: [
@@ -1135,29 +1228,55 @@ function OutfitPlannerClient() {
                                                     setWeather(null);
                                                 },
                                                 className: "mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3",
-                                                children: destinations.map((item)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
-                                                        children: item.name
-                                                    }, item.id || item.name, false, {
+                                                children: locationOptions.map((name)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                        children: name
+                                                    }, name, false, {
                                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                        lineNumber: 216,
-                                                        columnNumber: 45
+                                                        lineNumber: 255,
+                                                        columnNumber: 48
                                                     }, this))
                                             }, void 0, false, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 215,
+                                                lineNumber: 254,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 214,
+                                        lineNumber: 253,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
                                         className: "mt-4 block text-sm font-bold",
                                         children: [
                                             "Plan date",
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                            source === "saved" && plannerDates.length ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
+                                                value: date,
+                                                onChange: (event)=>{
+                                                    const nextDate = event.target.value;
+                                                    setDate(nextDate);
+                                                    setDestination(locationsForDate(selectedSavedPlanner, nextDate)[0] || destination);
+                                                    setWeather(null);
+                                                },
+                                                className: "mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3",
+                                                children: plannerDates.map((plannerDate, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                        value: plannerDate,
+                                                        children: [
+                                                            "Day ",
+                                                            index + 1,
+                                                            " · ",
+                                                            formatDate(plannerDate)
+                                                        ]
+                                                    }, plannerDate, true, {
+                                                        fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
+                                                        lineNumber: 259,
+                                                        columnNumber: 385
+                                                    }, this))
+                                            }, void 0, false, {
+                                                fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
+                                                lineNumber: 259,
+                                                columnNumber: 60
+                                            }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
                                                 type: "date",
                                                 min: (0, __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$tripUtils$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMinSelectableDate"])(),
                                                 value: date,
@@ -1168,13 +1287,13 @@ function OutfitPlannerClient() {
                                                 className: "mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 220,
-                                                columnNumber: 15
+                                                lineNumber: 259,
+                                                columnNumber: 497
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 219,
+                                        lineNumber: 258,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1185,7 +1304,7 @@ function OutfitPlannerClient() {
                                         children: loadingWeather ? "Checking weather..." : "Check predicted weather"
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 222,
+                                        lineNumber: 261,
                                         columnNumber: 13
                                     }, this),
                                     weather ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1200,7 +1319,7 @@ function OutfitPlannerClient() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 224,
+                                                lineNumber: 263,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1213,7 +1332,7 @@ function OutfitPlannerClient() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 225,
+                                                lineNumber: 264,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1227,30 +1346,30 @@ function OutfitPlannerClient() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 226,
+                                                lineNumber: 265,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 223,
+                                        lineNumber: 262,
                                         columnNumber: 24
                                     }, this) : null
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                lineNumber: 207,
+                                lineNumber: 241,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
-                                className: "rounded-lg border border-slate-200 p-6",
+                                className: "rounded-lg border border-slate-200 bg-white p-6 shadow-sm",
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                         className: "text-xs font-black uppercase tracking-wider text-slate-500",
                                         children: "02 / Capture"
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 231,
+                                        lineNumber: 270,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
@@ -1258,7 +1377,7 @@ function OutfitPlannerClient() {
                                         children: "Add one garment"
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 232,
+                                        lineNumber: 271,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1266,7 +1385,7 @@ function OutfitPlannerClient() {
                                         children: "JPG and image files up to 20MB are supported."
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 233,
+                                        lineNumber: 272,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1282,7 +1401,7 @@ function OutfitPlannerClient() {
                                                 label: "Upload garment"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 235,
+                                                lineNumber: 274,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1295,13 +1414,13 @@ function OutfitPlannerClient() {
                                                 children: "Use camera"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 236,
+                                                lineNumber: 275,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 234,
+                                        lineNumber: 273,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1320,34 +1439,55 @@ function OutfitPlannerClient() {
                                                                 children: set.name
                                                             }, set.id, false, {
                                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                lineNumber: 241,
+                                                                lineNumber: 280,
                                                                 columnNumber: 53
                                                             }, this))
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                        lineNumber: 240,
+                                                        lineNumber: 279,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 239,
+                                                lineNumber: 278,
                                                 columnNumber: 15
                                             }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                                type: "button",
-                                                onClick: createOutfitSet,
-                                                className: "rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold",
-                                                children: "Create another outfit"
-                                            }, void 0, false, {
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "flex gap-2",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                        type: "button",
+                                                        onClick: createOutfitSet,
+                                                        className: "rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold",
+                                                        children: "Create outfit"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
+                                                        lineNumber: 284,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                        type: "button",
+                                                        onClick: removeActiveOutfitSet,
+                                                        disabled: availableOutfitSets.length <= 1,
+                                                        title: "Remove the selected outfit set and move its garments to another set",
+                                                        className: "rounded-lg border border-rose-200 px-3 py-2 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-40",
+                                                        children: "Remove set"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
+                                                        lineNumber: 285,
+                                                        columnNumber: 17
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 244,
+                                                lineNumber: 283,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 238,
+                                        lineNumber: 277,
                                         columnNumber: 13
                                     }, this),
                                     image ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$GarmentImage$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -1357,7 +1497,18 @@ function OutfitPlannerClient() {
                                         className: "mt-5 h-48 w-full rounded-lg bg-slate-50"
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 246,
+                                        lineNumber: 288,
+                                        columnNumber: 22
+                                    }, this) : null,
+                                    image ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        type: "button",
+                                        onClick: ()=>analyzeOutfit(image),
+                                        disabled: !destination || !weather || loadingOutfit || loadingWeather,
+                                        className: "mt-3 rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50",
+                                        children: "Re-analyze garment"
+                                    }, void 0, false, {
+                                        fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
+                                        lineNumber: 289,
                                         columnNumber: 22
                                     }, this) : null,
                                     loadingOutfit ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1365,7 +1516,7 @@ function OutfitPlannerClient() {
                                         children: "Analyzing garment..."
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 247,
+                                        lineNumber: 290,
                                         columnNumber: 30
                                     }, this) : null,
                                     result ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1376,7 +1527,7 @@ function OutfitPlannerClient() {
                                                 children: result.matches ? "Weather match" : "Needs adjustment"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 249,
+                                                lineNumber: 292,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1393,7 +1544,7 @@ function OutfitPlannerClient() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 250,
+                                                lineNumber: 293,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1401,7 +1552,7 @@ function OutfitPlannerClient() {
                                                 children: result.advice
                                             }, void 0, false, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 251,
+                                                lineNumber: 294,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -1419,18 +1570,18 @@ function OutfitPlannerClient() {
                                                                 children: category
                                                             }, category, false, {
                                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                lineNumber: 254,
+                                                                lineNumber: 297,
                                                                 columnNumber: 49
                                                             }, this))
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                        lineNumber: 253,
+                                                        lineNumber: 296,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 252,
+                                                lineNumber: 295,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1443,7 +1594,7 @@ function OutfitPlannerClient() {
                                                         children: "Accept garment"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                        lineNumber: 258,
+                                                        lineNumber: 301,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1456,19 +1607,19 @@ function OutfitPlannerClient() {
                                                         children: "Reject"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                        lineNumber: 259,
+                                                        lineNumber: 302,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                lineNumber: 257,
+                                                lineNumber: 300,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 248,
+                                        lineNumber: 291,
                                         columnNumber: 23
                                     }, this) : null,
                                     message ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1476,30 +1627,30 @@ function OutfitPlannerClient() {
                                         children: message
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 262,
+                                        lineNumber: 305,
                                         columnNumber: 24
                                     }, this) : null
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                lineNumber: 230,
+                                lineNumber: 269,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                        lineNumber: 206,
+                        lineNumber: 240,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
-                        className: "mt-6 rounded-lg border border-slate-200 p-6",
+                        className: "mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm",
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                 className: "text-xs font-black uppercase tracking-wider text-slate-500",
                                 children: "03 / Accepted garments"
                             }, void 0, false, {
                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                lineNumber: 267,
+                                lineNumber: 310,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
@@ -1507,7 +1658,7 @@ function OutfitPlannerClient() {
                                 children: "Outfits by itinerary day"
                             }, void 0, false, {
                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                lineNumber: 268,
+                                lineNumber: 311,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1515,7 +1666,7 @@ function OutfitPlannerClient() {
                                 children: "Group multiple garments into one outfit, then create another outfit for the same day."
                             }, void 0, false, {
                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                lineNumber: 269,
+                                lineNumber: 312,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1532,7 +1683,7 @@ function OutfitPlannerClient() {
                                                             children: group.name
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                            lineNumber: 274,
+                                                            lineNumber: 317,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1540,13 +1691,13 @@ function OutfitPlannerClient() {
                                                             children: formatDate(group.date)
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                            lineNumber: 275,
+                                                            lineNumber: 318,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                    lineNumber: 273,
+                                                    lineNumber: 316,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1562,7 +1713,7 @@ function OutfitPlannerClient() {
                                                                     className: "h-20 w-20 shrink-0 rounded object-cover"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                    lineNumber: 281,
+                                                                    lineNumber: 324,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1573,7 +1724,7 @@ function OutfitPlannerClient() {
                                                                             children: outfit.category
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                            lineNumber: 283,
+                                                                            lineNumber: 326,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1585,7 +1736,7 @@ function OutfitPlannerClient() {
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                            lineNumber: 284,
+                                                                            lineNumber: 327,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1593,7 +1744,7 @@ function OutfitPlannerClient() {
                                                                             children: outfit.matches ? "Matches the selected weather" : "Review for the selected weather"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                            lineNumber: 285,
+                                                                            lineNumber: 328,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -1616,24 +1767,24 @@ function OutfitPlannerClient() {
                                                                                             children: set.name
                                                                                         }, set.id, false, {
                                                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                                            lineNumber: 291,
+                                                                                            lineNumber: 334,
                                                                                             columnNumber: 63
                                                                                         }, this))
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                                    lineNumber: 287,
+                                                                                    lineNumber: 330,
                                                                                     columnNumber: 27
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                            lineNumber: 286,
+                                                                            lineNumber: 329,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                    lineNumber: 282,
+                                                                    lineNumber: 325,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1660,12 +1811,12 @@ function OutfitPlannerClient() {
                                                                                     ]
                                                                                 }, day, true, {
                                                                                     fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                                    lineNumber: 300,
+                                                                                    lineNumber: 343,
                                                                                     columnNumber: 52
                                                                                 }, this))
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                            lineNumber: 296,
+                                                                            lineNumber: 339,
                                                                             columnNumber: 25
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1675,31 +1826,31 @@ function OutfitPlannerClient() {
                                                                             children: "Delete"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                            lineNumber: 302,
+                                                                            lineNumber: 345,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                                    lineNumber: 295,
+                                                                    lineNumber: 338,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             ]
                                                         }, outfit.id, true, {
                                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                            lineNumber: 280,
+                                                            lineNumber: 323,
                                                             columnNumber: 28
                                                         }, this);
                                                     })
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                                    lineNumber: 277,
+                                                    lineNumber: 320,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, group.key, true, {
                                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                            lineNumber: 272,
+                                            lineNumber: 315,
                                             columnNumber: 15
                                         }, this)),
                                     !outfits.length ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1707,37 +1858,37 @@ function OutfitPlannerClient() {
                                         children: "Accepted garments will appear here."
                                     }, void 0, false, {
                                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                        lineNumber: 309,
+                                        lineNumber: 352,
                                         columnNumber: 32
                                     }, this) : null
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                                lineNumber: 270,
+                                lineNumber: 313,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                        lineNumber: 266,
+                        lineNumber: 309,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "mt-8",
                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$footer$2f$Footer$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {}, void 0, false, {
                             fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                            lineNumber: 312,
+                            lineNumber: 355,
                             columnNumber: 31
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                        lineNumber: 312,
+                        lineNumber: 355,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                lineNumber: 197,
+                lineNumber: 231,
                 columnNumber: 7
             }, this),
             captureMode ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$OutfitImageCapture$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -1750,17 +1901,17 @@ function OutfitPlannerClient() {
                 }
             }, void 0, false, {
                 fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-                lineNumber: 314,
+                lineNumber: 357,
                 columnNumber: 22
             }, this) : null
         ]
     }, void 0, true, {
         fileName: "[project]/app/predict-outfit/OutfitPlannerClient.js",
-        lineNumber: 195,
+        lineNumber: 229,
         columnNumber: 5
     }, this);
 }
-_s(OutfitPlannerClient, "xhBxqzW5H2Y/tKEu7iqU1TLHazg=", false, function() {
+_s(OutfitPlannerClient, "/8WSRHnkx7IrPtvbKyEJT2FVayo=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$app$2f$TravelContext$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useTravel"]
     ];
