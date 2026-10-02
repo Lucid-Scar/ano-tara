@@ -1050,7 +1050,7 @@ def predict_outfit(payload: OutfitPayload):
         print(f"Top Guess: {category} | Confidence: {confidence * 100:.2f}%")
         print(f"-------------------------\n")
 
-        if confidence < 0.60:
+        if confidence < 0.70:
             return {
                 "status": "error", 
                 "message": f"Clothing not recognized clearly (Confidence: {confidence*100:.1f}%). Please upload a cropped photo of a clothing item, preferably taken in good lighting and with the item centered in the frame."
