@@ -1,5 +1,1 @@
-import { redirect } from "next/navigation";
-
-export default function OotdRedirect() {
-  redirect("/predict-outfit");
-}
+export { default } from "./Ootd.page";

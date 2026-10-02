@@ -1,2 +1,1 @@
-"use client";
-export { default } from "./OutfitPlannerClient";
+export { default } from "./PredictOutfit.page";
