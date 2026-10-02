@@ -41,6 +41,26 @@ const generateDateRange = (startDate, endDate) => {
   return dates;
 };
 
+const getNextAvailableDay = (dates, activities, afterDay = "") => {
+  const occupiedDays = new Set(activities.map((activity) => activity.assignedDay));
+  const afterIndex = Number(afterDay.replace("Day ", "")) - 1;
+  const startIndex = afterIndex >= 0 ? afterIndex + 1 : 0;
+  const order = [...dates.keys()].slice(startIndex).concat([...dates.keys()].slice(0, startIndex));
+  const nextIndex = order.find((index) => !occupiedDays.has(`Day ${index + 1}`));
+  return nextIndex === undefined ? "" : `Day ${nextIndex + 1}`;
+};
+
+const formatTimeOption = (time) => {
+  const [hour, minute] = time.split(":").map(Number);
+  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
+};
+
+const ACTIVITY_TIMES = Array.from({ length: 69 }, (_, index) => {
+  const minutes = 6 * 60 + index * 15;
+  const hour = Math.floor(minutes / 60);
+  return `${String(hour).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+});
+
 function NearbyCard({ destination }) {
   const activity = destination.activities?.[0];
   const title = activity?.name || destination.name;
@@ -122,6 +142,7 @@ function SpecificDestinationsContent() {
   const selectedActivityImage = failedActivityImage === requestedActivityImage ? activityFallbackImage(selectedActivityData, destinationDetails) : requestedActivityImage;
 
   const guestWarning = getGuestWarning(guests);
+  const assignedDayTaken = hasActivityConflict({ assignedDay });
 
   const handleAssignedDayChange = (nextDay) => {
     setAssignedDay(nextDay);
@@ -162,7 +183,12 @@ function SpecificDestinationsContent() {
       const mockDestination = MOCK_DESTINATIONS.find((destination) => destination.id === destinationId) || MOCK_DESTINATIONS[0] || FALLBACK_DESTINATION;
       if (!isMounted) return;
       setDestinationDetails(mockDestination);
-      setNearbyDestinations(MOCK_DESTINATIONS.filter((destination) => destination.id !== mockDestination.id).slice(0, 4));
+      const nearby = MOCK_DESTINATIONS.filter((destination) => destination.id !== mockDestination.id);
+      for (let index = nearby.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [nearby[index], nearby[swapIndex]] = [nearby[swapIndex], nearby[index]];
+      }
+      setNearbyDestinations(nearby.slice(0, 4));
 
       try {
         // Fetch priority Open-Meteo forecast and activity recommendations
@@ -300,6 +326,12 @@ function SpecificDestinationsContent() {
       weather_forecast: weatherForecast,
     };
     addActivity(selected);
+    const nextDay = getNextAvailableDay(generateDateRange(startDate, endDate), [...currentActivities, selected], assignedDay);
+    if (nextDay) {
+      setAssignedDay(nextDay);
+      const nextDate = generateDateRange(startDate, endDate)[Number(nextDay.replace("Day ", "")) - 1];
+      if (nextDate) setPricingDate(nextDate);
+    }
     setDateRange({ startDate, endDate });
     setToastMessage("Activity added to your itinerary.");
     window.setTimeout(() => setToastMessage(""), 3000);
@@ -492,33 +524,46 @@ function SpecificDestinationsContent() {
                     </select>
                   </div>
 
-                  <label className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-slate-700">
-                    <span>Assign to</span>
+                  <label className={`mt-3 mb-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${assignedDayTaken ? "border-amber-300 bg-amber-50/60 text-slate-700" : "border-gray-300 text-slate-700"}`}>
+                    <span>
+                      Assign to{assignedDayTaken ? " · taken" : ""}
+                    </span>
                     <select
                       value={assignedDay}
                       onChange={(e) => handleAssignedDayChange(e.target.value)}
-                      className="max-w-[65%] rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold outline-none focus:border-gray-400"
+                      className={`max-w-[65%] rounded-lg border bg-white px-2 py-1 text-xs font-semibold outline-none focus:border-gray-400 ${assignedDayTaken ? "border-amber-200 text-slate-700" : "border-gray-200"}`}
                     >
-                      {generateDateRange(startDate, endDate).map((date, index) => (
-                        <option key={date} value={`Day ${index + 1}`}>Day {index + 1} · {formatDate(date)}</option>
-                      ))}
+                      {generateDateRange(startDate, endDate).map((date, index) => {
+                        const dayLabel = `Day ${index + 1}`;
+                        const taken = currentActivities.some((item) => item.assignedDay === dayLabel);
+                        return (
+                          <option key={date} value={dayLabel} className={taken ? "text-slate-400" : "text-slate-800"}>
+                            {dayLabel} · {formatDate(date)}{taken ? " (selected)" : ""}
+                          </option>
+                        );
+                      })}
                     </select>
                   </label>
+                  {assignedDayTaken ? (
+                    <p className="mb-3 text-[11px] font-semibold text-amber-700 opacity-70">
+                      An activity is already assigned to {assignedDay}. Choose another day or replace it in the itinerary planner.
+                    </p>
+                  ) : null}
 
-                  <div className="flex flex-col gap-3">
+                  <div className="mt-1 flex flex-col gap-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-3 hover:border-gray-400 transition-colors cursor-pointer">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 shrink-0">
                           <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
                         </svg>
-                        <input 
-                          type="time" 
+                        <select
+                          aria-label="Activity time"
                           value={selectedTime}
                           onChange={(e) => setSelectedTime(e.target.value)}
-                          min="06:00"
-                          max="23:00"
                           className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
-                        />
+                        >
+                          {ACTIVITY_TIMES.map((time) => <option key={time} value={time}>{formatTimeOption(time)}</option>)}
+                        </select>
                       </div>
                       <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4">
                         <span className="text-sm font-medium text-slate-700">Guests</span>

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
 import ImageUploader from "../../components/ImageUploader";
@@ -17,12 +18,6 @@ const adviceByWeather = {
   Rainy: "Bring a rain jacket or umbrella, quick-dry clothes, and waterproof shoes.",
   Cloudy: "Comfortable layers and a light jacket are the safest choice.",
 };
-const getExpectation = (value) => {
-  const raw = String(value || "").toLowerCase().replace(/_/g, " ");
-  if (["shirt", "dress", "sandal"].some((item) => raw.includes(item))) return { conditions: ["Sunny"], phrase: "sunny, warm weather" };
-  if (["trouser", "pullover", "coat", "boot"].some((item) => raw.includes(item))) return { conditions: ["Cloudy", "Rainy"], phrase: "cool, cloudy, or rainy weather" };
-  return { conditions: ["Cloudy"], phrase: "this trip's weather" };
-};
 const formatDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Select a date";
 const generateDateRange = (startDate, endDate) => {
   if (!startDate || !endDate || endDate < startDate) return [];
@@ -36,8 +31,10 @@ const generateDateRange = (startDate, endDate) => {
   return dates;
 };
 
-export default function OutfitPlannerClient() {
-  const { outfits, setOutfits, savedItineraries } = useTravel();
+function OutfitPlannerContent() {
+  const searchParams = useSearchParams();
+  const fromPlanner = searchParams.get("from") === "planner";
+  const { outfits, setOutfits, savedItineraries, dateRange, currentActivities } = useTravel();
   const [destinations, setDestinations] = useState([]);
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState("");
@@ -45,7 +42,7 @@ export default function OutfitPlannerClient() {
   const [weather, setWeather] = useState(null);
   const [image, setImage] = useState("");
   const [result, setResult] = useState(null);
-  const [source, setSource] = useState("saved");
+  const [source, setSource] = useState(fromPlanner ? "current" : "saved");
   const [message, setMessage] = useState("");
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [loadingOutfit, setLoadingOutfit] = useState(false);
@@ -54,6 +51,10 @@ export default function OutfitPlannerClient() {
   const [outfitSets, setOutfitSets] = useState([{ id: "outfit-set-1", name: "Outfit 1" }]);
   const [activeOutfitSetId, setActiveOutfitSetId] = useState("outfit-set-1");
   const [selectedPlannerId, setSelectedPlannerId] = useState("");
+
+  const currentPlannerDates = useMemo(() => generateDateRange(dateRange.startDate, dateRange.endDate), [dateRange.endDate, dateRange.startDate]);
+  const currentPlannerDestination = useMemo(() => currentActivities[0]?.destination || "", [currentActivities]);
+  const hasCurrentPlanner = Boolean(currentPlannerDates.length || currentActivities.length || (dateRange.startDate && dateRange.endDate));
 
   const selectedSavedPlanner = savedItineraries.find((planner) => planner.createdAt === selectedPlannerId) || savedItineraries[0];
   const readFromItinerary = (planner = selectedSavedPlanner) => {
@@ -68,6 +69,12 @@ export default function OutfitPlannerClient() {
     const locations = (day?.scheduled_activities || []).map((activity) => activity.destination || activity.location).filter(Boolean);
     if (!locations.length && day?.destination) locations.push(day.destination);
     return [...new Set(locations)];
+  };
+
+  const dayNumberForDate = (selectedDate, dates = plannerDates) => {
+    if (!selectedDate) return 1;
+    const index = dates.indexOf(selectedDate);
+    return index >= 0 ? index + 1 : 1;
   };
 
   useEffect(() => {
@@ -88,29 +95,48 @@ export default function OutfitPlannerClient() {
     };
     load();
     return () => { active = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!destination && destinations.length && !savedItineraries.length) setDestination(destinations[0].name);
-  }, [destination, destinations, savedItineraries.length]);
+    if (!destination && destinations.length && !savedItineraries.length && !hasCurrentPlanner) setDestination(destinations[0].name);
+  }, [destination, destinations, hasCurrentPlanner, savedItineraries.length]);
 
   useEffect(() => {
+    if (!(fromPlanner && hasCurrentPlanner)) return;
+    setSource("current");
+    setPlannerDates(currentPlannerDates);
+    setDate(currentPlannerDates[0] || clampToSelectableDate(getMinSelectableDate()));
+    if (currentPlannerDestination) setDestination(currentPlannerDestination);
+    setWeather(null);
+    setMessage("Current planner dates loaded from your itinerary workspace.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromPlanner]);
+
+  useEffect(() => {
+    if (source === "current" || source === "new") return;
     if (savedItineraries.some((planner) => planner.createdAt === selectedPlannerId)) return;
     const planner = savedItineraries[0];
     setSelectedPlannerId(planner?.createdAt || "");
+    if (source !== "saved") return;
     const saved = readFromItinerary(planner);
     setPlannerDates(saved.dates);
     setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate()));
     if (saved.destination) setDestination(saved.destination);
     setWeather(null);
-  }, [savedItineraries, selectedPlannerId]);
+  }, [savedItineraries, selectedPlannerId, source]);
 
   const selectedPlannerLocations = source === "saved" ? locationsForDate(selectedSavedPlanner, date) : [];
   const savedPlannerLocations = source === "saved" ? [...new Set((selectedSavedPlanner?.itinerary || []).flatMap((day) => locationsForDate(selectedSavedPlanner, day.date || day.day)))] : [];
-  const locationOptions = source === "saved" && selectedPlannerLocations.length
+  const currentLocations = source === "current"
+    ? [...new Set(currentActivities.map((activity) => activity.destination).filter(Boolean))]
+    : [];
+  const locationOptions = source === "current" && currentLocations.length
+    ? currentLocations
+    : source === "saved" && selectedPlannerLocations.length
     ? selectedPlannerLocations
-    : source === "saved" && savedPlannerLocations.length ? savedPlannerLocations : destinations.map((item) => item.name);
+    : source === "saved" && savedPlannerLocations.length
+    ? savedPlannerLocations
+    : destinations.map((item) => item.name);
 
   const availableOutfitSets = [...outfitSets];
   outfits.forEach((outfit) => {
@@ -156,6 +182,25 @@ export default function OutfitPlannerClient() {
     setWeather(null);
     setMessage(saved.dates.length ? "Saved planner dates and destination loaded." : "No saved planners were found. Generate a planner first.");
   };
+  const useCurrentPlanner = () => {
+    setSource("current");
+    setPlannerDates(currentPlannerDates);
+    setDate(currentPlannerDates[0] || clampToSelectableDate(getMinSelectableDate()));
+    setDestination(currentPlannerDestination || destinations[0]?.name || destination);
+    setWeather(null);
+    setMessage(currentPlannerDates.length ? "Current planner dates loaded." : "No current trip dates found. Set dates in the itinerary planner first.");
+  };
+  const useNewLocation = () => {
+    const nextDate = clampToSelectableDate(getMinSelectableDate());
+    setSource("new");
+    setPlannerDates([nextDate]);
+    setDate(nextDate);
+    setDestination(destinations[0]?.name || "");
+    setWeather(null);
+    setResult(null);
+    setImage("");
+    setMessage("");
+  };
   const getWeather = async () => {
     if (!destination || !date) { setMessage("Choose a place and date first."); return; }
     setLoadingWeather(true);
@@ -187,15 +232,13 @@ export default function OutfitPlannerClient() {
       });
       const data = await response.json();
       if (!response.ok || data.status === "error") throw new Error(data.message || "Outfit prediction failed.");
-      
-      // FIX: Rely entirely on the backend's weather logic instead of getExpectation()
-      setResult({ 
-        ...data, 
-        category: "Top", 
-        matches: data.conditions.includes(weather.condition), 
-        outfitPhrase: data.weather_suitability, 
-        advice: adviceByWeather[weather.condition] 
-      }); 
+      setResult({
+        ...data,
+        category: "Top",
+        matches: data.conditions.includes(weather.condition),
+        outfitPhrase: data.weather_suitability,
+        advice: adviceByWeather[weather.condition],
+      });
     } catch (error) {
       setMessage(error.message || "Could not analyze outfit.");
     } finally { setLoadingOutfit(false); }
@@ -203,6 +246,7 @@ export default function OutfitPlannerClient() {
   const acceptOutfit = () => {
     if (!result || !image) return;
     const outfitSet = availableOutfitSets.find((set) => set.id === activeOutfitSetId) || availableOutfitSets[0];
+    const resolvedDates = plannerDates.length ? plannerDates : [date];
     setOutfits((current) => [...current, {
       id: `outfit-${Date.now()}`,
       image,
@@ -213,7 +257,7 @@ export default function OutfitPlannerClient() {
       outfitPhrase: result.outfitPhrase,
       advice: result.advice,
       date,
-      day: `Day ${Math.max(0, plannerDates.indexOf(date)) + 1}`,
+      day: `Day ${dayNumberForDate(date, resolvedDates)}`,
       outfitSetId: outfitSet?.id || "outfit-set-1",
       outfitSetName: outfitSet?.name || "Outfit 1",
     }]);
@@ -223,7 +267,14 @@ export default function OutfitPlannerClient() {
   };
   const updateOutfit = (id, changes) => setOutfits((current) => current.map((outfit) => outfit.id === id ? { ...outfit, ...changes } : outfit));
   const deleteOutfit = (id) => setOutfits((current) => current.filter((outfit) => outfit.id !== id));
-  const dayOptions = plannerDates.length ? plannerDates : [date || clampToSelectableDate(getMinSelectableDate())];
+
+  const dayOptions = plannerDates.length
+    ? plannerDates
+    : date
+    ? [date]
+    : [clampToSelectableDate(getMinSelectableDate())];
+
+  const sourceButtonClass = (value) => `rounded-lg px-3 py-2 text-sm font-bold ${source === value ? "bg-slate-900 text-white" : "border border-slate-300"}`;
 
   return (
     <main className="outfit-planner-shell min-h-screen bg-[#f5f7fa] text-slate-900">
@@ -241,9 +292,12 @@ export default function OutfitPlannerClient() {
           <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">01 / Outfit source</p>
             <h2 className="mt-2 text-2xl font-black">Where is this outfit for?</h2>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button type="button" onClick={useSavedPlanner} className={`rounded-lg px-3 py-2 text-sm font-bold ${source === "saved" ? "bg-slate-900 text-white" : "border border-slate-300"}`}>Use saved planner</button>
-              <button type="button" onClick={() => { setSource("new"); setPlannerDates([]); setDate(clampToSelectableDate(getMinSelectableDate())); setDestination(destinations[0]?.name || ""); setWeather(null); setResult(null); setImage(""); setMessage(""); }} className={`rounded-lg px-3 py-2 text-sm font-bold ${source === "new" ? "bg-slate-900 text-white" : "border border-slate-300"}`}>New location</button>
+            <div className={`mt-5 grid gap-2 ${fromPlanner || hasCurrentPlanner ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
+              <button type="button" onClick={useSavedPlanner} className={sourceButtonClass("saved")}>Use saved planner</button>
+              {(fromPlanner || hasCurrentPlanner) ? (
+                <button type="button" onClick={useCurrentPlanner} className={sourceButtonClass("current")}>Current planner</button>
+              ) : null}
+              <button type="button" onClick={useNewLocation} className={sourceButtonClass("new")}>New location</button>
             </div>
             {source === "saved" && savedItineraries.length ? <label className="mt-4 block text-sm font-bold">Saved planner
               <select value={selectedSavedPlanner?.createdAt || ""} onChange={(event) => { const planner = savedItineraries.find((item) => item.createdAt === event.target.value); setSelectedPlannerId(event.target.value); const saved = readFromItinerary(planner); setPlannerDates(saved.dates); setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate())); setDestination(saved.destination); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3">
@@ -256,13 +310,29 @@ export default function OutfitPlannerClient() {
               </select>
             </label>
             <label className="mt-4 block text-sm font-bold">Plan date
-              {source === "saved" && plannerDates.length ? <select value={date} onChange={(event) => { const nextDate = event.target.value; setDate(nextDate); setDestination(locationsForDate(selectedSavedPlanner, nextDate)[0] || destination); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3">{plannerDates.map((plannerDate, index) => <option key={plannerDate} value={plannerDate}>Day {index + 1} · {formatDate(plannerDate)}</option>)}</select> : <input type="date" min={getMinSelectableDate()} value={date} onChange={(event) => { setDate(event.target.value); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3" />}
+              {(source === "saved" || source === "current") && plannerDates.length ? (
+                <select value={date} onChange={(event) => {
+                  const nextDate = event.target.value;
+                  setDate(nextDate);
+                  if (source === "saved") setDestination(locationsForDate(selectedSavedPlanner, nextDate)[0] || destination);
+                  setWeather(null);
+                }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3">
+                  {plannerDates.map((plannerDate, index) => <option key={plannerDate} value={plannerDate}>Day {index + 1} · {formatDate(plannerDate)}</option>)}
+                </select>
+              ) : (
+                <input type="date" min={getMinSelectableDate()} value={date} onChange={(event) => {
+                  const nextDate = event.target.value;
+                  setDate(nextDate);
+                  setPlannerDates([nextDate]);
+                  setWeather(null);
+                }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3" />
+              )}
             </label>
             <button type="button" onClick={getWeather} disabled={loadingWeather} className="mt-4 w-full rounded-lg bg-slate-900 px-4 py-3 font-bold text-white disabled:opacity-50">{loadingWeather ? "Checking weather..." : "Check predicted weather"}</button>
             {weather ? <div className="mt-4 border-t border-slate-200 pt-4">
               <p className="font-bold">{destination}: {weather.condition}</p>
               <p className="mt-1 text-sm">{weather.temperature}°C average · {weather.rainfall} mm rain</p>
-              <p className="mt-2 text-sm text-slate-600">Garment matching is based on {weather.condition.toLowerCase()} conditions for {formatDate(date)}.</p>
+              <p className="mt-2 text-sm text-slate-600">Garment matching is based on {weather.condition.toLowerCase()} conditions for {formatDate(date)} (Day {dayNumberForDate(date, dayOptions)}).</p>
             </div> : null}
           </section>
 
@@ -315,11 +385,12 @@ export default function OutfitPlannerClient() {
               <article key={group.key} className="border border-slate-200 p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="font-black">{group.name}</h3>
-                  <p className="text-xs text-slate-500">{formatDate(group.date)}</p>
+                  <p className="text-xs text-slate-500">Day {dayNumberForDate(group.date, dayOptions)} · {formatDate(group.date)}</p>
                 </div>
                 <div className="mt-3 grid gap-3">
                   {group.items.map((outfit) => {
                     const setId = outfit.outfitSetId || "outfit-set-1";
+                    const outfitDate = dayOptions.includes(outfit.date) ? outfit.date : dayOptions[0];
                     return <div key={outfit.id} className="flex min-w-0 gap-3 border-t border-slate-100 pt-3">
                       <GarmentImage src={outfit.image} alt={`${outfit.category} garment`} className="h-20 w-20 shrink-0 rounded object-cover" />
                       <div className="min-w-0 flex-1">
@@ -336,11 +407,11 @@ export default function OutfitPlannerClient() {
                         </label>
                       </div>
                       <div className="flex shrink-0 flex-col gap-2">
-                        <select aria-label={`Assign ${outfit.category} to a day`} value={outfit.date || dayOptions[0]} onChange={(event) => {
+                        <select aria-label={`Assign ${outfit.category} to a day`} value={outfitDate} onChange={(event) => {
                           const nextDate = event.target.value;
-                          updateOutfit(outfit.id, { date: nextDate, day: `Day ${Math.max(0, plannerDates.indexOf(nextDate)) + 1}` });
-                        }} className="max-w-32 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-bold">
-                          {dayOptions.map((day) => <option key={day} value={day}>Day {plannerDates.indexOf(day) + 1} · {formatDate(day)}</option>)}
+                          updateOutfit(outfit.id, { date: nextDate, day: `Day ${dayNumberForDate(nextDate, dayOptions)}` });
+                        }} className="max-w-36 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-bold">
+                          {dayOptions.map((day, index) => <option key={day} value={day}>Day {index + 1} · {formatDate(day)}</option>)}
                         </select>
                         <button type="button" onClick={() => deleteOutfit(outfit.id)} className="rounded border border-rose-200 px-2 py-1 text-xs font-bold text-rose-700">Delete</button>
                       </div>
@@ -352,9 +423,17 @@ export default function OutfitPlannerClient() {
             {!outfits.length ? <p className="border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600 md:col-span-2">Accepted garments will appear here.</p> : null}
           </div>
         </section>
-        <div className="mt-8"><Footer /></div>
+        <div className="mt-8 border-t border-slate-100 bg-white"><Footer /></div>
       </div>
       {captureMode ? <OutfitImageCapture source={captureSource} mode={captureMode} onCancel={() => setCaptureMode("")} onSelect={(croppedImage) => { setCaptureMode(""); analyzeOutfit(croppedImage); }} /> : null}
     </main>
+  );
+}
+
+export default function OutfitPlannerClient() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center text-sm font-bold text-slate-600">Loading outfit planner...</main>}>
+      <OutfitPlannerContent />
+    </Suspense>
   );
 }
