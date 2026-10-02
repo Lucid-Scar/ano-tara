@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import GarmentImage from "../../components/GarmentImage";
+import ActivityTimePicker from "../../components/ActivityTimePicker";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
 import { useTravel } from "../TravelContext";
-import { getGuestWarning, getMinSelectableDate, isPastOrTodayDate, toDateString } from "../tripUtils";
+import { clampActivityTime, getGuestWarning, getMinSelectableDate, isPastOrTodayDate, isValidActivityTime, toDateString } from "../tripUtils";
 
 const formatDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 const formatShortDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -26,7 +27,6 @@ const fallbackDayImage = (activity) => {
   return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
 };
 const dayImage = (activity) => activity?.image || fallbackDayImage(activity);
-const isValidActivityTime = (value) => typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) && value >= "06:00" && value <= "23:00";
 const describeWeather = (day) => {
   const forecast = day.weather_forecast || {};
   const historical = day.historical_weather || {};
@@ -90,8 +90,9 @@ export default function FinalPlannerPage() {
   const commitActivities = (nextActivities) => { setActivities(nextActivities); setCurrentActivities(nextActivities); setPlanner(null); };
 
   const changeActivity = (index, changes) => {
-    const next = activities.map((activity, activityIndex) => activityIndex === index ? { ...activity, ...changes, ...(changes.assignedDay ? { assigned_day: changes.assignedDay } : {}) } : activity);
-    if (changes.assignedDay && hasActivityConflict(next[index], index)) {
+    const nextChanges = Object.prototype.hasOwnProperty.call(changes, "time") ? { ...changes, time: clampActivityTime(changes.time) } : changes;
+    const next = activities.map((activity, activityIndex) => activityIndex === index ? { ...activity, ...nextChanges, ...(nextChanges.assignedDay ? { assigned_day: nextChanges.assignedDay } : {}) } : activity);
+    if (nextChanges.assignedDay && hasActivityConflict(next[index], index)) {
       const otherIndex = next.findIndex((activity, activityIndex) => activityIndex !== index && activity.assignedDay === changes.assignedDay);
       if (otherIndex >= 0 && activities[index]?.assignedDay) {
         const previousDay = activities[index].assignedDay;
@@ -117,6 +118,14 @@ export default function FinalPlannerPage() {
 
   const changeActivityGuests = (index, amount) => changeActivity(index, { guests: Math.max(1, (Number(activities[index]?.guests) || 1) + amount) });
   const removeOutfit = (id) => setOutfits((current) => current.filter((outfit) => outfit.id !== id));
+  const changeOutfitDay = (id, nextDate) => {
+    const dayIndex = dates.indexOf(nextDate);
+    const updatedOutfits = outfits.map((outfit) => outfit.id === id
+      ? { ...outfit, date: nextDate, day: `Day ${dayIndex + 1}` }
+      : outfit);
+    setOutfits(updatedOutfits);
+    setPlanner((current) => current ? { ...current, outfits: updatedOutfits } : current);
+  };
   const outfitSetOptions = [...new Map(outfits.map((item) => {
     const id = item.outfitSetId || "outfit-set-1";
     return [id, { id, name: item.outfitSetName || "Outfit 1" }];
@@ -191,7 +200,7 @@ export default function FinalPlannerPage() {
       const response = await fetch("http://localhost:8000/api/generate-itinerary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target_dates: targetDates, raw_activities: scheduledActivities.map((activity) => ({ ...activity, assigned_day: activity.assignedDay })), mlr_price: mlrPrice, guests: guestCount, outfit: outfits[0] || undefined }),
+        body: JSON.stringify({ target_dates: targetDates, raw_activities: scheduledActivities.map((activity) => ({ ...activity, assigned_day: activity.assignedDay, room_type: activity.roomType || activity.room_type || "Standard Room" })), mlr_price: mlrPrice, guests: guestCount, outfit: outfits[0] || undefined }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.detail?.[0]?.msg || data?.detail || "Could not generate the planner.");
@@ -225,7 +234,7 @@ export default function FinalPlannerPage() {
       activities: (day.scheduled_activities || []).map((activity) => ({
         ...activity,
         location: activity.location || activity.destination,
-        price: Number(activity.price ?? ((activity.price_range?.min || 0) + (activity.price_range?.max || 0)) / 2),
+        price: Number(activity.estimated_price ?? activity.price ?? ((activity.price_range?.min || 0) + (activity.price_range?.max || 0)) / 2),
         guests: Number(activity.guests) || guests,
       })),
     }));
@@ -258,8 +267,8 @@ export default function FinalPlannerPage() {
                 {savedItineraries.map((item) => (
                   <div key={item.createdAt} className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 p-3">
                     <input aria-label="Saved planner name" value={item.name || ""} onChange={(event) => renameItinerary(item.createdAt, event.target.value)} onBlur={() => { if (!item.name?.trim()) renameItinerary(item.createdAt, "Saved itinerary"); }} className="min-w-48 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold" />
-                    <button type="button" onClick={() => openSavedPlanner(item)} className="text-left text-sm font-bold text-slate-800 hover:underline">
-                      Open · {item.itinerary?.length || 0} days · {item.createdAt}
+                    <button type="button" onClick={() => openSavedPlanner(item)} className="planner-nav-link shrink-0 text-xs">
+                      Load Planner
                     </button>
                     <button type="button" onClick={() => deleteItinerary(item.createdAt)} className="text-xs font-bold text-rose-600">Delete</button>
                   </div>
@@ -286,7 +295,7 @@ export default function FinalPlannerPage() {
             </section>
 
             <section className="py-6">
-              <div className="flex items-center justify-between"><h3 className="text-sm font-black uppercase tracking-wider">Activities</h3><Link href="/destinations" className="text-sm font-bold underline">Choose more</Link></div>
+              <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-black uppercase tracking-wider">Activities</h3><Link href="/destinations" className="planner-nav-link text-xs">Choose more Activities</Link></div>
               <p className="mt-2 text-sm text-slate-600">Drag cards to reorder days, or use the day menu to swap.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {activities.map((activity, index) => (
@@ -329,7 +338,7 @@ export default function FinalPlannerPage() {
                     {warningActivityIndex === index ? <p className="mt-2 text-[11px] font-semibold text-amber-700">{errorMessage}</p> : null}
                     <label className="mt-3 flex min-w-0 flex-col gap-1 text-xs font-bold">
                       Time
-                      <input type="time" min="06:00" max="23:00" value={activity.time || ""} onChange={(event) => changeActivity(index, { time: event.target.value })} className="w-full rounded border border-slate-300 bg-white px-2 py-1.5" />
+                      <ActivityTimePicker value={clampActivityTime(activity.time)} onChange={(time) => changeActivity(index, { time })} />
                     </label>
                     <p className="mt-1 text-xs text-slate-600">{getStay(activity)}</p>
                     {getGuestWarning(activity.guests) ? <p className="mt-1 text-[11px] font-semibold text-amber-700">{getGuestWarning(activity.guests)}</p> : null}
@@ -340,7 +349,7 @@ export default function FinalPlannerPage() {
             </section>
 
             <section className="border-t border-slate-200 py-6">
-              <div className="flex items-center justify-between"><h3 className="text-sm font-black uppercase tracking-wider">Clothing</h3><Link href="/predict-outfit?from=planner" className="text-sm font-bold underline">Attach outfit</Link></div>
+              <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-black uppercase tracking-wider">Clothing</h3><Link href="/predict-outfit?from=planner" className="planner-nav-link text-xs">Attach Outfit</Link></div>
               {outfits.length ? (
                 <div className="mt-3 space-y-2">
                   {groupOutfits(outfits).map((group) => (
@@ -350,6 +359,9 @@ export default function FinalPlannerPage() {
                         {group.items.map((item) => <div key={item.id} className="flex items-center gap-2">
                           <GarmentImage src={item.image} alt={`${item.category} garment`} className="h-10 w-10" />
                           <span className="text-sm font-bold">{item.category}</span>
+                          <select aria-label={`Assign ${item.category} outfit to an activity day`} value={dates.includes(item.date) ? item.date : (dates[0] || "")} disabled={!dates.length} onChange={(event) => changeOutfitDay(item.id, event.target.value)} className="max-w-40 rounded border border-slate-300 bg-white px-1 py-1 text-xs">
+                            {dates.map((date, dayIndex) => <option key={date} value={date}>Day {dayIndex + 1} · {new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</option>)}
+                          </select>
                           <select aria-label={`Assign ${item.category} to an outfit set`} value={item.outfitSetId || "outfit-set-1"} onChange={(event) => {
                             const nextSet = outfitSetOptions.find((set) => set.id === event.target.value);
                             if (nextSet) changeOutfitSet(item.id, nextSet);
@@ -376,7 +388,7 @@ export default function FinalPlannerPage() {
             <div className="mt-5 space-y-4">
               <div className="border-b border-slate-200 pb-4">
                 <p className="text-xs font-bold uppercase text-slate-500">Clothing</p>
-                {outfits.length ? <p className="mt-1 text-sm font-bold">{outfits.length} garment{outfits.length === 1 ? "" : "s"} attached</p> : <Link href="/predict-outfit?from=planner" className="mt-1 inline-block text-sm font-bold underline">Add clothing from outfit planner</Link>}
+                {outfits.length ? <p className="mt-1 text-sm font-bold">{outfits.length} garment{outfits.length === 1 ? "" : "s"} attached</p> : <Link href="/predict-outfit?from=planner" className="planner-nav-link mt-2 text-xs">Attach Outfit</Link>}
               </div>
               {itineraryDays.map((day, index) => {
                 const dayOutfits = outfitsForDay(day.date || day.day, index);
@@ -388,7 +400,7 @@ export default function FinalPlannerPage() {
                       <p className="text-xs font-bold text-slate-700">{group.name}</p>
                       <div className="mt-1 flex flex-wrap gap-2">{group.items.map((item) => <GarmentImage key={item.id} src={item.image} alt={`${item.category} for ${day.dayNumber}`} className="h-14 w-14 rounded" />)}</div>
                     </div>)}</div> : null}
-                    {day.activities.map((activity) => <p key={activity.name} className="mt-2 text-xs font-semibold">{activity.name} · {activity.location || activity.destination} · {activity.guests} guests · PHP {Number(activity.price || 0).toLocaleString()}</p>)}
+                    {day.activities.map((activity) => <p key={activity.name} className="mt-2 text-xs font-semibold">{activity.name} · {activity.location || activity.destination} · {activity.guests} guests · Estimated price: PHP {Number(activity.price || 0).toLocaleString()}</p>)}
                   </section>
                 );
               })}
@@ -439,7 +451,7 @@ export default function FinalPlannerPage() {
                               {activity.hazard_flag ? <p role="alert" className="mb-1 text-[10px] font-black text-rose-800">Safety alert: rainy outdoor activity</p> : null}
                               <p className="font-bold">{activity.name}</p>
                               <p>{activity.location || activity.destination}</p>
-                              <p>Price: PHP {Number(activity.price || 0).toLocaleString()}</p>
+                              <p>Estimated price: PHP {Number(activity.price || 0).toLocaleString()}</p>
                               <p>Time: {getTime(activity)}</p>
                             </div>
                           )) : <p>No activity assigned.</p>}
@@ -461,12 +473,11 @@ export default function FinalPlannerPage() {
                   );
                 })}
               </div>
-              {planner.priceEstimate?.destination ? <p className="mt-2 text-center text-[10px] font-semibold text-white drop-shadow">{planner.priceEstimate.destination}</p> : null}
             </div>
           ) : <p className="bg-white p-6 text-center text-sm text-slate-600">Generate a plan to see the print-ready travel plan.</p>}
         </section>
         </div>
-        <div className="planner-controls mt-8 border-t border-slate-100 bg-white"><Footer /></div>
+        <div className="planner-controls mt-8 bg-white"><Footer /></div>
       </div>
     </main>
   );

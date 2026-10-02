@@ -47,6 +47,8 @@ class ActivityPayload(BaseModel):
     guests: int = Field(default=1, ge=1)
     assigned_day: str | None = None
     time: str | None = None
+    hotel_type: str | None = None
+    room_type: str = "Standard Room"
 
 
 class ItineraryPayload(BaseModel):
@@ -911,8 +913,15 @@ def generate_itinerary(payload: ItineraryPayload):
         
         act_type = activity.type.strip().lower()
         # Carry the MLR-aligned decision variables into the planner output for traceability.
-        hotel_type = "Resort Hotel" if act_type == "outdoor" else "City Hotel"
+        hotel_type = activity.hotel_type if activity.hotel_type in BASE_PRICES else ("Resort Hotel" if act_type == "outdoor" else "City Hotel")
         hotel_is_resort = int(hotel_type == "Resort Hotel")
+        activity_date = date.fromisoformat(day)
+        try:
+            _, multiplier, _ = predict_mlr_price(activity_date, activity.guests, hotel_type, 1, activity.room_type)
+            estimated_price = round(float(BASE_PRICES[hotel_type]) * min(multiplier, 3.0), 2)
+        except RuntimeError:
+            seasonal = 1.15 if activity_date.month in {12, 1, 2, 4} else 1.0
+            estimated_price = round(float(BASE_PRICES[hotel_type]) * (1 + (activity.guests - 1) * 0.12) * seasonal, 2)
         average_temperature = float(matched_fc.get("average_temperature", MONTHLY_WEATHER[date.fromisoformat(day).month][0]))
         rainfall = float(matched_fc.get("precipitation_sum_mm", 0.0) or 0.0)
         decision_features = {
@@ -949,6 +958,7 @@ def generate_itinerary(payload: ItineraryPayload):
             "assigned_day": activity.assigned_day,
             "guests": activity.guests,
             "time": activity.time,
+            "estimated_price": estimated_price,
             "weather": matched_fc["condition"],
             "weather_forecast": matched_fc,
             "decision_features": decision_features,
@@ -956,12 +966,11 @@ def generate_itinerary(payload: ItineraryPayload):
             "hazard_flag": hazard_flag,
         })
 
-    total_activity_guests = sum(activity.guests for activity in payload.raw_activities) or 1
     totals: dict[str, dict[str, float]] = {}
     for activities in scheduled.values():
         for activity in activities:
-            price_share = payload.mlr_price * int(activity["guests"]) / total_activity_guests
-            activity["price_range"] = {"min": round(price_share * 0.8, 2), "max": round(price_share * 1.2, 2)}
+            estimated_price = float(activity["estimated_price"])
+            activity["price_range"] = {"min": round(estimated_price * 0.8, 2), "max": round(estimated_price * 1.2, 2)}
             total = totals.setdefault(str(activity["destination"]), {"min": 0, "max": 0})
             total["min"] += activity["price_range"]["min"]
             total["max"] += activity["price_range"]["max"]
@@ -1050,7 +1059,7 @@ def predict_outfit(payload: OutfitPayload):
         print(f"Top Guess: {category} | Confidence: {confidence * 100:.2f}%")
         print(f"-------------------------\n")
 
-        if confidence < 0.70:
+        if confidence < 0.60:
             return {
                 "status": "error", 
                 "message": f"Clothing not recognized clearly (Confidence: {confidence*100:.1f}%). Please upload a cropped photo of a clothing item, preferably taken in good lighting and with the item centered in the frame."

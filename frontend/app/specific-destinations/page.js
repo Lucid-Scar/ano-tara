@@ -1,10 +1,11 @@
 "use client";
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
+import ActivityTimePicker from "../../components/ActivityTimePicker";
 import { useTravel } from "../TravelContext";
-import { getGuestWarning, getMinSelectableDate, toDateString } from "../tripUtils";
+import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString } from "../tripUtils";
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
@@ -42,7 +43,7 @@ const generateDateRange = (startDate, endDate) => {
 };
 
 const getNextAvailableDay = (dates, activities, afterDay = "") => {
-  const occupiedDays = new Set(activities.map((activity) => activity.assignedDay));
+  const occupiedDays = new Set(activities.map((activity) => activity.assignedDay || activity.assigned_day));
   const afterIndex = Number(afterDay.replace("Day ", "")) - 1;
   const startIndex = afterIndex >= 0 ? afterIndex + 1 : 0;
   const order = [...dates.keys()].slice(startIndex).concat([...dates.keys()].slice(0, startIndex));
@@ -50,19 +51,17 @@ const getNextAvailableDay = (dates, activities, afterDay = "") => {
   return nextIndex === undefined ? "" : `Day ${nextIndex + 1}`;
 };
 
-const formatTimeOption = (time) => {
-  const [hour, minute] = time.split(":").map(Number);
-  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
+const shuffleList = (items) => {
+  const next = [...items];
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+  }
+  return next;
 };
 
-const ACTIVITY_TIMES = Array.from({ length: 69 }, (_, index) => {
-  const minutes = 6 * 60 + index * 15;
-  const hour = Math.floor(minutes / 60);
-  return `${String(hour).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-});
-
 function NearbyCard({ destination }) {
-  const activity = destination.activities?.[0];
+  const activity = destination.highlightActivity || destination.activities?.[0];
   const title = activity?.name || destination.name;
   const image = activityImage(activity, destination);
   const weatherTag = activity?.weather_tag || destination.main_weather || "Sunny";
@@ -76,6 +75,57 @@ function NearbyCard({ destination }) {
         <p className="text-[10px] text-white/80">{destination.name}</p>
       </div>
     </Link>
+  );
+}
+
+function AssignDaySelect({ dates, assignedDay, currentActivities, assignedDayTaken, onChange, formatDate }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+  const options = dates.map((date, index) => {
+    const dayLabel = `Day ${index + 1}`;
+    const taken = currentActivities.some((item) => (item.assignedDay || item.assigned_day) === dayLabel);
+    return { date, dayLabel, taken, text: `${dayLabel} · ${formatDate(date)}${taken ? " (selected)" : ""}` };
+  });
+  const selected = options.find((option) => option.dayLabel === assignedDay) || options[0];
+
+  useEffect(() => {
+    const close = (event) => {
+      if (!menuRef.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  return (
+    <div ref={menuRef} className={`relative mt-3 mb-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${assignedDayTaken ? "border-amber-300 bg-amber-50/60 text-slate-700" : "border-gray-300 text-slate-700"}`}>
+      <span>Assign to{assignedDayTaken ? " · taken" : ""}</span>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className={`max-w-[65%] truncate rounded-lg border bg-white px-2 py-1 text-left text-xs font-semibold outline-none focus:border-gray-400 ${assignedDayTaken ? "border-amber-200 text-slate-700" : "border-gray-200"}`}
+      >
+        {selected?.text || "Choose a day"}
+      </button>
+      {open ? (
+        <ul role="listbox" className="absolute right-4 top-[calc(100%-0.35rem)] z-30 max-h-56 w-[min(100%-2rem,18rem)] overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          {options.map((option) => (
+            <li key={option.date}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={option.dayLabel === assignedDay}
+                onClick={() => { onChange(option.dayLabel); setOpen(false); }}
+                className={`flex w-full px-3 py-2 text-left text-xs font-semibold ${option.dayLabel === assignedDay ? "bg-slate-900 text-white" : "text-slate-800 hover:bg-slate-50"} ${option.taken ? "blur-[1.5px] opacity-60" : ""}`}
+              >
+                {option.text}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
@@ -142,7 +192,10 @@ function SpecificDestinationsContent() {
   const selectedActivityImage = failedActivityImage === requestedActivityImage ? activityFallbackImage(selectedActivityData, destinationDetails) : requestedActivityImage;
 
   const guestWarning = getGuestWarning(guests);
-  const assignedDayTaken = hasActivityConflict({ assignedDay });
+  const assignedDayTaken = hasActivityConflict({ assignedDay })
+    || currentActivities.some((activity) => (activity.assignedDay || activity.assigned_day) === assignedDay);
+  const destinationQuery = searchParams.get("id") || "";
+  const activityQuery = searchParams.get("activity") || "";
 
   const handleAssignedDayChange = (nextDay) => {
     setAssignedDay(nextDay);
@@ -158,14 +211,62 @@ function SpecificDestinationsContent() {
 
   useEffect(() => {
     const dates = generateDateRange(startDate, endDate);
+    if (!dates.length) return;
+    const nextDay = getNextAvailableDay(dates, currentActivities, "");
+    if (nextDay) {
+      setAssignedDay(nextDay);
+      const nextDate = dates[Number(nextDay.replace("Day ", "")) - 1];
+      if (nextDate) setPricingDate(nextDate);
+      return;
+    }
     const assignedIndex = Number(assignedDay.replace("Day ", "")) - 1;
-    if (dates.length && (assignedIndex < 0 || assignedIndex >= dates.length)) setAssignedDay(`Day ${dates.length}`);
-    if (dates.length && !dates.includes(pricingDate)) setPricingDate(dates[0]);
-  }, [assignedDay, endDate, pricingDate, startDate]);
+    if (assignedIndex < 0 || assignedIndex >= dates.length) setAssignedDay(`Day ${dates.length}`);
+    if (!dates.includes(pricingDate)) setPricingDate(dates[0]);
+  }, [activityQuery, currentActivities, destinationQuery, endDate, startDate]);
 
   useEffect(() => {
     setTripReady(true);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadNearbyDestinations = async () => {
+      const { MOCK_DESTINATIONS } = await import("../destinations/mockDestinations");
+      const currentId = destinationQuery || FALLBACK_DESTINATION.id;
+      const pool = [];
+      MOCK_DESTINATIONS.forEach((destination) => {
+        if (destination.id === currentId) return;
+        (destination.activities || []).forEach((activity) => {
+          pool.push({ ...destination, highlightActivity: activity });
+        });
+      });
+      const picked = [];
+      const usedDestinations = new Set();
+      shuffleList(pool).forEach((item) => {
+        if (usedDestinations.has(item.id) || picked.length >= 3) return;
+        usedDestinations.add(item.id);
+        picked.push(item);
+      });
+      let previousIds = [];
+      try {
+        const storedIds = JSON.parse(window.sessionStorage.getItem("anoTaraNearbyDestinations") || "[]");
+        previousIds = Array.isArray(storedIds) ? storedIds : [];
+      } catch {
+        previousIds = [];
+      }
+      const pickedIds = new Set(picked.map((item) => item.id));
+      if (picked.length === 3 && previousIds.length === 3 && previousIds.every((id) => pickedIds.has(id))) {
+        const alternative = shuffleList(pool.filter((item) => !pickedIds.has(item.id)))[0];
+        if (alternative) picked[Math.floor(Math.random() * picked.length)] = alternative;
+      }
+      try {
+        window.sessionStorage.setItem("anoTaraNearbyDestinations", JSON.stringify(picked.map((item) => item.id)));
+      } catch {}
+      if (!cancelled) setNearbyDestinations(picked);
+    };
+    loadNearbyDestinations();
+    return () => { cancelled = true; };
+  }, [activityQuery, destinationQuery]);
 
   useEffect(() => {
     if (!tripReady) return;
@@ -183,13 +284,6 @@ function SpecificDestinationsContent() {
       const mockDestination = MOCK_DESTINATIONS.find((destination) => destination.id === destinationId) || MOCK_DESTINATIONS[0] || FALLBACK_DESTINATION;
       if (!isMounted) return;
       setDestinationDetails(mockDestination);
-      const nearby = MOCK_DESTINATIONS.filter((destination) => destination.id !== mockDestination.id);
-      for (let index = nearby.length - 1; index > 0; index -= 1) {
-        const swapIndex = Math.floor(Math.random() * (index + 1));
-        [nearby[index], nearby[swapIndex]] = [nearby[swapIndex], nearby[index]];
-      }
-      setNearbyDestinations(nearby.slice(0, 4));
-
       try {
         // Fetch priority Open-Meteo forecast and activity recommendations
         let destinationResponse;
@@ -302,7 +396,7 @@ function SpecificDestinationsContent() {
       setToastMessage("Choose a valid trip day before adding this activity.");
       return;
     }
-    if (selectedTime < "06:00" || selectedTime > "23:00") {
+    if (!isValidActivityTime(selectedTime)) {
       setToastMessage("Choose an activity time between 6:00 AM and 11:00 PM.");
       return;
     }
@@ -524,47 +618,23 @@ function SpecificDestinationsContent() {
                     </select>
                   </div>
 
-                  <label className={`mt-3 mb-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${assignedDayTaken ? "border-amber-300 bg-amber-50/60 text-slate-700" : "border-gray-300 text-slate-700"}`}>
-                    <span>
-                      Assign to{assignedDayTaken ? " · taken" : ""}
-                    </span>
-                    <select
-                      value={assignedDay}
-                      onChange={(e) => handleAssignedDayChange(e.target.value)}
-                      className={`max-w-[65%] rounded-lg border bg-white px-2 py-1 text-xs font-semibold outline-none focus:border-gray-400 ${assignedDayTaken ? "border-amber-200 text-slate-700" : "border-gray-200"}`}
-                    >
-                      {generateDateRange(startDate, endDate).map((date, index) => {
-                        const dayLabel = `Day ${index + 1}`;
-                        const taken = currentActivities.some((item) => item.assignedDay === dayLabel);
-                        return (
-                          <option key={date} value={dayLabel} className={taken ? "text-slate-400" : "text-slate-800"}>
-                            {dayLabel} · {formatDate(date)}{taken ? " (selected)" : ""}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </label>
+                  <AssignDaySelect
+                    dates={generateDateRange(startDate, endDate)}
+                    assignedDay={assignedDay}
+                    currentActivities={currentActivities}
+                    assignedDayTaken={assignedDayTaken}
+                    onChange={handleAssignedDayChange}
+                    formatDate={formatDate}
+                  />
                   {assignedDayTaken ? (
-                    <p className="mb-3 text-[11px] font-semibold text-amber-700 opacity-70">
+                    <p className="mb-3 text-[11px] font-semibold text-amber-700">
                       An activity is already assigned to {assignedDay}. Choose another day or replace it in the itinerary planner.
                     </p>
                   ) : null}
 
                   <div className="mt-1 flex flex-col gap-3">
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-3 hover:border-gray-400 transition-colors cursor-pointer">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 shrink-0">
-                          <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                        <select
-                          aria-label="Activity time"
-                          value={selectedTime}
-                          onChange={(e) => setSelectedTime(e.target.value)}
-                          className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
-                        >
-                          {ACTIVITY_TIMES.map((time) => <option key={time} value={time}>{formatTimeOption(time)}</option>)}
-                        </select>
-                      </div>
+                      <ActivityTimePicker value={selectedTime} onChange={setSelectedTime} className="min-w-0" />
                       <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4">
                         <span className="text-sm font-medium text-slate-700">Guests</span>
                         <div className="flex items-center gap-2">
