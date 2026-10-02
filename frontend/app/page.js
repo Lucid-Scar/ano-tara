@@ -92,11 +92,11 @@ export default function Home() {
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-3">
-            <Link href="/predict-outfit" className="planner-nav-link">
+            <Link href="/predict-outfit" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
               Outfit Planner
             </Link>
-            <Link href="/final-planner" className="planner-nav-link">
-              Itinerary Planner
+            <Link href="/final-planner" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
+              Itinerary planner
             </Link>
           </div>
         </nav>
@@ -104,9 +104,9 @@ export default function Home() {
         {/* HERO MAIN TEXT */}
         <div className="relative z-10 mx-auto flex flex-1 w-full max-w-5xl flex-col items-center justify-center px-5 pb-20 text-center text-white uppercase">
           <h1 className="text-6xl tracking-wide font-bold drop-shadow-lg sm:text-8xl mt-4">
-            Travel, Ano tara?
+            Ano tara?
           </h1>
-          <p className="mt-5 text-4xl font-medium drop-shadow-md sm:text-6xl">
+          <p className="mt-5 text-4xl font-medium drop-shadow-md sm:text-5xl">
             kung saan maganda, mahal!
           </p>
         </div>

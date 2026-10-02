@@ -624,7 +624,7 @@ function Home() {
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                                         href: "/predict-outfit",
-                                        className: "planner-nav-link",
+                                        className: "rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10",
                                         children: "Outfit Planner"
                                     }, void 0, false, {
                                         fileName: "[project]/app/page.js",
@@ -633,8 +633,8 @@ function Home() {
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                                         href: "/final-planner",
-                                        className: "planner-nav-link",
-                                        children: "Itinerary Planner"
+                                        className: "rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10",
+                                        children: "Itinerary planner"
                                     }, void 0, false, {
                                         fileName: "[project]/app/page.js",
                                         lineNumber: 98,
@@ -657,14 +657,14 @@ function Home() {
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
                                 className: "text-6xl tracking-wide font-bold drop-shadow-lg sm:text-8xl mt-4",
-                                children: "Travel, Ano tara?"
+                                children: "Ano tara?"
                             }, void 0, false, {
                                 fileName: "[project]/app/page.js",
                                 lineNumber: 106,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                className: "mt-5 text-4xl font-medium drop-shadow-md sm:text-6xl",
+                                className: "mt-5 text-4xl font-medium drop-shadow-md sm:text-5xl",
                                 children: "kung saan maganda, mahal!"
                             }, void 0, false, {
                                 fileName: "[project]/app/page.js",

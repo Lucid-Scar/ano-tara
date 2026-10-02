@@ -60,13 +60,13 @@ export default function Home() {
             <img src="/LOGO-WHITE.svg" alt="Ano Tara Logo" className="h-20 w-20 drop-shadow-lg" />
           </div>
           <div className="flex flex-1 items-center justify-end gap-3">
-            <Link href="/predict-outfit" className="planner-nav-link">Outfit Planner</Link>
-            <Link href="/final-planner" className="planner-nav-link">Itinerary Planner</Link>
+            <Link href="/predict-outfit" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">Outfit planner</Link>
+            <Link href="/final-planner" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">Itinerary planner</Link>
           </div>
         </nav>
 
         <div className="relative z-10 mx-auto flex flex-1 w-full max-w-5xl flex-col items-center justify-center px-5 pb-20 text-center text-white uppercase">
-          <h1 className="text-6xl tracking-wide font-bold drop-shadow-lg sm:text-8xl mt-4">
+          <h1 className="text-xl tracking-wide font-bold drop-shadow-lg sm:text-xl mt-4">
             Travel, Ano tara?
           </h1>
           <p className="mt-5 text-4xl font-medium drop-shadow-md sm:text-6xl">
