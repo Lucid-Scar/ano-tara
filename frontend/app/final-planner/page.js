@@ -238,8 +238,11 @@ export default function FinalPlannerPage() {
         guests: Number(activity.guests) || guests,
       })),
     }));
-  const totalPrice = Number(planner?.final_mlr_price || planner?.priceEstimate?.amount || 0);
-  const pricePerPerson = Number(planner?.priceEstimate?.perPerson || (totalPrice / Math.max(1, planner?.guests || guests || 1)));
+  const totalPrice = itineraryDays.reduce((tripTotal, day) => (
+    tripTotal + day.activities.reduce((dayTotal, activity) => dayTotal + Number(activity.price || 0), 0)
+  ), 0);
+  const initialGuestCount = Math.max(1, Number(planner?.guests) || guests || 1);
+  const pricePerPerson = totalPrice / initialGuestCount;
   const plannerStart = planner?.dateRange?.startDate || itineraryDays[0]?.date || itineraryDays[0]?.day || startDate;
   const plannerEnd = planner?.dateRange?.endDate || itineraryDays[itineraryDays.length - 1]?.date || itineraryDays[itineraryDays.length - 1]?.day || endDate;
 
@@ -279,7 +282,7 @@ export default function FinalPlannerPage() {
         ) : null}
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,4fr)] lg:items-start">
-          <form onSubmit={generatePlanner} className="planner-controls max-h-[calc(100vh-9rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
+          <form onSubmit={generatePlanner} className="planner-controls rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <section className="border-b border-slate-200 pb-6">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">01 / Travel details</p>
               <h2 className="mt-2 text-2xl font-black">Selected trip</h2>
@@ -317,7 +320,13 @@ export default function FinalPlannerPage() {
                       </div>
                       <button type="button" onClick={() => commitActivities(activities.filter((_, activityIndex) => activityIndex !== index))} className="shrink-0 text-xs font-bold text-rose-600">Remove</button>
                     </div>
-                    <div className="mt-4 grid gap-3 text-xs font-bold">
+                    <details className="group mt-3">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">
+                        <span>Activity settings</span>
+                        <span className="planner-nav-link text-xs"><span className="group-open:hidden">Edit</span><span className="hidden group-open:inline">Done</span></span>
+                      </summary>
+                      <div className="mt-4">
+                    <div className="grid gap-3 text-xs font-bold">
                       <div className="flex items-center gap-2"><span>Guests</span><button type="button" onClick={() => changeActivityGuests(index, -1)} className="h-6 w-6 rounded-full border">-</button><span>{activity.guests || 1}</span><button type="button" onClick={() => changeActivityGuests(index, 1)} className="h-6 w-6 rounded-full border">+</button></div>
                       <label className="flex min-w-0 flex-col gap-1 overflow-hidden">
                         Day
@@ -342,6 +351,8 @@ export default function FinalPlannerPage() {
                     </label>
                     <p className="mt-1 text-xs text-slate-600">{getStay(activity)}</p>
                     {getGuestWarning(activity.guests) ? <p className="mt-1 text-[11px] font-semibold text-amber-700">{getGuestWarning(activity.guests)}</p> : null}
+                      </div>
+                    </details>
                   </article>
                 ))}
               </div>
@@ -382,7 +393,7 @@ export default function FinalPlannerPage() {
             {errorMessage && warningActivityIndex < 0 ? <p className="mt-3 bg-rose-50 p-3 text-sm font-semibold text-rose-700">{errorMessage}</p> : null}
           </form>
 
-          <aside className="planner-controls rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
+          <aside className="planner-controls rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">02 / Travel summary</p>
             <h2 className="mt-2 text-2xl font-black">Daily conditions</h2>
             <div className="mt-5 space-y-4">
@@ -419,7 +430,7 @@ export default function FinalPlannerPage() {
                 <div className="mt-1 flex items-start justify-between gap-3 text-left text-xs font-bold text-slate-800">
                   <div>
                     <p>Total Price: PHP {totalPrice.toLocaleString()}</p>
-                    <p className="mt-0.5 font-semibold text-slate-600">PHP {Math.round(pricePerPerson).toLocaleString()} / person</p>
+                    <p className="mt-0.5 font-semibold text-slate-600">PHP {Math.round(pricePerPerson).toLocaleString()} / person · {initialGuestCount} guests</p>
                   </div>
                   <div className="text-right">
                     <p>{itineraryDays.length} Planned Days</p>
@@ -451,6 +462,7 @@ export default function FinalPlannerPage() {
                               {activity.hazard_flag ? <p role="alert" className="mb-1 text-[10px] font-black text-rose-800">Safety alert: rainy outdoor activity</p> : null}
                               <p className="font-bold">{activity.name}</p>
                               <p>{activity.location || activity.destination}</p>
+                              <p>Guests: {activity.guests}</p>
                               <p>Estimated price: PHP {Number(activity.price || 0).toLocaleString()}</p>
                               <p>Time: {getTime(activity)}</p>
                             </div>
