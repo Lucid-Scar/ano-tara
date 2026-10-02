@@ -6,6 +6,27 @@
 html { scroll-behavior: smooth; }
 body { margin: 0; min-height: 100vh; background: #fcfbf8; }
 * { box-sizing: border-box; }
+.site-footer {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.site-footer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: rgba(15, 23, 42, 0.12);
+  pointer-events: none;
+  box-shadow: 0 -6px 16px 3px rgba(15, 23, 42, 0.16);
+}
 .planner-panel { border-radius: 1rem; padding: 1.5rem; }
 .planner-panel-yellow, .planner-panel-green, .planner-panel-blue { background: transparent; }
 .planner-kicker { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; }

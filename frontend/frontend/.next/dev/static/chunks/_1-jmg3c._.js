@@ -261,12 +261,22 @@ if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelper
 
 // Shared trip validation helpers so date and pax rules stay consistent across every page.
 __turbopack_context__.s([
+    "ACTIVITY_TIMES",
+    ()=>ACTIVITY_TIMES,
+    "EARLIEST_ACTIVITY_TIME",
+    ()=>EARLIEST_ACTIVITY_TIME,
+    "LATEST_ACTIVITY_TIME",
+    ()=>LATEST_ACTIVITY_TIME,
     "MAX_TYPICAL_GUESTS",
     ()=>MAX_TYPICAL_GUESTS,
+    "clampActivityTime",
+    ()=>clampActivityTime,
     "clampGuestCount",
     ()=>clampGuestCount,
     "clampToSelectableDate",
     ()=>clampToSelectableDate,
+    "formatTimeOption",
+    ()=>formatTimeOption,
     "getGuestWarning",
     ()=>getGuestWarning,
     "getMinSelectableDate",
@@ -277,6 +287,8 @@ __turbopack_context__.s([
     ()=>isGuestCountUnusual,
     "isPastOrTodayDate",
     ()=>isPastOrTodayDate,
+    "isValidActivityTime",
+    ()=>isValidActivityTime,
     "toDateString",
     ()=>toDateString
 ]);
@@ -314,6 +326,28 @@ function isGuestCountUnusual(value) {
 }
 function getGuestWarning(value) {
     return isGuestCountUnusual(value) ? `That's a large group (${clampGuestCount(value)} pax). Double-check the number of guests — it can change prices drastically.` : "";
+}
+const EARLIEST_ACTIVITY_TIME = "06:00";
+const LATEST_ACTIVITY_TIME = "23:00";
+const ACTIVITY_TIMES = Array.from({
+    length: 69
+}, (_, index)=>{
+    const minutes = 6 * 60 + index * 15;
+    const hour = Math.floor(minutes / 60);
+    return `${String(hour).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+});
+function formatTimeOption(time) {
+    const [hour, minute] = time.split(":").map(Number);
+    return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
+}
+function isValidActivityTime(value) {
+    return typeof value === "string" && ACTIVITY_TIMES.includes(value);
+}
+function clampActivityTime(value) {
+    if (isValidActivityTime(value)) return value;
+    if (typeof value === "string" && value < EARLIEST_ACTIVITY_TIME) return EARLIEST_ACTIVITY_TIME;
+    if (typeof value === "string" && value > LATEST_ACTIVITY_TIME) return LATEST_ACTIVITY_TIME;
+    return "10:00";
 }
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);

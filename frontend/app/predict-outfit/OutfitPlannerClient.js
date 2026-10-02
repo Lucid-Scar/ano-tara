@@ -71,6 +71,16 @@ function OutfitPlannerContent() {
     return [...new Set(locations)];
   };
 
+  const locationsForCurrentDate = (selectedDate, dates = plannerDates) => {
+    const dayIndex = dates.indexOf(selectedDate);
+    if (dayIndex < 0) return [];
+    const dayLabel = `Day ${dayIndex + 1}`;
+    return [...new Set(currentActivities
+      .filter((activity) => (activity.assignedDay || activity.assigned_day) === dayLabel)
+      .map((activity) => activity.destination || activity.location)
+      .filter(Boolean))];
+  };
+
   const dayNumberForDate = (selectedDate, dates = plannerDates) => {
     if (!selectedDate) return 1;
     const index = dates.indexOf(selectedDate);
@@ -105,8 +115,10 @@ function OutfitPlannerContent() {
     if (!(fromPlanner && hasCurrentPlanner)) return;
     setSource("current");
     setPlannerDates(currentPlannerDates);
-    setDate(currentPlannerDates[0] || clampToSelectableDate(getMinSelectableDate()));
-    if (currentPlannerDestination) setDestination(currentPlannerDestination);
+    const firstDate = currentPlannerDates[0] || clampToSelectableDate(getMinSelectableDate());
+    setDate(firstDate);
+    const firstDayLocations = locationsForCurrentDate(firstDate, currentPlannerDates);
+    if (firstDayLocations[0] || currentPlannerDestination) setDestination(firstDayLocations[0] || currentPlannerDestination);
     setWeather(null);
     setMessage("Current planner dates loaded from your itinerary workspace.");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,10 +139,11 @@ function OutfitPlannerContent() {
 
   const selectedPlannerLocations = source === "saved" ? locationsForDate(selectedSavedPlanner, date) : [];
   const savedPlannerLocations = source === "saved" ? [...new Set((selectedSavedPlanner?.itinerary || []).flatMap((day) => locationsForDate(selectedSavedPlanner, day.date || day.day)))] : [];
-  const currentLocations = source === "current"
-    ? [...new Set(currentActivities.map((activity) => activity.destination).filter(Boolean))]
-    : [];
-  const locationOptions = source === "current" && currentLocations.length
+  const currentDateLocations = source === "current" ? locationsForCurrentDate(date) : [];
+  const currentLocations = source === "current" ? [...new Set(currentActivities.map((activity) => activity.destination || activity.location).filter(Boolean))] : [];
+  const locationOptions = source === "current" && currentDateLocations.length
+    ? currentDateLocations
+    : source === "current" && currentLocations.length
     ? currentLocations
     : source === "saved" && selectedPlannerLocations.length
     ? selectedPlannerLocations
@@ -186,7 +199,7 @@ function OutfitPlannerContent() {
     setSource("current");
     setPlannerDates(currentPlannerDates);
     setDate(currentPlannerDates[0] || clampToSelectableDate(getMinSelectableDate()));
-    setDestination(currentPlannerDestination || destinations[0]?.name || destination);
+    setDestination(locationsForCurrentDate(currentPlannerDates[0], currentPlannerDates)[0] || currentPlannerDestination || destinations[0]?.name || destination);
     setWeather(null);
     setMessage(currentPlannerDates.length ? "Current planner dates loaded." : "No current trip dates found. Set dates in the itinerary planner first.");
   };
@@ -279,17 +292,16 @@ function OutfitPlannerContent() {
   return (
     <main className="outfit-planner-shell min-h-screen bg-[#f5f7fa] text-slate-900">
       <Header />
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-8">
+      <div className="w-full px-4 py-8 sm:px-8">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Wardrobe workspace</p>
             <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-6xl">Attach outfit</h1>
           </div>
-          <Link href="/final-planner" className="planner-nav-link">Itinerary Planner</Link>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,4fr)] lg:items-start">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">01 / Outfit source</p>
             <h2 className="mt-2 text-2xl font-black">Where is this outfit for?</h2>
             <div className={`mt-5 grid gap-2 ${fromPlanner || hasCurrentPlanner ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
@@ -315,6 +327,7 @@ function OutfitPlannerContent() {
                   const nextDate = event.target.value;
                   setDate(nextDate);
                   if (source === "saved") setDestination(locationsForDate(selectedSavedPlanner, nextDate)[0] || destination);
+                  if (source === "current") setDestination(locationsForCurrentDate(nextDate)[0] || currentPlannerDestination || destination);
                   setWeather(null);
                 }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3">
                   {plannerDates.map((plannerDate, index) => <option key={plannerDate} value={plannerDate}>Day {index + 1} · {formatDate(plannerDate)}</option>)}
@@ -336,7 +349,7 @@ function OutfitPlannerContent() {
             </div> : null}
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">02 / Capture</p>
             <h2 className="mt-2 text-2xl font-black">Add one garment</h2>
             <p className="mt-2 text-sm text-slate-600">JPG and image files up to 20MB are supported.</p>
@@ -422,9 +435,12 @@ function OutfitPlannerContent() {
             ))}
             {!outfits.length ? <p className="border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600 md:col-span-2">Accepted garments will appear here.</p> : null}
           </div>
+          <div className="mt-6 flex justify-end">
+            <Link href="/final-planner" className="planner-nav-link">Go to Itinerary</Link>
+          </div>
         </section>
-        <div className="mt-8 border-t border-slate-100 bg-white"><Footer /></div>
       </div>
+      <div className="mt-8 w-full bg-white"><Footer /></div>
       {captureMode ? <OutfitImageCapture source={captureSource} mode={captureMode} onCancel={() => setCaptureMode("")} onSelect={(croppedImage) => { setCaptureMode(""); analyzeOutfit(croppedImage); }} /> : null}
     </main>
   );
