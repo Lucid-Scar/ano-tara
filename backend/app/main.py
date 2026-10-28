@@ -17,6 +17,8 @@ import requests
 import tensorflow as tf
 from PIL import Image
 
+from app.pricing_config import BASE_PRICES, MONTHLY_WEATHER
+
 app = FastAPI(title="Ano Tara API")
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR.parent / "data"
@@ -61,27 +63,25 @@ class ItineraryPayload(BaseModel):
 
 WEATHER_OPTIONS = ("Sunny", "Rainy", "Cloudy")
 OUTFIT_ADVICE = {"Sunny": "Wear light, breathable clothes and comfortable walking shoes, and bring sunscreen and a hat.", "Rainy": "Wear quick-dry layers and waterproof shoes, and bring an umbrella or rain jacket.", "Cloudy": "Wear comfortable layers and walking shoes, and bring a light jacket."}
-MONTHLY_WEATHER = {
-    1: (27.0, 8.5, "Cloudy"), 2: (27.5, 5.2, "Sunny"), 3: (28.5, 3.1, "Sunny"),
-    4: (29.5, 4.2, "Sunny"), 5: (30.0, 9.8, "Cloudy"), 6: (29.2, 18.4, "Rainy"),
-    7: (28.7, 24.1, "Rainy"), 8: (28.5, 26.5, "Rainy"), 9: (28.3, 25.2, "Rainy"),
-    10: (28.1, 20.6, "Rainy"), 11: (27.8, 14.1, "Cloudy"), 12: (27.2, 11.4, "Cloudy"),
-}
-
-DEFAULT_BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
-
-# Load the trained unified MLR bundle once when the API starts.
-PRICE_MODEL_PATH = BASE_DIR / "model" / "price_model_bundle.joblib"
+# Load the model artifacts exported by mlr-model.py.
 try:
-    PRICE_MODEL_BUNDLE = joblib.load(PRICE_MODEL_PATH)
+    MLR_MODEL = joblib.load(BASE_DIR / "price_surge_mlr_model.joblib")
+    MLR_FEATURES = joblib.load(BASE_DIR / "model_features.joblib")
 except (FileNotFoundError, ImportError, ValueError):
-    PRICE_MODEL_BUNDLE = None
-
-BASE_PRICES = (
-    PRICE_MODEL_BUNDLE.get("base_prices", DEFAULT_BASE_PRICES)
-    if PRICE_MODEL_BUNDLE
-    else DEFAULT_BASE_PRICES
-)
+    MLR_MODEL = None
+    MLR_FEATURES = []
+else:
+    trained_feature_names = getattr(MLR_MODEL, "feature_names_in_", None)
+    feature_count = getattr(MLR_MODEL, "n_features_in_", None)
+    if (
+        not isinstance(MLR_FEATURES, list)
+        or not all(isinstance(feature, str) for feature in MLR_FEATURES)
+        or len(set(MLR_FEATURES)) != len(MLR_FEATURES)
+        or (feature_count is not None and feature_count != len(MLR_FEATURES))
+        or (trained_feature_names is not None and list(trained_feature_names) != MLR_FEATURES)
+    ):
+        MLR_MODEL = None
+        MLR_FEATURES = []
 
 
 def predict_mlr_price(
@@ -91,53 +91,49 @@ def predict_mlr_price(
     length_of_stay: int,
     room_type: str,
 ) -> tuple[float, float, dict]:
-    """Predict a PHP price using the same features and log equation as training."""
-    # Use the stable training weather baseline, because live weather is not known at training time.
-    bundle = PRICE_MODEL_BUNDLE
-    if bundle is None:
-        raise RuntimeError("The trained price model bundle is unavailable.")
-    weather_table = bundle["monthly_weather"]
-    weather_row = weather_table.loc[weather_table["month"] == check_in.strftime("%B")]
-    if weather_row.empty:
-        raise RuntimeError("No monthly weather baseline exists for this date.")
+    """Predict a daily PHP price using the trained log-multiplier model."""
+    if MLR_MODEL is None or not MLR_FEATURES:
+        raise RuntimeError("The trained price model is unavailable.")
 
-    # Recreate every engineered numeric feature used by mlr-price.py.
-    base_price = float(bundle["base_prices"][hotel_type])
+    avg_temp, avg_rain, _ = MONTHLY_WEATHER[check_in.month]
+
+    base_price = float(BASE_PRICES[hotel_type])
     pax = float(guests)
     lead_time = max(0, (check_in - datetime.now().date()).days)
     is_weekend = float(check_in.weekday() in {4, 5, 6})
-    avg_temp = float(weather_row["avg_monthly_temp"].iloc[0])
-    avg_rain = float(weather_row["avg_monthly_rain"].iloc[0])
     is_resort = float(hotel_type == "Resort Hotel")
-    model_input = pd.DataFrame({
-        "pax": [pax],
-        "lead_time": [float(lead_time)],
-        "length_of_stay": [float(length_of_stay)],
-        "is_premium_room": [float(room_type != "Standard Room")],
-        "is_weekend": [is_weekend],
-        "pax_squared": [pax ** 2],
-        "avg_monthly_temp": [avg_temp],
-        "avg_monthly_rain": [avg_rain],
-        "hotel_is_resort": [is_resort],
-        "hotel_temp": [is_resort * avg_temp],
-        "hotel_rain": [is_resort * avg_rain],
-        "hotel_pax": [is_resort * pax],
-    })
 
-    # Initialize absent one-hot month columns to zero, then activate this arrival month.
-    for feature in bundle["features"]:
-        if feature not in model_input:
-            model_input[feature] = 0.0
-    month_feature = f"arrival_date_month_{check_in.strftime('%B')}"
-    if month_feature in model_input:
-        model_input[month_feature] = 1.0
-    model_input = model_input[bundle["features"]].astype(float)
+    feature_dict = {
+        "lead_time": float(lead_time),
+        "pax": pax,
+        "length_of_stay": float(length_of_stay),
+        "is_weekend": is_weekend,
+        "is_premium_room": float(room_type != "Standard Room"),
+        "hotel_is_resort": is_resort,
+        "avg_monthly_temp": float(avg_temp),
+        "avg_monthly_rain": float(avg_rain),
+        "hotel_temp": is_resort * avg_temp,
+        "hotel_rain": is_resort * avg_rain,
+        "hotel_pax": is_resort * pax,
+        "pax_squared": pax ** 2,
+    }
 
-    # Keep the configured base price as the minimum before applying demand effects.
-    predicted_log_multiplier = float(bundle["model"].predict(model_input)[0])
-    multiplier = max(1.0, float(np.exp(predicted_log_multiplier)))
+    model_input = pd.DataFrame([feature_dict])
+    unsupported_features = set(MLR_FEATURES) - set(model_input.columns)
+    if unsupported_features:
+        raise RuntimeError(
+            "The trained price model has incompatible features: "
+            + ", ".join(sorted(unsupported_features))
+        )
+    model_input = model_input[MLR_FEATURES].astype(float)
+
+    predicted_log_multiplier = float(MLR_MODEL.predict(model_input)[0])
+    if not np.isfinite(predicted_log_multiplier):
+        raise RuntimeError("The trained price model returned a non-finite prediction.")
+    multiplier = float(np.exp(np.clip(predicted_log_multiplier, 0.0, np.log(3.0))))
     price = round(base_price * multiplier, 2)
-    return price, multiplier, bundle.get("evaluation", {})
+
+    return price, multiplier, {}
 
 
 def weather_label_from_code(code: int) -> str:

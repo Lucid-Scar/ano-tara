@@ -143,106 +143,33 @@ The frontend then shows the result card and lets the user compare the outfit aga
 
 ## 5. How the pricing/MLR model was trained
 
-The pricing model logic is not loaded from a saved `.joblib` bundle in runtime code; the actual training logic is in `backend/app/mlr-price.py`, and it follows the same pattern as the code block you provided.
-
-### What the training script does
-
-The Colab code loads hotel bookings and weather data, then builds a supervised regression problem:
+The runtime pricing model is trained by `backend/app/mlr-model.py`. The script reads the booking dataset, builds features that match the API input, fits a `LinearRegression` model to the log of the price multiplier, and saves the model and feature list next to the script:
 
 ```python
-X = final_df.drop(columns=['adr', 'adr_php', 'surge_multiplier', 'synthetic_base_price']).astype(float)
-y = final_df['surge_multiplier']
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=0)
-reg = LinearRegression()
-reg.fit(X_train, y_train)
+joblib.dump(reg, BASE_DIR / 'price_surge_mlr_model.joblib')
+joblib.dump(list(X.columns), BASE_DIR / 'model_features.joblib')
 ```
 
-This is a standard linear regression workflow:
-
-- `X` contains the features used to predict price surge
-- `y` is the target variable, `surge_multiplier`
-- `LinearRegression()` learns the coefficients that best map features to the target
-- `train_test_split` keeps some data aside for evaluation
-- `reg.score(...)`, `mean_absolute_error(...)`, and `mean_squared_error(...)` are used to judge performance
-
-### Why the training data looks like this
-
-The script creates a synthetic pricing target:
+Both training and runtime import `BASE_PRICES` and `MONTHLY_WEATHER` from `backend/app/pricing_config.py`. The target normalizes the booking dataset ADR into PHP against that shared hotel-specific baseline:
 
 ```python
-def assign_base_price(hotel_type):
-    return 9000.00 if hotel_type == 'Resort Hotel' else 3800.00
+surge_multiplier = adr * ADR_TO_PHP / BASE_PRICES[hotel_type]
+log_multiplier = log(surge_multiplier)
 ```
 
-Then it converts ADR into PHP and calculates a multiplier:
-
-```python
-df_hotel['adr_php'] = df_hotel['adr'] * 62.0
-df_hotel['surge_multiplier'] = df_hotel['adr_php'] / df_hotel['synthetic_base_price']
-```
-
-That creates a normalized target that describes how much the room rate is above or below the synthetic base price for that hotel type.
-
-### Why the weather data is merged in
-
-They aggregate weather into monthly averages:
-
-```python
-df_weather_all['month'] = pd.to_datetime(df_weather_all['datetime'], utc=True).dt.month_name()
-monthly_weather = df_weather_all.groupby('month').agg({'temp': 'mean', 'rain': 'mean'}).reset_index()
-```
-
-Then they merge those monthly temp/rain values with hotel booking rows based on the arrival month and hotel type:
-
-```python
-final_df = pd.merge(df_hotel, monthly_weather, left_on='arrival_date_month', right_on='month', how='left')
-final_df = pd.get_dummies(final_df, columns=['arrival_date_month', 'hotel'], drop_first=True)
-```
-
-This allows the model to learn how monthly weather and hotel type interact with the room rate multiplier.
-
-### Model export
-
-The code saves the trained bundle:
-
-```python
-bundle = {
-    "model": reg,
-    "features": X.columns.tolist(),
-    "monthly_weather": monthly_weather
-}
-joblib.dump(bundle, f"{BASE_DIR}/price_model_bundle.joblib")
-```
-
-That exported bundle contains:
-
-- the trained LinearRegression model
-- the ordered feature names used at training time
-- the monthly weather reference table
-
-This is the exact artifact that would later be reloaded for prediction in another script or service.
+Features include lead time, party size, length of stay, weekend arrival, room class, hotel class, month-based temperature/rainfall and hotel/weather/party-size interactions. The API uses the same weather table. The historical booking data is not Philippine hotel data, so the conversion and baseline are modeling assumptions; resulting prices are estimates, not observed Philippine market prices.
 
 ---
 
 ## 6. The real app runtime vs. the training script
 
-The repository contains both:
+`backend/app/main.py` loads the model and feature list exported by `mlr-model.py`. On `POST /predict-price`, it reconstructs those features, predicts a log multiplier, converts it back with `exp()`, limits the multiplier to 1–3, multiplies by the configured PHP baseline, and applies the number of nights.
 
-- a training script: `backend/app/mlr-price.py`
-- a runtime server: `backend/app/main.py`
+The separate `backend/app/mlr-price.py` script produces a different legacy model bundle and is not loaded by the current API. Retrain the runtime model after changing features by running `python app\mlr-model.py` from the `backend` directory. The generated artifacts must be kept in `backend/app/`, where the API loads them.
 
-The backend pricing API now loads the saved `joblib` bundle at startup and reconstructs the same date, party-size, weather, hotel, and interaction features used during training. If the bundle is unavailable, it retains a rule-based fallback so the rest of the planner remains usable.
+If the model files are missing or the saved feature list is incompatible with the API, the pricing endpoint uses the rule-based fallback so the planner remains available. The fallback uses the same configured baseline prices, a seasonal factor, and a guest-count adjustment.
 
-The fallback in `main.py` calculates prices like this:
-
-```python
-base_price = 3800.0 if hotel_type == "City Hotel" else 9000.0
-seasonal = 1.15 if payload.check_in.month in {12, 1, 2, 4} else 1.0
-price = round(base_price * (1 + (payload.guests - 1) * 0.12) * seasonal, 2)
-```
-
-So even though the training script demonstrates the MLR pipeline clearly, the live app uses a simpler production estimate for speed and reliability.
+The weather forecast returned to users is for activity recommendations; pricing features use the monthly baseline in `pricing_config.py`, not the live forecast.
 
 The conceptual model is still the same:
 
