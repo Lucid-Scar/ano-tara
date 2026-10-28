@@ -237,46 +237,59 @@ function OutfitPlannerContent() {
     setMessage("");
     if (!destination || !weather) { setMessage("Choose a place, date, and predicted weather before uploading an outfit."); return; }
     setLoadingOutfit(true);
+    
     try {
       const response = await fetch("http://localhost:8000/predict-outfit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image_base64: dataUrl }),
       });
+      
       const data = await response.json();
       if (!response.ok || data.status === "error") throw new Error(data.message || "Outfit prediction failed.");
-      setResult({
-        ...data,
-        category: "Top",
-        matches: data.conditions.includes(weather.condition),
-        outfitPhrase: data.weather_suitability,
+
+      // 2. Map the array of detected items from YOLO
+      const parsedItems = data.items.map(item => ({
+        ...item,
+        matches: item.conditions.includes(weather.condition),
+        outfitPhrase: item.weather_suitability,
         advice: adviceByWeather[weather.condition],
-      });
+        // Use the cropped image from YOLO instead of the full uploaded image
+        image: item.cropped_image 
+      }));
+
+      setResult(parsedItems);
     } catch (error) {
       setMessage(error.message || "Could not analyze outfit.");
     } finally { setLoadingOutfit(false); }
   };
-  const acceptOutfit = () => {
-    if (!result || !image) return;
+  const acceptOutfit = (index) => {
+    if (!result || !result[index]) return;
+    const item = result[index];
     const outfitSet = availableOutfitSets.find((set) => set.id === activeOutfitSetId) || availableOutfitSets[0];
     const resolvedDates = plannerDates.length ? plannerDates : [date];
+    
     setOutfits((current) => [...current, {
-      id: `outfit-${Date.now()}`,
-      image,
-      category: result.category,
+      id: `outfit-${Date.now()}-${index}`,
+      image: item.image, // The cropped bounding box image
+      category: item.category,
       destination,
       weather: weather.condition,
-      matches: result.matches,
-      outfitPhrase: result.outfitPhrase,
-      advice: result.advice,
+      matches: item.matches,
+      outfitPhrase: item.outfitPhrase,
+      advice: item.advice,
       date,
       day: `Day ${dayNumberForDate(date, resolvedDates)}`,
       outfitSetId: outfitSet?.id || "outfit-set-1",
       outfitSetName: outfitSet?.name || "Outfit 1",
     }]);
-    setResult(null);
-    setImage("");
-    setMessage("Garment added to the outfit.");
+    
+    // Remove the accepted item from the result array
+    const updatedResults = result.filter((_, i) => i !== index);
+    setResult(updatedResults.length ? updatedResults : null);
+    if (!updatedResults.length) setImage("");
+    
+    setMessage(`${item.category} added to the outfit.`);
   };
   const updateOutfit = (id, changes) => setOutfits((current) => current.map((outfit) => outfit.id === id ? { ...outfit, ...changes } : outfit));
   const deleteOutfit = (id) => setOutfits((current) => current.filter((outfit) => outfit.id !== id));
@@ -371,20 +384,41 @@ function OutfitPlannerContent() {
             {image ? <GarmentImage src={image} alt="Garment preview" imageClassName="object-contain" className="mt-5 h-48 w-full rounded-lg bg-slate-50" /> : null}
             {image ? <button type="button" onClick={() => analyzeOutfit(image)} disabled={!destination || !weather || loadingOutfit || loadingWeather} className="mt-3 rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Re-analyze garment</button> : null}
             {loadingOutfit ? <p className="mt-4 text-sm font-semibold text-slate-600">Analyzing garment...</p> : null}
-            {result ? <div className="mt-5 border-t border-slate-200 pt-4">
-              <p className="font-bold">{result.matches ? "Weather match" : "Needs adjustment"}</p>
-              <p className="mt-2 text-sm text-slate-600">{destination} on {formatDate(date)} is expected to be {weather.condition.toLowerCase()}. This garment is suited for {result.outfitPhrase}.</p>
-              <p className="mt-2 text-sm text-slate-600">{result.advice}</p>
-              <label className="mt-4 block text-sm font-bold">Garment category
-                <select value={result.category} onChange={(event) => setResult({ ...result, category: event.target.value })} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-                  {categories.map((category) => <option key={category}>{category}</option>)}
-                </select>
-              </label>
-              <div className="mt-4 flex gap-2">
-                <button type="button" onClick={acceptOutfit} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white">Accept garment</button>
-                <button type="button" onClick={() => { setResult(null); setImage(""); }} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold">Reject</button>
-              </div>
-            </div> : null}
+            {result && Array.isArray(result) ? (
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <p className="font-bold mb-4">Detected {result.length} item(s):</p>
+              {result.map((item, index) => (
+                <div key={index} className="mb-6 p-4 border border-slate-200 rounded-lg">
+                  <GarmentImage src={item.image} alt="Detected garment" className="h-32 w-32 object-contain bg-slate-50 mb-3" />
+                  <p className="font-bold mt-2">
+                    {item.matches 
+                      ? <span className="text-emerald-700">✓ Weather match</span> 
+                      : <span className="text-amber-600">⚠ Needs adjustment</span>}
+                  </p>
+                  <ul className="mt-2 list-disc pl-5 text-sm text-slate-600 space-y-1">
+                    <li>This is a <strong>{item.category}</strong>.</li>
+                    <li>
+                      The weather in <strong>{destination}</strong> at the selected date ({formatDate(date)}) is <strong>{weather.temperature}°C</strong> ({weather.condition.toLowerCase()}).
+                    </li>
+                    <li>
+                      It will feel <strong>
+                        {weather.temperature > 28 ? "hot" : weather.temperature < 24 ? "cold" : "comfortable"}
+                      </strong>.
+                    </li>
+                    <li>
+                      {item.matches 
+                        ? "This clothing is an excellent choice for these conditions." 
+                        : "Try adjusting this clothing to feel more comfortable."}
+                    </li>
+                  </ul>
+                  <div className="mt-4 flex gap-2">
+                    <button type="button" onClick={() => acceptOutfit(index)} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white">Accept {item.category}</button>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={() => { setResult(null); setImage(""); }} className="mt-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold">Reject All</button>
+            </div>
+          ) : null}
             {message ? <p className="mt-4 bg-rose-50 p-3 text-sm text-rose-700">{message}</p> : null}
           </section>
         </div>

@@ -14,14 +14,14 @@ from pydantic import BaseModel, Field
 
 import numpy as np
 import requests
-import tensorflow as tf
-from PIL import Image
+from ultralytics import YOLO
+import cv2
+import base64
 
 app = FastAPI(title="Ano Tara API")
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR.parent / "data"
-MODEL_PATH = BASE_DIR / "model" / "keras_model.h5"
-LABELS_PATH = BASE_DIR / "model" / "labels.txt"
+MODEL_PATH = BASE_DIR / "model" / "best.pt"
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
@@ -670,30 +670,78 @@ def image_bytes(payload: OutfitPayload) -> bytes:
         response = requests.get(payload.image_url, timeout=20); response.raise_for_status(); return response.content
     raise ValueError("Provide either image_url or image_base64")
 
-
 model = None
-class_names = []
-
 
 def load_outfit_model() -> bool:
-    global model, class_names
+    global model
     if model is not None:
         return True
     if not MODEL_PATH.is_file():
         return False
     try:
-        print("Loading CNN Model... this might take a few seconds...")
-        loaded_model = tf.keras.models.load_model(str(MODEL_PATH), compile=False)
-        with LABELS_PATH.open(encoding="utf-8") as labels_file:
-            loaded_class_names = [line.strip().split(" ", 1)[-1] for line in labels_file if line.strip()]
-        if not loaded_class_names:
-            raise ValueError("The CNN labels file is empty.")
-        model = loaded_model
-        class_names = loaded_class_names
+        print("Loading YOLOv8 Model... this might take a few seconds...")
+        model = YOLO(str(MODEL_PATH))
         return True
     except Exception as error:
-        print(f"CNN model unavailable; outfit prediction is disabled: {error}")
+        print(f"YOLOv8 model unavailable; outfit prediction is disabled: {error}")
         return False
+
+@app.post("/predict-outfit")
+def predict_outfit(payload: OutfitPayload):
+    if not load_outfit_model():
+        raise HTTPException(status_code=503, detail="Outfit prediction is unavailable because the YOLO model could not be loaded.")
+    
+    try:
+        # Load image bytes into an OpenCV numpy array
+        image_data = np.frombuffer(image_bytes(payload), np.uint8)
+        img = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+
+        # Run YOLO inference
+        results = model.predict(img, conf=0.25, verbose=False)
+        result = results[0] # Get the first (and only) image result
+
+        if len(result.boxes) == 0:
+            return {
+                "status": "error", 
+                "message": "No clothing detected. Please ensure the clothing is clearly visible."
+            }
+
+        detected_items = []
+        
+        # Iterate over all detected bounding boxes
+        for box in result.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+            confidence = float(box.conf[0])
+            class_index = int(box.cls[0])
+            category = result.names[class_index]
+            
+            # Crop the bounding box from the original image
+            cropped_img = img[y1:y2, x1:x2]
+            
+            # Encode the cropped image to base64
+            _, buffer = cv2.imencode('.jpg', cropped_img)
+            cropped_base64 = "data:image/jpeg;base64," + base64.b64encode(buffer).decode('utf-8')
+            
+            # Classify the cropped image's weather suitability
+            weather_match = classify_clothing_weather(category)
+            
+            detected_items.append({
+                "category": category,
+                "confidence_score": f"{confidence * 100:.1f}%",
+                "weather_suitability": weather_match["phrase"],
+                "expected_condition": weather_match["primary"],
+                "conditions": weather_match["conditions"],
+                "cropped_image": cropped_base64
+            })
+
+        return {
+            "status": "success",
+            "message": f"Successfully detected {len(detected_items)} items of clothing.",
+            "items": detected_items
+        }
+
+    except Exception as exc: 
+        return {"status": "error", "message": str(exc)}
 
 
 if not load_outfit_model():
