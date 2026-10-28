@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",
@@ -21,6 +21,8 @@
   "private": true,
   "devDependencies": {
     "autoprefixer": "^10.5.4",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.3.1",
     "postcss": "^8.5.26",
     "tailwindcss": "^3.4.13"
   }

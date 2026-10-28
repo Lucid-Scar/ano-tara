@@ -3,7 +3,6 @@ import re
 from base64 import b64decode
 from binascii import Error as Base64Error
 from datetime import date, datetime
-from io import BytesIO
 from pathlib import Path
 
 import joblib
@@ -335,10 +334,37 @@ def destination_coordinates(destination: str) -> tuple[float, float]:
     raise HTTPException(422, f"Could not locate destination '{destination}'.")
 
 WEATHER_CACHE: dict[str, dict] = {}
+FORECAST_WINDOW_CACHE: dict[str, dict] = {}
 
 def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[str, dict[str, object]]:
     results: dict[str, dict[str, object]] = {}
     today = date.today()
+    forecast_dates = {
+        day_str for day_str in dates
+        if 0 <= (date.fromisoformat(day_str) - today).days <= 16
+    }
+    forecast_cache_key = f"fc_window_{today.isoformat()}_{latitude:.4f}_{longitude:.4f}"
+    live_daily = FORECAST_WINDOW_CACHE.get(forecast_cache_key)
+
+    if forecast_dates and live_daily is None:
+        try:
+            response = requests.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "forecast_days": 16,
+                    "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,windspeed_10m_max,apparent_temperature_max",
+                    "timezone": "Asia/Manila",
+                },
+                timeout=12,
+            )
+            if response.status_code == 200:
+                live_daily = response.json().get("daily", {})
+                if live_daily.get("time"):
+                    FORECAST_WINDOW_CACHE[forecast_cache_key] = live_daily
+        except Exception as exc:
+            print(f"Open-Meteo live forecast error: {exc}")
 
     for day_str in dates:
         cache_key = f"fc_{latitude:.4f}_{longitude:.4f}_{day_str}"
@@ -352,19 +378,8 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
 
         if 0 <= days_diff <= 16:
             try:
-                response = requests.get(
-                    "https://api.open-meteo.com/v1/forecast",
-                    params={
-                        "latitude": latitude,
-                        "longitude": longitude,
-                        "forecast_days": 16,
-                        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,windspeed_10m_max,apparent_temperature_max",
-                        "timezone": "Asia/Manila",
-                    },
-                    timeout=12,
-                )
-                if response.status_code == 200:
-                    daily = response.json().get("daily", {})
+                if live_daily is not None:
+                    daily = live_daily
                     time_list = daily.get("time", [])
                     if day_str in time_list:
                         i = time_list.index(day_str)
@@ -675,11 +690,6 @@ def predict_outfit(payload: OutfitPayload):
     except Exception as exc: 
         return {"status": "error", "message": str(exc)}
 
-
-if not load_outfit_model():
-    print(f"CNN model not loaded at {MODEL_PATH}; outfit prediction will retry when requested.")
-
-
 @app.get("/")
 def read_root(): return {"status": "Ano Tara API is live!"}
 
@@ -757,6 +767,9 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
 
 @app.post("/predict-price")
 def predict_price(payload: PricePayload):
+    if payload.check_out <= payload.check_in:
+        raise HTTPException(422, "check_out must be after check_in.")
+
     hotel_type = payload.hotel_type if payload.hotel_type in {"City Hotel", "Resort Hotel"} else "Resort Hotel"
     base_price = float(BASE_PRICES[hotel_type])
     length_of_stay = max(1, (payload.check_out - payload.check_in).days)
@@ -1041,49 +1054,3 @@ def generate_itinerary(payload: ItineraryPayload):
         "itinerary": itinerary,
         "outfit": outfit_response,
     }
-
-
-@app.post("/predict-outfit")
-def predict_outfit(payload: OutfitPayload):
-    if not load_outfit_model():
-        raise HTTPException(status_code=503, detail="Outfit prediction is unavailable because the CNN model could not be loaded.")
-    try:
-        image = Image.open(BytesIO(image_bytes(payload)))
-        array = np.asarray(image.convert("RGB").resize((224, 224)), dtype=np.float32)
-        input_tensor = np.expand_dims(array, axis=0)
-        prediction = model.predict(input_tensor, verbose=0)
-        
-        index = int(np.argmax(prediction))
-        confidence = float(prediction[0][index])
-        category = class_names[index]
-
-        print(f"\n--- AI PREDICTION LOG ---")
-        print(f"Raw Output Array: {prediction[0]}")
-        print(f"Top Guess: {category} | Confidence: {confidence * 100:.2f}%")
-        print(f"-------------------------\n")
-
-        if confidence < 0.60:
-            return {
-                "status": "error", 
-                "message": f"Clothing not recognized clearly (Confidence: {confidence*100:.1f}%). Please upload a cropped photo of a clothing item, preferably taken in good lighting and with the item centered in the frame."
-            }
-        
-        category = class_names[index]
-        weather_match = classify_clothing_weather(category)
-        weather = str(weather_match["primary"])
-        suitability = str(weather_match["phrase"])
-        conditions = weather_match["conditions"]
-        
-        return {
-            "status": "success",
-            "detected_category": category,
-            "weather_suitability": suitability,
-            "expected_condition": weather,
-            "conditions": conditions,
-            "confidence_score": f"{confidence * 100:.1f}%",
-            "message": f"This outfit looks best for {suitability}.",
-        }
-    except ValueError as exc: 
-        return {"status": "error", "message": str(exc)}
-    except Exception as exc: 
-        return {"status": "error", "message": str(exc)}

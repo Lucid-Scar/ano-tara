@@ -11,3 +11,5 @@ scikit-learn
 statsmodels
 joblib
 matplotlib
+ultralytics
+opencv-python-headless
