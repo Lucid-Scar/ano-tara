@@ -20,13 +20,30 @@ def destination_key(value):
     return " ".join(value.strip().casefold().split())
 
 
-def weather_label(weather_code):
+def weather_label(weather_code, precipitation_mm, temperature_max_c, wind_speed_kmh):
     code = int(weather_code)
-    if code == 0:
-        return "Sunny"
-    if code in {1, 2, 3, 45, 48}:
-        return "Cloudy"
-    return "Rainy"
+    precip = float(precipitation_mm or 0)
+    tmax = float(temperature_max_c or 0)
+    wind = float(wind_speed_kmh or 0)
+    
+    # Absolute extreme / typhoon check (PAGASA-aligned)
+    if code in {95, 96, 99} or wind >= 62.0 or precip >= 30.0:
+        return "Typhoon / Severe Storm"
+    # Truly clear or zero-rain high temperature days in tropical climates
+    elif code == 0 or (precip == 0.0 and tmax >= 32.0):
+        return "Clear / Sunny"
+    # Partly cloudy / fair weather transition days
+    elif code in {1, 2} or (precip == 0.0 and tmax >= 30.0):
+        return "Partly Cloudy"
+    # Overcast skies with zero precipitation
+    elif code in {3, 45, 48} and precip == 0.0:
+        return "Overcast"
+    # Light passing tropical drizzles or minor rain (< 5mm)
+    elif code in {51, 53, 55, 56, 57} or (precip > 0.0 and precip < 5.0):
+        return "Light Showers / Drizzle"
+    # Sustained heavy rainfall
+    else:
+        return "Heavy Rain"
 
 
 def historical_period():
@@ -40,35 +57,70 @@ def fetch_weather_chunk(destination, start_date, end_date):
         "longitude": destination["longitude"],
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
-        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum",
+        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,apparent_temperature_max",
         "timezone": "auto",
     }
-    for attempt in range(3):
+    
+    response = None
+    for attempt in range(5):
         try:
             response = requests.get(ARCHIVE_URL, params=params, timeout=120)
+            
+            # If the server says we are going too fast, wait 60 seconds and retry
+            if response.status_code == 429:
+                print("  [!] Rate limit hit! Pausing for 60 seconds...")
+                time.sleep(60)
+                continue
+                
             response.raise_for_status()
+            
+            # Add a 1.5 second delay after successful requests to pace them
+            time.sleep(1.5)
             break
         except requests.RequestException:
-            if attempt == 2:
+            if attempt == 4:
                 raise
-            time.sleep(2 ** attempt)
-    daily = response.json()["daily"]
+            time.sleep(5)
+
+    # SAFETY CHECK: Ensure response has text and is valid JSON before parsing
+    if response is None or not response.text or not response.text.strip():
+        print(f"\n  [!] Empty response received for {destination['destination']}.")
+        return []
+
+    try:
+        data = response.json()
+    except requests.exceptions.JSONDecodeError:
+        print(f"\n  [!] Invalid JSON received for {destination['destination']}.")
+        return []
+
+    if "daily" not in data:
+        print(f"\n  [!] API Error for {destination['destination']}: {data}")
+        return []
+        
+    daily = data["daily"]
+    
     rows = []
     for index, weather_date in enumerate(daily["time"]):
         temperature_max = daily["temperature_2m_max"][index]
         temperature_min = daily["temperature_2m_min"][index]
         average_temperature = (temperature_max + temperature_min) / 2
+        precipitation = daily["precipitation_sum"][index]
+        wind_speed = daily["windspeed_10m_max"][index]
+        w_code = daily["weather_code"][index]
+        
         weather_day = datetime.strptime(weather_date, "%Y-%m-%d").date()
         rows.append(
             {
                 "date": weather_date,
                 "destination": destination["destination"],
-                "weather_code": daily["weather_code"][index],
-                "weather_condition": weather_label(daily["weather_code"][index]),
+                "weather_code": w_code,
+                "weather_condition": weather_label(w_code, precipitation, temperature_max, wind_speed),
                 "temperature_max_c": temperature_max,
                 "temperature_min_c": temperature_min,
                 "average_temperature_c": average_temperature,
-                "precipitation_mm": daily["precipitation_sum"][index],
+                "precipitation_mm": precipitation,
+                "wind_speed_kmh": wind_speed,
+                "heat_index_c": daily["apparent_temperature_max"][index],
                 "is_weekend": int(weather_day.weekday() in {4, 5, 6}),
             }
         )
@@ -112,25 +164,50 @@ def main():
     start_date, end_date = historical_period()
 
     weather_rows = []
-    for destination in destinations:
-        print(f"Downloading weather history for {destination['destination']}...")
-        weather_rows.extend(fetch_weather(destination, start_date, end_date))
+    completed_destinations = set()
+    weather_history_path = DATA_DIR / "weather_history.csv"
 
-    write_csv(
-        "weather_history.csv",
-        weather_rows,
-        [
-            "date",
-            "destination",
-            "weather_code",
-            "weather_condition",
-            "temperature_max_c",
-            "temperature_min_c",
-            "average_temperature_c",
-            "precipitation_mm",
-            "is_weekend",
-        ],
-    )
+    # RESUME FEATURE: Check if we already downloaded some cities previously
+    if weather_history_path.exists():
+        existing_weather = read_csv("weather_history.csv")
+        completed_destinations = {row["destination"] for row in existing_weather}
+        weather_rows.extend(existing_weather)
+        print(f"[+] Resuming: Found {len(completed_destinations)} destinations already saved in weather_history.csv")
+
+    for destination in destinations:
+        dest_name = destination['destination']
+        if dest_name in completed_destinations:
+            print(f"-> Skipping {dest_name} (already downloaded).")
+            continue
+
+        print(f"Downloading weather history for {dest_name}...")
+        new_rows = fetch_weather(destination, start_date, end_date)
+        if new_rows:
+            weather_rows.extend(new_rows)
+            # Incremental save: save progress immediately after each successful city!
+            write_csv(
+                "weather_history.csv",
+                weather_rows,
+                [
+                    "date",
+                    "destination",
+                    "weather_code",
+                    "weather_condition",
+                    "temperature_max_c",
+                    "temperature_min_c",
+                    "average_temperature_c",
+                    "precipitation_mm",
+                    "wind_speed_kmh",
+                    "heat_index_c",
+                    "is_weekend",
+                ],
+            )
+            print(f"[+] Saved progress for {dest_name}.")
+        
+        # Add a small buffer pause between cities to protect your IP quota
+        time.sleep(3)
+
+    print("All weather data downloaded successfully. Generating activity suitability matrix...")
 
     suitability_rows = []
     activities_by_destination = {}
@@ -161,6 +238,23 @@ def main():
             hotel_is_resort = int(hotel_type == "Resort Hotel")
             average_temperature = float(weather["average_temperature_c"])
             rainfall = float(weather["precipitation_mm"] or 0)
+            wind = float(weather.get("wind_speed_kmh", 0) or 0)
+            heat = float(weather.get("heat_index_c", 0) or 0)
+
+            is_extreme = (rainfall >= 30.0) or (wind >= 62.0) or (condition == "Typhoon / Severe Storm")
+
+            if is_extreme:
+                suitable_flag = 0
+            elif activity_type == "indoor":
+                suitable_flag = 1
+            else:
+                suitable_flag = int(
+                    condition in {"Clear / Sunny", "Partly Cloudy", "Overcast", "Light Showers / Drizzle"} 
+                    and rainfall < 15.0 
+                    and wind < 39.0 
+                    and heat < 42.0
+                )
+
             suitability_rows.append(
                 {
                     **weather,
@@ -171,10 +265,7 @@ def main():
                     "hotel_is_resort": hotel_is_resort,
                     "hotel_temp": hotel_is_resort * average_temperature,
                     "hotel_rain": hotel_is_resort * rainfall,
-                    "activity_suitable": int(
-                        (activity_type == "outdoor" and condition in {"Sunny", "Cloudy"})
-                        or (activity_type == "indoor" and condition == "Rainy")
-                    ),
+                    "activity_suitable": suitable_flag,
                     "decision_label_source": "prototype_rule_label",
                 }
             )
@@ -194,6 +285,8 @@ def main():
             "temperature_min_c",
             "average_temperature_c",
             "precipitation_mm",
+            "wind_speed_kmh",
+            "heat_index_c",
             "is_weekend",
             "activity_suitable",
             "hotel_type",
@@ -203,6 +296,7 @@ def main():
             "decision_label_source",
         ],
     )
+    
     weather_counts = {}
     for weather in weather_rows:
         key = destination_key(weather["destination"])
@@ -216,6 +310,7 @@ def main():
             f"Suitability row integrity check failed: expected {expected_rows}, "
             f"created {len(suitability_rows)}."
         )
+        
     print(f"Wrote {len(weather_rows)} weather rows to data/weather_history.csv")
     print(f"Wrote {len(suitability_rows)} labeled rows to data/activity_suitability.csv")
 
