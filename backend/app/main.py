@@ -109,8 +109,6 @@ def predict_mlr_price(
     pax = float(guests)
     lead_time = max(0, (check_in - datetime.now().date()).days)
     is_weekend = float(check_in.weekday() in {4, 5, 6})
-    avg_temp = float(weather_row["avg_monthly_temp"].iloc[0])
-    avg_rain = float(weather_row["avg_monthly_rain"].iloc[0])
     is_resort = float(hotel_type == "Resort Hotel")
     model_input = pd.DataFrame({
         "pax": [pax],
@@ -138,7 +136,8 @@ def predict_mlr_price(
     predicted_log_multiplier = float(bundle["model"].predict(model_input)[0])
     multiplier = max(1.0, float(np.exp(predicted_log_multiplier)))
     price = round(base_price * multiplier, 2)
-    return price, multiplier, bundle.get("evaluation", {})
+
+    return price, multiplier, {}
 
 
 def weather_label_from_code(code: int) -> str:
