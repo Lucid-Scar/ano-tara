@@ -32,10 +32,10 @@ class OutfitPayload(BaseModel):
 
 class PricePayload(BaseModel):
     check_in: date
-    check_out: date      # NEW: To calculate length of stay
+    check_out: date
     guests: int
     hotel_type: str
-    room_type: str      # NEW: "Standard" or "Premium"
+    room_type: str
     destination_id: str | None = None
     destination_name: str | None = None
 
@@ -83,6 +83,13 @@ BASE_PRICES = (
     else DEFAULT_BASE_PRICES
 )
 
+# Load the NEW trained Weather Decision Tree
+WEATHER_MODEL_PATH = BASE_DIR / "model" / "weather_decision_tree.joblib"
+try:
+    WEATHER_DECISION_TREE = joblib.load(WEATHER_MODEL_PATH)
+except (FileNotFoundError, ImportError, ValueError):
+    WEATHER_DECISION_TREE = None
+
 
 def predict_mlr_price(
     check_in: date,
@@ -91,8 +98,6 @@ def predict_mlr_price(
     length_of_stay: int,
     room_type: str,
 ) -> tuple[float, float, dict]:
-    """Predict a PHP price using the same features and log equation as training."""
-    # Use the stable training weather baseline, because live weather is not known at training time.
     bundle = PRICE_MODEL_BUNDLE
     if bundle is None:
         raise RuntimeError("The trained price model bundle is unavailable.")
@@ -101,7 +106,6 @@ def predict_mlr_price(
     if weather_row.empty:
         raise RuntimeError("No monthly weather baseline exists for this date.")
 
-    # Recreate every engineered numeric feature used by mlr-price.py.
     base_price = float(bundle["base_prices"][hotel_type])
     pax = float(guests)
     lead_time = max(0, (check_in - datetime.now().date()).days)
@@ -124,7 +128,6 @@ def predict_mlr_price(
         "hotel_pax": [is_resort * pax],
     })
 
-    # Initialize absent one-hot month columns to zero, then activate this arrival month.
     for feature in bundle["features"]:
         if feature not in model_input:
             model_input[feature] = 0.0
@@ -133,7 +136,6 @@ def predict_mlr_price(
         model_input[month_feature] = 1.0
     model_input = model_input[bundle["features"]].astype(float)
 
-    # Keep the configured base price as the minimum before applying demand effects.
     predicted_log_multiplier = float(bundle["model"].predict(model_input)[0])
     multiplier = max(1.0, float(np.exp(predicted_log_multiplier)))
     price = round(base_price * multiplier, 2)
@@ -153,6 +155,7 @@ def monthly_weather_for_date(target_date: date) -> dict[str, object]:
         "temperature_min_c": temperature - 2,
         "precipitation_probability": min(round(rainfall * 3), 95),
         "precipitation_sum_mm": rainfall,
+        "wind_speed_kmh": 12.0,
         "source": "MLR monthly weather baseline",
     }
 
@@ -164,15 +167,12 @@ def slugify(text: str) -> str:
 
 
 CLOTHING_WEATHER_MAP = {
-    # Warm Weather (Sunny)
     "kaos": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
     "kemeja": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
     "polo": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
     "celana pendek": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
     "gaun": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
     "rok": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    
-    # Cool/Rainy Weather (Cloudy/Rainy)
     "hoodie": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
     "sweater": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
     "jaket": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
@@ -211,86 +211,22 @@ def classify_clothing_weather(category: str) -> dict[str, object]:
     return fallbacks.get(normalized, {"conditions": ["Cloudy"], "phrase": "mild or unpredictable conditions", "primary": "Cloudy"})
 
 DESTINATION_METADATA = {
-    "Baguio": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80",
-        "description": "The Summer Capital of the Philippines known for cool pine-scented breezes, vibrant night markets, and mountain viewpoints.",
-    },
-    "Cebu City": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=80",
-        "description": "The Queen City of the South blending rich historical Spanish landmarks with modern urban excitement and island gateways.",
-    },
-    "Davao": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=1200&q=80",
-        "description": "The King City of the South renowned for majestic Mount Apo, Philippine eagle sanctuaries, and lush nature parks.",
-    },
-    "Manila": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1518544866330-95a85b8f8f6f?auto=format&fit=crop&w=1200&q=80",
-        "description": "The historic capital featuring Intramuros walled city, grand national museums, Binondo Chinatown food, and vibrant city nightlife.",
-    },
-    "Puerto Princesa City": {
-        "hotel_type": "Resort Hotel",
-        "image": "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1200&q=80",
-        "description": "The eco-tourism haven of Palawan, home to the world-famous Subterranean River Underground Park and pristine island reefs.",
-    },
-    "Tagaytay City": {
-        "hotel_type": "Resort Hotel",
-        "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
-        "description": "A picturesque mountain ridge getaway offering breathtaking panoramic views of Taal Volcano and crisp cool breezes.",
-    },
-    "Alaminos": {
-        "hotel_type": "Resort Hotel",
-        "image": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80",
-        "description": "Gateway to the iconic Hundred Islands National Park featuring pristine islets, caves, and turquoise coastal waters.",
-    },
-    "Iloilo City": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1200&q=80",
-        "description": "The City of Love celebrated for heritage mansions, Spanish-colonial churches, and world-class culinary wonders like La Paz Batchoy.",
-    },
-    "Bacolod": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=1200&q=80",
-        "description": "The City of Smiles known for the iconic Ruins, sweet delicacies, and warm Negrense hospitality.",
-    },
-    "Vigan": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1200&q=80",
-        "description": "A UNESCO World Heritage city showcasing remarkably preserved 16th-century Spanish colonial architecture along Calle Crisologo.",
-    },
-    "Legazpi City": {
-        "hotel_type": "Resort Hotel",
-        "image": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
-        "description": "The adventure capital of Bicol with front-row vistas of the perfect cone Mayon Volcano, ATV trails, and Cagsawa Ruins.",
-    },
-    "Dumaguete": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
-        "description": "The City of Gentle People featuring breezy coastal boulevards, heritage academic centers, and nearby marine sanctuaries.",
-    },
-    "Zamboanga City": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
-        "description": "The vibrant Asia Latin City known for pink sand beaches of Santa Cruz Island, historic Fort Pilar, and colorful vintas.",
-    },
-    "Laoag": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&q=80",
-        "description": "The Sunshine City of Ilocos Norte boasting sprawling sand dunes, baroque heritage cathedrals, and northern cuisine.",
-    },
-    "Batangas City": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1470214304380-aadaedcfff0b?auto=format&fit=crop&w=1200&q=80",
-        "description": "An industrial and cultural port city rich in Southern Tagalog history, basilicas, and delicious culinary traditions.",
-    },
-    "Angeles City": {
-        "hotel_type": "City Hotel",
-        "image": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80",
-        "description": "The culinary capital of Pampanga offering heritage mansions, Clark eco-tourism, and legendary Kapampangan dining.",
-    },
+    "Baguio": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80", "description": "The Summer Capital of the Philippines known for cool pine-scented breezes."},
+    "Cebu City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=80", "description": "The Queen City of the South blending rich historical Spanish landmarks."},
+    "Davao": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=1200&q=80", "description": "The King City of the South renowned for majestic Mount Apo."},
+    "Manila": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1518544866330-95a85b8f8f6f?auto=format&fit=crop&w=1200&q=80", "description": "The historic capital featuring Intramuros walled city."},
+    "Puerto Princesa City": {"hotel_type": "Resort Hotel", "image": "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1200&q=80", "description": "The eco-tourism haven of Palawan, home to the Subterranean River."},
+    "Tagaytay City": {"hotel_type": "Resort Hotel", "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80", "description": "A picturesque mountain ridge getaway offering breathtaking panoramic views."},
+    "Alaminos": {"hotel_type": "Resort Hotel", "image": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80", "description": "Gateway to the iconic Hundred Islands National Park."},
+    "Iloilo City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1200&q=80", "description": "The City of Love celebrated for heritage mansions."},
+    "Bacolod": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=1200&q=80", "description": "The City of Smiles known for the iconic Ruins."},
+    "Vigan": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1200&q=80", "description": "A UNESCO World Heritage city showcasing Spanish colonial architecture."},
+    "Legazpi City": {"hotel_type": "Resort Hotel", "image": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80", "description": "The adventure capital of Bicol with front-row vistas of Mayon Volcano."},
+    "Dumaguete": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80", "description": "The City of Gentle People featuring breezy coastal boulevards."},
+    "Zamboanga City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80", "description": "The vibrant Asia Latin City known for pink sand beaches."},
+    "Laoag": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&q=80", "description": "The Sunshine City of Ilocos Norte boasting sprawling sand dunes."},
+    "Batangas City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1470214304380-aadaedcfff0b?auto=format&fit=crop&w=1200&q=80", "description": "An industrial and cultural port city rich in Southern Tagalog history."},
+    "Angeles City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80", "description": "The culinary capital of Pampanga offering heritage mansions."},
 }
 
 CURATED_IMAGES = [
@@ -315,7 +251,6 @@ def load_destinations() -> list[dict]:
                 act_type = row["activity_type"].strip().lower()
                 dest_name = row["destination"]
                 existing = acts_by_dest.setdefault(dest_name, [])
-                # Strictly 1 outdoor and 1 indoor per destination
                 if not any(a["type"] == act_type for a in existing):
                     existing.append({
                         "name": row["activity_name"],
@@ -333,7 +268,6 @@ def load_destinations() -> list[dict]:
                 desc = meta.get("description", f"Discover scenic attractions, cultural landmarks, and local experiences in {name}.")
                 dest_acts = acts_by_dest.get(name, [])
                 
-                # Ensure strictly 1 outdoor and 1 indoor activity
                 outdoor = next((a for a in dest_acts if a["type"] == "outdoor"), {
                     "name": f"{name} scenic landmarks & nature park tour",
                     "type": "outdoor",
@@ -354,7 +288,7 @@ def load_destinations() -> list[dict]:
                 destinations.append({
                     "id": slugify(name),
                     "name": name,
-                    "location": name,  # Tag is now the city itself
+                    "location": name,
                     "country": row.get("country", "Philippines"),
                     "hotel_type": meta.get("hotel_type", "City Hotel"),
                     "base_price": BASE_PRICES[meta.get("hotel_type", "City Hotel")],
@@ -400,19 +334,9 @@ def destination_coordinates(destination: str) -> tuple[float, float]:
             pass
     raise HTTPException(422, f"Could not locate destination '{destination}'.")
 
-
-# In-memory cache for weather and geocoding to ensure blazing fast response times
 WEATHER_CACHE: dict[str, dict] = {}
 
-
 def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[str, dict[str, object]]:
-    """
-    Fetch weather forecast with strict PRIORITY to Open-Meteo APIs.
-    1. For near-term dates (today up to 16 days ahead), calls Open-Meteo live forecast.
-    2. For past dates, calls Open-Meteo Archive API.
-    3. For future dates beyond 16 days, calls Open-Meteo Archive API for recent matching calendar days to generate high-fidelity climate predictions.
-    4. Falls back to monthly baseline only if Open-Meteo is completely unreachable.
-    """
     results: dict[str, dict[str, object]] = {}
     today = date.today()
 
@@ -426,7 +350,6 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
         days_diff = (target_date - today).days
         day_forecast = None
 
-        # Priority 1: Open-Meteo live forecast (0 to 16 days ahead)
         if 0 <= days_diff <= 16:
             try:
                 response = requests.get(
@@ -435,7 +358,7 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                         "latitude": latitude,
                         "longitude": longitude,
                         "forecast_days": 16,
-                        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum",
+                        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,windspeed_10m_max,apparent_temperature_max",
                         "timezone": "Asia/Manila",
                     },
                     timeout=12,
@@ -448,22 +371,26 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                         w_code = int(daily["weather_code"][i])
                         t_max = round(float(daily["temperature_2m_max"][i]), 1)
                         t_min = round(float(daily["temperature_2m_min"][i]), 1)
+                        heat_idx = round(float(daily["apparent_temperature_max"][i]), 1) if daily.get("apparent_temperature_max") and daily["apparent_temperature_max"][i] is not None else t_max + 4.0
                         p_prob = int(daily["precipitation_probability_max"][i]) if daily.get("precipitation_probability_max") and daily["precipitation_probability_max"][i] is not None else (90 if weather_label_from_code(w_code) == "Rainy" else 20)
                         p_sum = round(float(daily["precipitation_sum"][i]), 1) if daily.get("precipitation_sum") and daily["precipitation_sum"][i] is not None else 0.0
+                        w_speed = round(float(daily["windspeed_10m_max"][i]), 1) if daily.get("windspeed_10m_max") and daily["windspeed_10m_max"][i] is not None else 12.0
+                        
                         day_forecast = {
                             "condition": weather_label_from_code(w_code),
                             "weather_code": w_code,
                             "temperature_max_c": t_max,
                             "temperature_min_c": t_min,
                             "average_temperature": round((t_max + t_min) / 2, 1),
+                            "apparent_temperature_max": heat_idx,
                             "precipitation_probability": p_prob,
                             "precipitation_sum_mm": p_sum,
+                            "wind_speed_kmh": w_speed,
                             "source": "Open-Meteo live forecast",
                         }
             except Exception as exc:
                 print(f"Open-Meteo live forecast error: {exc}")
 
-        # Priority 2: If date is in the past, query Open-Meteo Archive
         elif days_diff < 0:
             try:
                 response = requests.get(
@@ -473,7 +400,7 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                         "longitude": longitude,
                         "start_date": day_str,
                         "end_date": day_str,
-                        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum",
+                        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,apparent_temperature_max",
                         "timezone": "Asia/Manila",
                     },
                     timeout=12,
@@ -484,21 +411,25 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                         w_code = int(daily["weather_code"][0])
                         t_max = round(float(daily["temperature_2m_max"][0]), 1)
                         t_min = round(float(daily["temperature_2m_min"][0]), 1)
+                        heat_idx = round(float(daily["apparent_temperature_max"][0]), 1) if daily.get("apparent_temperature_max") and daily["apparent_temperature_max"][0] is not None else t_max + 4.0
                         p_sum = round(float(daily["precipitation_sum"][0]), 1) if daily.get("precipitation_sum") and daily["precipitation_sum"][0] is not None else 0.0
+                        w_speed = round(float(daily["windspeed_10m_max"][0]), 1) if daily.get("windspeed_10m_max") and daily["windspeed_10m_max"][0] is not None else 12.0
+                        
                         day_forecast = {
                             "condition": weather_label_from_code(w_code),
                             "weather_code": w_code,
                             "temperature_max_c": t_max,
                             "temperature_min_c": t_min,
                             "average_temperature": round((t_max + t_min) / 2, 1),
+                            "apparent_temperature_max": heat_idx,
                             "precipitation_probability": 85 if weather_label_from_code(w_code) == "Rainy" else 15,
                             "precipitation_sum_mm": p_sum,
+                            "wind_speed_kmh": w_speed,
                             "source": "Open-Meteo archive data",
                         }
             except Exception as exc:
                 print(f"Open-Meteo archive past error: {exc}")
 
-        # Priority 3: Beyond 16 days in the future, query Open-Meteo Archive for past 5 years of matching dates
         if day_forecast is None and days_diff > 16:
             try:
                 hist_start = target_date.replace(year=today.year - 5)
@@ -510,7 +441,7 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                         "longitude": longitude,
                         "start_date": hist_start.isoformat(),
                         "end_date": hist_end.isoformat(),
-                        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum",
+                        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,apparent_temperature_max",
                         "timezone": "Asia/Manila",
                     },
                     timeout=12,
@@ -526,12 +457,16 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                         rains = [daily["precipitation_sum"][idx] for idx in matches if daily.get("precipitation_sum") and daily["precipitation_sum"][idx] is not None]
                         t_maxs = [daily["temperature_2m_max"][idx] for idx in matches if daily["temperature_2m_max"][idx] is not None]
                         t_mins = [daily["temperature_2m_min"][idx] for idx in matches if daily["temperature_2m_min"][idx] is not None]
+                        w_speeds = [daily["windspeed_10m_max"][idx] for idx in matches if daily.get("windspeed_10m_max") and daily["windspeed_10m_max"][idx] is not None]
+                        heat_idxs = [daily["apparent_temperature_max"][idx] for idx in matches if daily.get("apparent_temperature_max") and daily["apparent_temperature_max"][idx] is not None]
                         
                         cond_counts = {c: [weather_label_from_code(code) for code in codes].count(c) for c in WEATHER_OPTIONS}
                         dom_cond = max(cond_counts, key=cond_counts.get) if codes else "Sunny"
                         avg_rain = round(sum(rains) / len(rains), 1) if rains else round(MONTHLY_WEATHER[target_date.month][1], 1)
                         avg_max = round(sum(t_maxs) / len(t_maxs), 1) if t_maxs else (MONTHLY_WEATHER[target_date.month][0] + 2)
                         avg_min = round(sum(t_mins) / len(t_mins), 1) if t_mins else (MONTHLY_WEATHER[target_date.month][0] - 2)
+                        avg_wind = round(sum(w_speeds) / len(w_speeds), 1) if w_speeds else 12.0
+                        avg_heat = round(sum(heat_idxs) / len(heat_idxs), 1) if heat_idxs else avg_max + 4.0
                         
                         day_forecast = {
                             "condition": dom_cond,
@@ -539,16 +474,18 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                             "temperature_max_c": avg_max,
                             "temperature_min_c": avg_min,
                             "average_temperature": round((avg_max + avg_min) / 2, 1),
+                            "apparent_temperature_max": avg_heat,
                             "precipitation_probability": min(round(avg_rain * 4), 95),
                             "precipitation_sum_mm": avg_rain,
+                            "wind_speed_kmh": avg_wind,
                             "source": "Open-Meteo multi-year climate forecast",
                         }
             except Exception as exc:
                 print(f"Open-Meteo future climate error: {exc}")
 
-        # Fallback (only if all Open-Meteo attempts fail)
         if day_forecast is None:
             day_forecast = monthly_weather_for_date(target_date)
+            day_forecast["apparent_temperature_max"] = day_forecast["temperature_max_c"] + 4.0
             day_forecast["source"] = "MLR monthly weather baseline (offline fallback)"
 
         WEATHER_CACHE[cache_key] = day_forecast
@@ -558,10 +495,6 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
 
 
 def historical_weather(latitude: float, longitude: float, dates: list[str]) -> dict[str, object]:
-    """
-    Fetch 5-year historical weather data from Open-Meteo Archive API.
-    Calculates dominant condition, average rainfall amount (mm), and average temperature.
-    """
     start = date.fromisoformat(min(dates))
     today = date.today()
     cache_key = f"hist_{latitude:.4f}_{longitude:.4f}_{start.month}_{start.day}"
@@ -619,7 +552,6 @@ def historical_weather(latitude: float, longitude: float, dates: list[str]) -> d
     except Exception as exc:
         print(f"Open-Meteo 5-year historical archive error: {exc}")
 
-    # Fallback if archive API failed
     temp, rain, cond = MONTHLY_WEATHER[start.month]
     hist_result = {
         "years": 5,
@@ -772,14 +704,25 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
     target_date = date_str or date.today().isoformat()
     lat, lon = destination["latitude"], destination["longitude"]
     
-    # Priority Open-Meteo forecast and 5-year archive
     fc_map = fetch_forecast(lat, lon, [target_date])
     fc = fc_map[target_date]
     hist = historical_weather(lat, lon, [target_date])
     comparison = build_weather_comparison(fc, hist)
     
-    # Recommendation logic: Sunny or Cloudy => Outdoor, Rainy => Indoor
-    is_outdoor_friendly = fc["condition"] in {"Sunny", "Cloudy"}
+    # NEW MACHINE LEARNING ROUTING (5-feature binary Decision Tree):
+    if WEATHER_DECISION_TREE:
+        avg_temp = float(fc.get('average_temperature', 28.0))
+        precip = float(fc.get('precipitation_sum_mm', 0.0))
+        wind = float(fc.get('wind_speed_kmh', 12.0))
+        heat_idx = float(fc.get('apparent_temperature_max', avg_temp + 4.0))
+        
+        features_df = pd.DataFrame([[avg_temp, precip, wind, heat_idx, 1]], columns=['average_temperature_c', 'precipitation_mm', 'wind_speed_kmh', 'heat_index_c', 'hotel_is_resort'])
+        prediction = int(WEATHER_DECISION_TREE.predict(features_df)[0])
+        # Model outputs: 1 = Safe / Suitable, 0 = Unsafe / Hazardous
+        is_outdoor_friendly = (prediction == 1)
+    else:
+        is_outdoor_friendly = fc["condition"] in {"Sunny", "Cloudy"}
+
     rec_type = "outdoor" if is_outdoor_friendly else "indoor"
     rec_reason = (
         f"Today's forecast in {destination['name']} is {fc['condition']} ({fc['average_temperature']}°C, {fc['precipitation_sum_mm']} mm rain) — outdoor activities are highly recommended!"
@@ -787,7 +730,6 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
         f"Rain is forecasted in {destination['name']} ({fc['precipitation_sum_mm']} mm rain, {fc['precipitation_probability']}% chance) — indoor cultural and culinary experiences are recommended for comfort and safety."
     )
 
-    # Tag activities with recommendation and locked status
     tagged_activities = []
     for act in destination.get("activities", []):
         act_type = act["type"].strip().lower()
@@ -818,7 +760,6 @@ def predict_price(payload: PricePayload):
     hotel_type = payload.hotel_type if payload.hotel_type in {"City Hotel", "Resort Hotel"} else "Resort Hotel"
     base_price = float(BASE_PRICES[hotel_type])
     length_of_stay = max(1, (payload.check_out - payload.check_in).days)
-    # Prefer the trained log-linear MLR and retain the old formula only as an offline fallback.
     try:
         price, multiplier, model_evaluation = predict_mlr_price(
             payload.check_in,
@@ -839,7 +780,6 @@ def predict_price(payload: PricePayload):
         season = "Peak season" if seasonal > 1 else "Regular season"
         price_source = "Rule-based fallback; trained MLR bundle unavailable"
 
-    # If destination information is provided, fetch priority Open-Meteo weather
     dest_name = payload.destination_name or payload.destination_id
     if dest_name:
         try:
@@ -857,14 +797,25 @@ def predict_price(payload: PricePayload):
         hist = historical_weather(14.6042, 120.9822, [payload.check_in.isoformat()])
         comparison = build_weather_comparison(weather, hist)
 
-    rec_type = "outdoor" if weather["condition"] in {"Sunny", "Cloudy"} else "indoor"
+    # Use Machine Learning logic here as well
+    if WEATHER_DECISION_TREE:
+        avg_temp = float(weather.get('average_temperature', 28.0))
+        precip = float(weather.get('precipitation_sum_mm', 0.0))
+        wind = float(weather.get('wind_speed_kmh', 12.0))
+        heat_idx = float(weather.get('apparent_temperature_max', avg_temp + 4.0))
+        
+        features_df = pd.DataFrame([[avg_temp, precip, wind, heat_idx, 1]], columns=['average_temperature_c', 'precipitation_mm', 'wind_speed_kmh', 'heat_index_c', 'hotel_is_resort'])
+        prediction = int(WEATHER_DECISION_TREE.predict(features_df)[0])
+        rec_type = "outdoor" if prediction == 1 else "indoor"
+    else:
+        rec_type = "outdoor" if weather["condition"] in {"Sunny", "Cloudy"} else "indoor"
+
     rec_reason = (
         f"Forecast is {weather['condition']} ({weather.get('average_temperature', 28)}°C) — recommended for outdoor activities."
         if rec_type == "outdoor" else
         f"Rainy forecast detected ({weather.get('precipitation_sum_mm', 10)} mm rain) — indoor activities are recommended."
     )
     
-    # The MLR predicts a daily rate. Apply the stay length after prediction.
     daily_price = round(price, 2)
     total_price = round(daily_price * length_of_stay, 2)
 
@@ -896,7 +847,6 @@ def predict_price(payload: PricePayload):
         "recommended_activity_type": rec_type,
         "activity_recommendation_reason": rec_reason,
         "source": price_source,
-        
     }
 
 
@@ -911,7 +861,6 @@ def generate_itinerary(payload: ItineraryPayload):
     if not destinations:
         raise HTTPException(422, "Select at least one destination activity before generating a planner.")
 
-    # Fetch live Open-Meteo forecasts and 5-year historical climate for every destination (Open-Meteo is priority)
     forecasts: dict[str, dict[str, dict]] = {}
     history: dict[str, dict] = {}
     comparisons: dict[str, dict[str, dict]] = {}
@@ -932,18 +881,15 @@ def generate_itinerary(payload: ItineraryPayload):
             for day in payload.target_dates
         }
 
-    # Decision Tree scheduling
     scheduled = {day: [] for day in payload.target_dates}
     for activity in payload.raw_activities:
         destination = activity.destination.strip()
         acceptable = preference(activity.type)
         
-        # Schedule on days where the destination's forecast matches acceptable conditions
         options = [
             day for day in payload.target_dates
             if forecasts.get(destination, {}).get(day, {}).get("condition") in acceptable
         ]
-        # Preserve every requested activity even when no date matches its ideal weather.
         weather_matched = bool(options)
         options = options or payload.target_dates
 
@@ -960,7 +906,6 @@ def generate_itinerary(payload: ItineraryPayload):
         matched_fc = forecasts.get(destination, {}).get(day, monthly_weather_for_date(date.fromisoformat(day)))
         
         act_type = activity.type.strip().lower()
-        # Carry the MLR-aligned decision variables into the planner output for traceability.
         hotel_type = activity.hotel_type if activity.hotel_type in BASE_PRICES else ("Resort Hotel" if act_type == "outdoor" else "City Hotel")
         hotel_is_resort = int(hotel_type == "Resort Hotel")
         activity_date = date.fromisoformat(day)
@@ -997,7 +942,20 @@ def generate_itinerary(payload: ItineraryPayload):
                 f"Scheduled on {matched_fc['condition']} day in {destination}; no rainy date was available."
             )
 
-        hazard_flag = act_type == "outdoor" and matched_fc["condition"] == "Rainy"
+        # NEW MACHINE LEARNING ROUTING FOR HAZARD FLAGS:
+        if WEATHER_DECISION_TREE:
+            avg_temp = float(matched_fc.get('average_temperature', average_temperature))
+            precip = float(rainfall)
+            wind = float(matched_fc.get('wind_speed_kmh', 12.0))
+            heat_idx = float(matched_fc.get('apparent_temperature_max', avg_temp + 4.0))
+            is_resort_val = 1 if act_type == "outdoor" else 0
+            
+            features_df = pd.DataFrame([[avg_temp, precip, wind, heat_idx, is_resort_val]], columns=['average_temperature_c', 'precipitation_mm', 'wind_speed_kmh', 'heat_index_c', 'hotel_is_resort'])
+            prediction = int(WEATHER_DECISION_TREE.predict(features_df)[0])
+            # If prediction is 0 (Unsafe/Hazardous), trigger hazard flag for outdoor activities
+            hazard_flag = (act_type == "outdoor" and prediction == 0)
+        else:
+            hazard_flag = act_type == "outdoor" and matched_fc["condition"] == "Rainy"
 
         scheduled[day].append({
             "name": activity.name.strip(),
@@ -1031,7 +989,6 @@ def generate_itinerary(payload: ItineraryPayload):
         hist = history.get(destination, {"years": 5, "dominant_condition": "Unknown", "average_rainfall_mm": 0, "source": "historical weather data"})
         comp = comparisons.get(destination, {}).get(day, build_weather_comparison(forecast, hist))
 
-        # Collect forecasts for all destinations involved on this day
         dest_forecasts = []
         for dest in destinations:
             d_fc = forecasts.get(dest, {}).get(day, forecast)
@@ -1056,7 +1013,6 @@ def generate_itinerary(payload: ItineraryPayload):
             "outfit_advice": f"At {destination}, {OUTFIT_ADVICE.get(forecast['condition'], OUTFIT_ADVICE['Cloudy'])}",
         })
 
-    # Validate outfit if provided
     outfit_response = None
     if payload.outfit:
         outfit_response = {**payload.outfit}
@@ -1071,8 +1027,7 @@ def generate_itinerary(payload: ItineraryPayload):
             },
             "rules": [
                 "Open-Meteo live forecast & 5-year historical climate comparison prioritized for all destinations.",
-                "Outdoor activities are scheduled for sunny or cloudy conditions.",
-                "Indoor activities are scheduled for rainy conditions when possible.",
+                "Weather classifications and activity suitability are mathematically predicted using the trained Decision Tree Classifier.",
                 "Activity choices are locked to weather-matching recommendations in destination view and cross-referenced in the planner.",
             ],
         },
