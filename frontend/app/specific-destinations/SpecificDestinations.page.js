@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
 import { useTravel } from "../TravelContext";
-import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString } from "../tripUtils";
+import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString, getPAGASABadgeColor } from "../tripUtils";
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
@@ -24,7 +24,7 @@ const FALLBACK_DESTINATION = {
   name: "Alaminos",
   location: "Alaminos, Philippines",
   country: "Philippines",
-  main_weather: "Sunny",
+  main_weather: "Clear / Sunny",
   image: mainImage,
   description: "Discover scenic attractions, cultural landmarks, and local experiences in Alaminos.",
   activities: [],
@@ -64,7 +64,7 @@ function NearbyCard({ destination }) {
   const activity = destination.highlightActivity || destination.activities?.[0];
   const title = activity?.name || destination.name;
   const image = activityImage(activity, destination);
-  const weatherTag = activity?.weather_tag || destination.main_weather || "Sunny";
+  const weatherTag = activity?.weather_tag || destination.main_weather || "Clear / Sunny";
   return (
     <Link href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-32 overflow-hidden rounded-xl shadow-sm">
       <img src={image} alt={title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
@@ -97,14 +97,14 @@ function AssignDaySelect({ dates, assignedDay, currentActivities, assignedDayTak
   }, []);
 
   return (
-    <div ref={menuRef} className={`relative mt-3 mb-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${assignedDayTaken ? "border-amber-300 bg-amber-50/60 text-slate-700" : "border-gray-300 text-slate-700"}`}>
-      <span>Assign to{assignedDayTaken ? " · taken" : ""}</span>
+    <div ref={menuRef} className={`relative mt-3 mb-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${assignedDayTaken ? "border-blue-300 bg-blue-50/60 text-slate-700" : "border-gray-300 text-slate-700"}`}>
+      <span>Assign to{assignedDayTaken ? " · already has activity" : ""}</span>
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className={`max-w-[65%] truncate rounded-lg border bg-white px-2 py-1 text-left text-xs font-semibold outline-none focus:border-gray-400 ${assignedDayTaken ? "border-amber-200 text-slate-700" : "border-gray-200"}`}
+        className={`max-w-[65%] truncate rounded-lg border bg-white px-2 py-1 text-left text-xs font-semibold outline-none focus:border-gray-400 ${assignedDayTaken ? "border-blue-200 text-slate-700" : "border-gray-200"}`}
       >
         {selected?.text || "Choose a day"}
       </button>
@@ -117,7 +117,7 @@ function AssignDaySelect({ dates, assignedDay, currentActivities, assignedDayTak
                 role="option"
                 aria-selected={option.dayLabel === assignedDay}
                 onClick={() => { onChange(option.dayLabel); setOpen(false); }}
-                className={`flex w-full px-3 py-2 text-left text-xs font-semibold ${option.dayLabel === assignedDay ? "bg-slate-900 text-white" : "text-slate-800 hover:bg-slate-50"} ${option.taken ? "blur-[1.5px] opacity-60" : ""}`}
+                className={`flex w-full px-3 py-2 text-left text-xs font-semibold ${option.dayLabel === assignedDay ? "bg-slate-900 text-white" : "text-slate-800 hover:bg-slate-50"} ${option.taken ? "bg-blue-50/50" : ""}`}
               >
                 {option.text}
               </button>
@@ -192,8 +192,10 @@ function SpecificDestinationsContent() {
   const selectedActivityImage = failedActivityImage === requestedActivityImage ? activityFallbackImage(selectedActivityData, destinationDetails) : requestedActivityImage;
 
   const guestWarning = getGuestWarning(guests);
-  const assignedDayTaken = hasActivityConflict({ assignedDay })
-    || currentActivities.some((activity) => (activity.assignedDay || activity.assigned_day) === assignedDay);
+  
+  // Non-blocking check for multiple activities per day
+  const assignedDayTaken = currentActivities.some((activity) => (activity.assignedDay || activity.assigned_day) === assignedDay);
+
   const destinationQuery = searchParams.get("id") || "";
   const activityQuery = searchParams.get("activity") || "";
 
@@ -212,13 +214,6 @@ function SpecificDestinationsContent() {
   useEffect(() => {
     const dates = generateDateRange(startDate, endDate);
     if (!dates.length) return;
-    const nextDay = getNextAvailableDay(dates, currentActivities, "");
-    if (nextDay) {
-      setAssignedDay(nextDay);
-      const nextDate = dates[Number(nextDay.replace("Day ", "")) - 1];
-      if (nextDate) setPricingDate(nextDate);
-      return;
-    }
     const assignedIndex = Number(assignedDay.replace("Day ", "")) - 1;
     if (assignedIndex < 0 || assignedIndex >= dates.length) setAssignedDay(`Day ${dates.length}`);
     if (!dates.includes(pricingDate)) setPricingDate(dates[0]);
@@ -285,7 +280,6 @@ function SpecificDestinationsContent() {
       if (!isMounted) return;
       setDestinationDetails(mockDestination);
       try {
-        // Fetch priority Open-Meteo forecast and activity recommendations
         let destinationResponse;
         let destination = mockDestination;
         try {
@@ -322,13 +316,12 @@ function SpecificDestinationsContent() {
               hotel_type: isOutdoor ? "Resort Hotel" : "City Hotel",
               recommended: rec,
               locked: !rec,
-              lock_reason: `Locked: Recommended for ${isRainy ? "Rainy" : "Sunny/Cloudy"} weather only.`,
+              lock_reason: `Locked: Recommended for weather compatibility only.`,
             };
           });
           setActivityList(acts);
         }
 
-        // Determine target selected activity
         let targetActName = activityParam || selectedActivity;
         const matchingAct = acts.find((a) => a.name === targetActName) || acts.find((a) => a.recommended) || acts[0];
         if (matchingAct) {
@@ -376,8 +369,7 @@ function SpecificDestinationsContent() {
           ...a,
           hotel_type: a.type === "outdoor" ? "Resort Hotel" : "City Hotel",
           recommended: a.type === "outdoor",
-          locked: a.type !== "outdoor",
-          lock_reason: a.type !== "outdoor" ? "Locked: Recommended for rainy weather only." : null,
+          locked: false,
         }));
         setActivityList(acts);
         if (acts[0]) setSelectedActivity(acts[0].name);
@@ -402,11 +394,8 @@ function SpecificDestinationsContent() {
     }
     const currentActivitiesList = activityList.length > 0 ? activityList : (destinationDetails.activities || []);
     const activity = currentActivitiesList.find((item) => item.name === selectedActivity) || currentActivitiesList[0];
-    if (hasActivityConflict({ ...activity, assignedDay })) {
-      setToastMessage("This day already has an activity. Choose another day before adding this one.");
-      window.setTimeout(() => setToastMessage(""), 3000);
-      return;
-    }
+    
+    // Multiple activities are now fully allowed on any day
     const selected = {
       ...activity,
       destination: destinationDetails.name,
@@ -416,16 +405,11 @@ function SpecificDestinationsContent() {
       time: selectedTime,
       roomType,
       image: selectedActivityImage,
-      weather: weatherForecast?.condition || destinationDetails.main_weather || "Sunny",
+      weather: weatherForecast?.condition || destinationDetails.main_weather || "Clear / Sunny",
       weather_forecast: weatherForecast,
     };
+    
     addActivity(selected);
-    const nextDay = getNextAvailableDay(generateDateRange(startDate, endDate), [...currentActivities, selected], assignedDay);
-    if (nextDay) {
-      setAssignedDay(nextDay);
-      const nextDate = generateDateRange(startDate, endDate)[Number(nextDay.replace("Day ", "")) - 1];
-      if (nextDate) setPricingDate(nextDate);
-    }
     setDateRange({ startDate, endDate });
     setToastMessage("Activity added to your itinerary.");
     window.setTimeout(() => setToastMessage(""), 3000);
@@ -567,13 +551,7 @@ function SpecificDestinationsContent() {
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Destination Weather</span>
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                        weatherForecast.condition === 'Sunny'
-                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                          : weatherForecast.condition === 'Rainy'
-                          ? 'bg-sky-100 text-sky-800 border border-sky-200'
-                          : 'bg-slate-200 text-slate-800 border border-slate-300'
-                      }`}>
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold border ${getPAGASABadgeColor(weatherForecast.condition)}`}>
                         {weatherForecast.condition}
                       </span>
                     </div>
@@ -626,9 +604,11 @@ function SpecificDestinationsContent() {
                     onChange={handleAssignedDayChange}
                     formatDate={formatDate}
                   />
+                  
+                  {/* Advisory note allowing multi-activity scheduling */}
                   {assignedDayTaken ? (
-                    <p className="mb-3 text-[11px] font-semibold text-amber-700">
-                      An activity is already assigned to {assignedDay}. Choose another day or replace it in the itinerary planner.
+                    <p className="mb-3 text-[11px] font-semibold text-blue-700">
+                      Note: {assignedDay} already has an activity. You can add multiple activities per day, but please consider travel distance and transit time between locations!
                     </p>
                   ) : null}
 

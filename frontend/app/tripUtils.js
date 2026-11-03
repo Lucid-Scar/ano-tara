@@ -75,3 +75,14 @@ export function clampActivityTime(value) {
   if (typeof value === "string" && value > LATEST_ACTIVITY_TIME) return LATEST_ACTIVITY_TIME;
   return "10:00";
 }
+
+// Map the official PAGASA strings directly from the backend to UI badge colors
+export function getPAGASABadgeColor(condition) {
+  if (condition === "Extreme Heat / Danger") return "bg-red-100 text-red-800 border-red-200";
+  if (condition === "Windy / Stormy") return "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200";
+  if (condition === "Heavy Rain / Rainy") return "bg-indigo-100 text-indigo-800 border-indigo-200";
+  if (condition === "Light Rain / Drizzle") return "bg-sky-100 text-sky-800 border-sky-200";
+  if (condition === "Fair / Partly Cloudy") return "bg-orange-100 text-orange-800 border-orange-200";
+  if (condition === "Clear / Sunny") return "bg-amber-100 text-amber-800 border-amber-200";
+  return "bg-slate-200 text-slate-800 border-slate-300";
+}
