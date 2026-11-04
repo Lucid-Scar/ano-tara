@@ -121,8 +121,13 @@ try:
     MLR_MODEL = joblib.load(BASE_DIR / "model" / "price_surge_mlr_model.joblib")
     MLR_FEATURES = joblib.load(BASE_DIR / "model" / "model_features.joblib")
 except (FileNotFoundError, ImportError, ValueError):
-    MLR_MODEL = None
-    MLR_FEATURES = []
+    try:
+        price_model_bundle = joblib.load(BASE_DIR / "model" / "price_model_bundle.joblib")
+        MLR_MODEL = price_model_bundle["model"]
+        MLR_FEATURES = price_model_bundle["features"]
+    except (FileNotFoundError, ImportError, KeyError, TypeError, ValueError):
+        MLR_MODEL = None
+        MLR_FEATURES = []
 
 # Load local Philippine hotel and activity data.
 PHILIPPINE_HOTEL_RATES = {}
@@ -203,7 +208,7 @@ def predict_mlr_price(
 
     ph_holidays = holidays.PH(years=[check_in.year])
     is_holiday = float(check_in in ph_holidays)
-    current_inflation_rate = 6.1
+    current_inflation_rate = 7.2
 
     feature_dict = {
         "lead_time": float(lead_time),
@@ -222,6 +227,11 @@ def predict_mlr_price(
         "pax_squared": pax ** 2,
     }
 
+    for feature in MLR_FEATURES:
+        if feature.startswith("arrival_date_month_"):
+            feature_dict[feature] = float(
+                feature.removeprefix("arrival_date_month_") == check_in.strftime("%B")
+            )
     model_input = pd.DataFrame([feature_dict])
     for feature in MLR_FEATURES:
         if feature not in model_input:
@@ -230,6 +240,14 @@ def predict_mlr_price(
 
     predicted_log_multiplier = float(MLR_MODEL.predict(model_input)[0])
     multiplier = float(np.exp(predicted_log_multiplier))
+    
+    is_peak_month = check_in.month in {12, 1, 2, 4}
+    if is_peak_month:
+        multiplier *= 1.15
+        
+    inflation_baseline = 4.0
+    inflation_factor = max(0.0, (current_inflation_rate - inflation_baseline) * 0.01) # 1% price increase per 1% inflation over baseline
+    multiplier *= (1.0 + inflation_factor)
 
     final_price = round(base_price * multiplier, 2)
 
@@ -243,11 +261,11 @@ def predict_mlr_price(
     )
 
 
-def accommodation_base_price(destination: str, hotel_type: str) -> tuple[float, str]:
+def accommodation_base_price(destination: str, hotel_type: str) -> tuple[float | None, str]:
     city_key = normalize_city_name(destination)
     if city_key in PHILIPPINE_HOTEL_RATES:
         return PHILIPPINE_HOTEL_RATES[city_key], "local_csv_average"
-    return float(DEFAULT_BASE_PRICES[hotel_type]), "regional_baseline"
+    return None, "not_listed"
 
 
 def infer_hotel_type(destination: str) -> str:
@@ -264,14 +282,25 @@ def estimate_hotel_price(
     hotel_type: str,
 ) -> dict:
     base_price, base_price_source = accommodation_base_price(destination, hotel_type)
+    season = "Peak season" if check_in.month in {12, 1, 2, 4} else "Regular season"
+
+    # NEW CATCH: If no local data exists, return nulls so the UI shows "Not listed"
+    if base_price is None:
+        return {
+            "daily_price": None,
+            "total_price": None,
+            "length_of_stay": length_of_stay,
+            "base_price": None,
+            "base_price_source": base_price_source,
+            "multiplier": None,
+            "season": season,
+            "model_evaluation": {},
+            "source": "Price not listed",
+        }
+
     try:
         _, multiplier, model_evaluation, model_source, _, _ = predict_mlr_price(
-            check_in,
-            guests,
-            destination,
-            length_of_stay,
-            room_type,
-            hotel_type,
+            check_in, guests, destination, length_of_stay, room_type, hotel_type,
         )
         multiplier = min(multiplier, 3.0)
         price_source = f"{model_source} × {base_price_source.replace('_', ' ')}"
@@ -282,7 +311,6 @@ def estimate_hotel_price(
         price_source = f"Rule-based fallback × {base_price_source.replace('_', ' ')}; trained MLR unavailable"
 
     daily_price = round(base_price * multiplier, 2)
-    season = "Peak season" if check_in.month in {12, 1, 2, 4} else "Regular season"
     return {
         "daily_price": daily_price,
         "total_price": round(daily_price * length_of_stay, 2),
@@ -370,14 +398,16 @@ def classify_clothing_weather(category: str) -> dict[str, object]:
 
 # Data helper: load the tourism dataset and build destination activity records.
 GOLDEN_CSV_PATH = DATA_DIR / "philippines_tourism_with_coordinates_final.csv"
+LEGACY_GOLDEN_CSV_PATH = DATA_DIR / "philippines_tourism_with_coordinates_final.csv"
 
 # Helper: convert the source CSV into the destination structure used by the API.
 def load_destinations_from_golden_dataset() -> list[dict]:
-    if not GOLDEN_CSV_PATH.exists():
+    dataset_path = GOLDEN_CSV_PATH if GOLDEN_CSV_PATH.exists() else LEGACY_GOLDEN_CSV_PATH
+    if not dataset_path.exists():
         print("WARNING: Golden CSV not found. Ensure it is inside the /data folder.")
         return []
 
-    data = pd.read_csv(GOLDEN_CSV_PATH, encoding="utf-8-sig")
+    data = pd.read_csv(dataset_path, encoding="utf-8-sig")
     destinations_by_city: dict[str, dict] = {}
 
     for _, row in data.iterrows():
@@ -407,13 +437,146 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             continue
 
         price = activity_price_per_pax(row)
+        price_display = str(row.get("Price_Display", "")).strip()
+        if not price_display or price_display.casefold() == "nan":
+            price_display = ""
+        hotel_rate = pd.to_numeric(row.get("Hotel_Rate_PHP_per_Night"), errors="coerce")
+        numeric_price = (
+            float(hotel_rate)
+            if pd.notna(hotel_rate)
+            else price if price is not None
+            else display_price_amount(price_display)
+        )
+        hotel_room_type = str(row.get("Hotel_Room_Type", "")).strip()
+        if hotel_room_type.casefold() == "nan":
+            hotel_room_type = ""
+        room_type = hotel_room_type or name_variant
+        if not room_type:
+            room_type = str(row.get("Activity_or_Room_Category", "")).strip()
+        if not room_type or room_type.casefold() == "nan":
+            room_type = name_variant or "Standard Room"
+        record_type = str(row_value(row, "Record_Type") or "").strip()
+        data_quality_notes = str(row_value(row, "Data_Quality_Notes") or "").strip()
+        source_type = str(row_value(row, "Source_Type") or "").strip()
+        source_url = source_url_for_row(row)
+        nearby_activities = str(row_value(row, "Nearby_Activities_or_Attractions") or "").strip()
+        nearby_proximity_basis = str(row_value(row, "Nearby_Proximity_Basis") or "").strip()
+        hotel_check_in = str(row_value(row, "Hotel_Check_In", "Hotel_Check_in") or "").strip()
+        hotel_check_out = str(row_value(row, "Hotel_Check_Out", "Hotel_Check_out") or "").strip()
+        activity_duration = str(row_value(row, "Activity_Duration") or "").strip()
+        open_days = str(row_value(row, "Open_Days") or "").strip()
+        opening_time = str(row_value(row, "Opening_Time") or "").strip()
+        closing_time = str(row_value(row, "Closing_Time") or "").strip()
+        amenities = str(row_value(row, "Amenities_or_Inclusions") or "").strip()
+        promos = str(row_value(row, "Promos_or_Discounts") or "").strip()
+        hotel_rate = float(hotel_rate) if pd.notna(hotel_rate) else None
+        hotel_occupancy = pd.to_numeric(row_value(row, "Hotel_Occupancy_Pax"), errors="coerce")
+        hotel_occupancy = int(hotel_occupancy) if pd.notna(hotel_occupancy) and hotel_occupancy > 0 else None
+        hotel_rate_per_pax = pd.to_numeric(row_value(row, "Hotel_Rate_PHP_per_Pax_per_Night"), errors="coerce")
+        hotel_rate_per_pax = float(hotel_rate_per_pax) if pd.notna(hotel_rate_per_pax) else None
+        tier = {
+            "room_type": room_type,
+            "option_label": name_variant or room_type,
+            "price": numeric_price,
+            "price_per_pax": price,
+            "price_display": price_display,
+            "record_type": record_type,
+            "category": str(row.get("Activity_or_Room_Category", "")).strip(),
+            "amenities_or_inclusions": amenities,
+            "promos_or_discounts": promos,
+            "data_quality_notes": data_quality_notes,
+            "source_type": source_type,
+            "source_url": source_url,
+            "nearby_activities": nearby_activities,
+            "nearby_proximity_basis": nearby_proximity_basis,
+            "hotel_check_in": hotel_check_in,
+            "hotel_check_out": hotel_check_out,
+            "hotel_rate_per_night": hotel_rate,
+            "hotel_occupancy_pax": hotel_occupancy,
+            "hotel_rate_per_pax_per_night": hotel_rate_per_pax,
+            "activity_duration": activity_duration,
+            "open_days": open_days,
+            "opening_time": opening_time,
+            "closing_time": closing_time,
+        }
+
+        existing_activity = next(
+            (activity for activity in destination["activities"] if activity["name"] == name),
+            None,
+        )
+        if existing_activity is not None:
+            if not any(
+                option["room_type"] == tier["room_type"]
+                and option["price"] == tier["price"]
+                for option in existing_activity["pricing_tiers"]
+            ):
+                existing_activity["pricing_tiers"].append(tier)
+            if tier["record_type"] and tier["record_type"] not in existing_activity["record_types"]:
+                existing_activity["record_types"].append(tier["record_type"])
+            if data_quality_notes and data_quality_notes not in existing_activity["data_quality_notes"]:
+                existing_activity["data_quality_notes"].append(data_quality_notes)
+            if nearby_activities and nearby_activities not in existing_activity["nearby_activities"]:
+                existing_activity["nearby_activities"].append(nearby_activities)
+            if not existing_activity["source_type"] and source_type:
+                existing_activity["source_type"] = source_type
+            if not existing_activity["source_url"] and source_url:
+                existing_activity["source_url"] = source_url
+            if not existing_activity["nearby_proximity_basis"] and nearby_proximity_basis:
+                existing_activity["nearby_proximity_basis"] = nearby_proximity_basis
+            if not existing_activity["hotel_check_in"] and hotel_check_in:
+                existing_activity["hotel_check_in"] = hotel_check_in
+            if not existing_activity["hotel_check_out"] and hotel_check_out:
+                existing_activity["hotel_check_out"] = hotel_check_out
+            if not existing_activity["amenities_or_inclusions"] and amenities:
+                existing_activity["amenities_or_inclusions"] = amenities
+            if not existing_activity["promos_or_discounts"] and promos:
+                existing_activity["promos_or_discounts"] = promos
+            if not existing_activity["activity_duration"] and activity_duration:
+                existing_activity["activity_duration"] = activity_duration
+            if not existing_activity["open_days"] and open_days:
+                existing_activity["open_days"] = open_days
+            if not existing_activity["opening_time"] and opening_time:
+                existing_activity["opening_time"] = opening_time
+            if not existing_activity["closing_time"] and closing_time:
+                existing_activity["closing_time"] = closing_time
+            numeric_tiers = [
+                option for option in existing_activity["pricing_tiers"]
+                if option["price"] is not None
+            ]
+            if numeric_tiers:
+                primary_tier = min(numeric_tiers, key=lambda option: option["price"])
+                existing_activity["price_per_pax"] = primary_tier["price_per_pax"]
+                existing_activity["price_display"] = primary_tier["price_display"]
+                existing_activity["real_price_php"] = primary_tier["price"]
+            continue
+
         activity = {
             "name": name,
             "type": activity_type_for_record(row),
+            "record_type": record_type,
+            "record_types": [tier["record_type"]] if tier["record_type"] else [],
+            "data_quality_notes": [data_quality_notes] if data_quality_notes else [],
+            "source_type": source_type,
+            "source_url": source_url,
+            "nearby_activities": [nearby_activities] if nearby_activities else [],
+            "nearby_proximity_basis": nearby_proximity_basis,
+            "hotel_check_in": hotel_check_in,
+            "hotel_check_out": hotel_check_out,
+            "hotel_rate_per_night": hotel_rate,
+            "hotel_occupancy_pax": hotel_occupancy,
+            "hotel_rate_per_pax_per_night": hotel_rate_per_pax,
+            "activity_duration": activity_duration,
+            "open_days": open_days,
+            "opening_time": opening_time,
+            "closing_time": closing_time,
+            "amenities_or_inclusions": amenities,
+            "promos_or_discounts": promos,
             "hotel_type": "Resort Hotel" if activity_type_for_record(row) == "outdoor" else "City Hotel",
             "duration_hours": activity_duration_hours(row.get("Activity_Duration", "")),
             "exact_latitude": float(latitude) if pd.notna(latitude) else destination["latitude"],
             "exact_longitude": float(longitude) if pd.notna(longitude) else destination["longitude"],
+            "price_per_pax": price,
+            "price_display": price_display,
             "real_price_php": price if price is not None else 0.0,
             "source_url": source_url_for_row(row),
         }
@@ -466,8 +629,8 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             "location": city_name,
             "country": "Philippines",
             "hotel_type": "City Hotel",
-            "base_price": DEFAULT_BASE_PRICES["City Hotel"],
-            "base_prices": DEFAULT_BASE_PRICES,
+            "base_price": PHILIPPINE_HOTEL_RATES.get(city_key, None),
+            "has_local_rate": city_key in PHILIPPINE_HOTEL_RATES,
             "latitude": city_lat,
             "longitude": city_lon,
             "main_weather": "Cold" if is_cold else "Cloudy",
@@ -507,14 +670,19 @@ def activity_duration_hours(value: object) -> int:
 
 
 def source_url_for_row(row: pd.Series) -> str | None:
-    value = row.get("Source_URLs")
-    if pd.isna(value):
-        return None
-    for candidate in re.split(r"[;\r\n]+", str(value)):
-        candidate = candidate.strip()
-        parsed = urlparse(candidate)
-        if parsed.scheme in {"http", "https"} and parsed.netloc:
-            return candidate
+    values = [
+        row.get(column)
+        for column in ("Source_URL", "Source_URLs")
+        if column in row.index
+    ]
+    for value in values:
+        if pd.isna(value):
+            continue
+        for candidate in re.split(r"[;\r\n,]+", str(value)):
+            candidate = candidate.strip()
+            parsed = urlparse(candidate)
+            if parsed.scheme in {"http", "https"} and parsed.netloc:
+                return candidate
     return None
 
 DESTINATIONS = load_destinations_from_golden_dataset()

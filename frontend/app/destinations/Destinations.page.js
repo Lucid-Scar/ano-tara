@@ -97,7 +97,7 @@ function ActivityDestinationCard({ item }) {
           </div>
 
           <span className="text-xs font-semibold text-white/90 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-lg">
-            {item.durationHours} hrs
+            {item.activityDuration || `${item.durationHours} hrs`}
           </span>
         </div>
       </div>
@@ -120,19 +120,32 @@ function ActivityDestinationCard({ item }) {
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </span>
-          <div className="flex flex-col items-end">
-            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Activity price</span>
-            
-            {item.isFreeActivity ? (
-              <span className="text-sm font-black text-slate-800">Free</span>
-            ) : (
-              <span className="max-w-[180px] text-right text-xs font-black text-slate-800 leading-tight">
-                {formatActivityPrice(item.activityPriceDisplay, item.activityPrice) || (
-                  <span className="text-slate-300 font-normal italic"></span>
-                )}
-              </span>
-            )}
-          </div>
+          {(() => {
+          const formatted = formatActivityPrice(item.activityPriceDisplay, item.activityPrice);
+          
+          if (item.isFreeActivity) {
+            return (
+              <div className="flex flex-col items-end text-right">
+                <span className="block text-[9px] font-semibold uppercase tracking-wide text-slate-400">Activity price</span>
+                <span className="text-sm font-black text-slate-800">Free</span>
+              </div>
+            );
+          }
+          
+          if (formatted) {
+            return (
+              <div className="flex flex-col items-end text-right">
+                <span className="block text-[9px] font-semibold uppercase tracking-wide text-slate-400">Activity price</span>
+                <span className="max-w-[180px] text-xs font-black text-slate-800 leading-tight">
+                  {formatted}
+                </span>
+              </div>
+            );
+          }
+          
+          // Return nothing if the price is intentionally left blank/unpublished
+          return null;
+        })()}
         </div>
       </div>
     </Link>
@@ -174,7 +187,7 @@ export default function DestinationsPage() {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     const requestedActivityType = query.get("activityType");
-    if (requestedActivityType === "outdoor" || requestedActivityType === "indoor") setActivityTypeFilter(requestedActivityType);
+    if (requestedActivityType) setActivityTypeFilter(requestedActivityType);
     const nextCheckIn = query.get("startDate") || query.get("date") || query.get("checkIn");
     if (nextCheckIn) setCheckIn(clampToSelectableDate(nextCheckIn));
     const nextEndDate = query.get("endDate");
@@ -257,6 +270,9 @@ export default function DestinationsPage() {
           country: dest.country || "Philippines",
           activityName: activity.name,
           activityType: activity.type,
+          activityDuration: activity.activity_duration || "",
+          recordType: activity.record_type || "",
+          recordTypes: activity.record_types || (activity.record_type ? [activity.record_type] : []),
           hotelType,
           base_price: dest.base_price ?? null,
           isLocalRate: Boolean(dest.has_local_rate),
@@ -276,6 +292,11 @@ export default function DestinationsPage() {
     return shuffleList(list);
   }, [destinations]);
 
+  const recordTypeOptions = useMemo(
+    () => [...new Set(allActivities.flatMap((item) => item.recordTypes).filter(Boolean))].sort(),
+    [allActivities],
+  );
+
   // Filter activities based on search bar, activity type filter, and weather tag filter
   const filteredActivities = useMemo(() => {
     return allActivities.filter((item) => {
@@ -290,7 +311,7 @@ export default function DestinationsPage() {
         if (item.weatherTag !== weatherFilter) return false;
       }
 
-      if (activityTypeFilter !== null && item.activityType !== activityTypeFilter) return false;
+      if (activityTypeFilter !== null && !item.recordTypes.includes(activityTypeFilter)) return false;
 
       return true;
     });
@@ -300,7 +321,7 @@ export default function DestinationsPage() {
 
   useEffect(() => {
     setVisibleCardCount(CARDS_PER_PAGE);
-  }, [searchQuery, weatherFilter]);
+  }, [activityTypeFilter, searchQuery, weatherFilter]);
 
   const toggleWeather = (weather) => {
     setWeatherFilter((prev) => (prev === weather ? null : weather));
@@ -512,6 +533,38 @@ export default function DestinationsPage() {
                       </svg>
                     )}
                   </button>
+                </div>
+              </div>
+
+              {/* Dataset Record Type Filter */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Activity Type:</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActivityTypeFilter(null)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
+                      activityTypeFilter === null
+                        ? "bg-slate-900 text-white shadow-sm scale-105"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    All
+                  </button>
+                  {recordTypeOptions.map((recordType) => (
+                    <button
+                      key={recordType}
+                      type="button"
+                      onClick={() => setActivityTypeFilter((current) => current === recordType ? null : recordType)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
+                        activityTypeFilter === recordType
+                          ? "bg-[#4a8b8b] text-white shadow-sm scale-105"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                    >
+                      {recordType}
+                    </button>
+                  ))}
                 </div>
               </div>
 

@@ -36,6 +36,47 @@ const activityFallbackImage = (activity, destination) => {
   return destination.image;
 };
 const activityImage = (activity, destination) => activity?.image || activityFallbackImage(activity, destination);
+const richText = (value) => Array.isArray(value) ? value.filter(Boolean).join(" ") : (value || "").trim();
+const normalizeNearbyText = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+const timeToMinutes = (value) => {
+  const match = String(value || "").trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || 0);
+  const meridiem = match[3]?.toLowerCase();
+  if (minute > 59 || hour > 23) return null;
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    if (meridiem === "pm" && hour !== 12) hour += 12;
+    if (meridiem === "am" && hour === 12) hour = 0;
+  }
+  return hour * 60 + minute;
+};
+const normalizedTime = (value) => {
+  const minutes = timeToMinutes(value);
+  return minutes == null ? "" : `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+};
+const splitRichValues = (value) => String(value || "").split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
+const isOpenOnDate = (openDays, dateValue) => {
+  if (!openDays || /not published|unknown|n\/a/i.test(openDays)) return null;
+  const day = new Date(`${dateValue}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" });
+  const normalized = openDays.toLowerCase().replace(/\s+/g, " ").trim();
+  if (/daily|every day|all days/.test(normalized)) {
+    const except = normalized.match(/except\s+(.+)$/);
+    return !except || !except[1].includes(day.toLowerCase().slice(0, 3));
+  }
+  if (normalized.includes("-")) {
+    const [start, end] = normalized.split("-").map((part) => part.trim());
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const startIndex = days.findIndex((item) => start.startsWith(item.slice(0, 3)));
+    const endIndex = days.findIndex((item) => end.startsWith(item.slice(0, 3)));
+    const dayIndex = days.indexOf(day.toLowerCase());
+    if (startIndex >= 0 && endIndex >= 0) return startIndex <= endIndex
+      ? dayIndex >= startIndex && dayIndex <= endIndex
+      : dayIndex >= startIndex || dayIndex <= endIndex;
+  }
+  return normalized.includes(day.toLowerCase()) || normalized.includes(day.slice(0, 3).toLowerCase());
+};
 const isFreeActivity = (activity) => (
   (activity?.price_per_pax != null && Number(activity.price_per_pax) === 0)
   || /^free(?:\s*\(|$)/i.test(activity?.price_display?.trim() || "")
@@ -95,6 +136,9 @@ function NearbyCard({ destination }) {
       <div className="absolute bottom-2 left-2 right-2">
         <p className="line-clamp-2 text-xs font-bold leading-snug text-white">{title}</p>
         <p className="text-[10px] text-white/80">{destination.name}</p>
+        {destination.proximityBasis ? (
+          <p className="mt-0.5 truncate text-[9px] font-semibold text-amber-200">{destination.proximityBasis}</p>
+        ) : null}
       </div>
     </Link>
   );
@@ -151,11 +195,38 @@ function AssignDaySelect({ dates, assignedDay, currentActivities, assignedDayTak
   );
 }
 
+const formatActivityPrice = (displayStr, rawPrice) => {
+  if (!displayStr) return "";
+  let cleaned = displayStr.trim();
+
+  if (
+    /not published|unlisted|tba|n\/a/i.test(cleaned) ||
+    cleaned === "Not published in cited source"
+  ) {
+    return "";
+  }
+
+  if (cleaned.includes("$")) {
+    cleaned = cleaned.replace(/\$(\d+(?:\.\d+)?)/g, (match, usdVal) => {
+      const phpVal = (parseFloat(usdVal) * 56.0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return `₱${phpVal} ($${usdVal})`;
+    });
+  }
+
+  return cleaned;
+};
+
 function SpecificDestinationsContent() {
   const { dateRange, setDateRange, guests, setGuests, addActivity, currentActivities, hasActivityConflict } = useTravel();
   const searchParams = useSearchParams();
   const [tripReady, setTripReady] = useState(false);
   const minDate = getMinSelectableDate();
+
+  const [hotelEstimate, setHotelEstimate] = useState(null);
+  const [isEstimatingHotel, setIsEstimatingHotel] = useState(false);
 
   const [startDate, setStartDate] = useState(dateRange.startDate || minDate);
   const [endDate, setEndDate] = useState(() => {
@@ -206,42 +277,106 @@ function SpecificDestinationsContent() {
 
   const selectedActivityData = activityList.find((activity) => activity.name === selectedActivity)
     || destinationDetails.activities?.find((activity) => activity.name === selectedActivity);
+  const roomOptions = selectedActivityData?.pricing_tiers?.length
+    ? selectedActivityData.pricing_tiers
+    : [{ room_type: "Standard Room" }, { room_type: "Premium Suite" }];
+  const selectedPricingTier = selectedActivityData?.pricing_tiers?.find(
+    (option) => option.room_type === roomType,
+  ) || selectedActivityData?.pricing_tiers?.[0];
   
   const selectedActivityImage = activityImage(selectedActivityData, destinationDetails);
+  const parsedGuests = Number(guests) || 1;
+  const selectedRecordTypes = selectedActivityData?.record_types || [];
+  const isAccommodation = selectedRecordTypes.some((type) => /hotel|room|accommodation|resort/i.test(type))
+    || Boolean(selectedActivityData?.hotel_check_in || selectedActivityData?.hotel_check_out);
+  const hotelRatePerNight = Number(selectedPricingTier?.hotel_rate_per_night ?? selectedActivityData?.hotel_rate_per_night);
+  const hotelOccupancyPax = Number(selectedPricingTier?.hotel_occupancy_pax ?? selectedActivityData?.hotel_occupancy_pax);
+  const hotelRatePerPaxPerNight = Number(selectedPricingTier?.hotel_rate_per_pax_per_night ?? selectedActivityData?.hotel_rate_per_pax_per_night);
+  const hotelRoomsRequired = isAccommodation && Number.isFinite(hotelRatePerNight) && hotelRatePerNight > 0 && hotelOccupancyPax > 0
+    ? Math.ceil(parsedGuests / hotelOccupancyPax)
+    : 0;
+  const accommodationNightlyTotal = hotelRoomsRequired ? hotelRoomsRequired * hotelRatePerNight : null;
+  const accommodationPerPaxPerNight = accommodationNightlyTotal != null
+    ? accommodationNightlyTotal / parsedGuests
+    : Number.isFinite(hotelRatePerPaxPerNight) ? hotelRatePerPaxPerNight : null;
+  const stayNights = Math.max(1, Math.round((new Date(`${endDate}T00:00:00`) - new Date(`${startDate}T00:00:00`)) / 86400000));
 
   // 1. Extract static per-guest base price from dataset
-  const rawPricePerGuest = 
-    selectedActivityData?.price_per_pax ?? 
+  const rawPricePerGuest =
+    (isAccommodation && accommodationPerPaxPerNight != null ? accommodationPerPaxPerNight : null) ??
+    selectedPricingTier?.price_per_pax ??
+    (selectedPricingTier?.price != null && selectedActivityData?.pricing_tiers?.length
+      ? selectedPricingTier.price
+      : null) ??
+    selectedActivityData?.price_per_pax ??
     selectedActivityData?.Price_Per_Pax_PHP ?? 
     null;
+  const selectedPriceDisplay = selectedPricingTier?.price_display
+    || selectedActivityData?.price_display
+    || selectedActivityData?.Price_Display
+    || "";
 
   const parsedPricePerGuest = rawPricePerGuest !== null && rawPricePerGuest !== undefined
     ? parseFloat(rawPricePerGuest)
     : NaN;
 
-  const parsedGuests = Number(guests) || 1;
-
   // 2. Determine if activity is free
   const selectedActivityIsFree = 
-    isFreeActivity(selectedActivityData) ||
+    isFreeActivity({ ...selectedActivityData, price_display: selectedPriceDisplay, price_per_pax: rawPricePerGuest }) ||
     rawPricePerGuest === 0 || 
     rawPricePerGuest === "0";
+  const selectedDataQualityNotes = richText(selectedActivityData?.data_quality_notes);
+  const selectedNearbyActivities = richText(selectedActivityData?.nearby_activities);
+  const selectedNearbyProximityBasis = selectedActivityData?.nearby_proximity_basis || "";
+  const selectedTimeMinutes = timeToMinutes(selectedTime);
+  const checkInMinutes = timeToMinutes(selectedActivityData?.hotel_check_in);
+  const checkOutMinutes = timeToMinutes(selectedActivityData?.hotel_check_out);
+  const hotelTimeWarning = isAccommodation && selectedTimeMinutes != null
+    ? (checkInMinutes != null && selectedTimeMinutes < checkInMinutes
+      ? `Selected time is before hotel check-in (${selectedActivityData.hotel_check_in}).`
+      : checkOutMinutes != null && selectedTimeMinutes > checkOutMinutes
+      ? `Selected time is after hotel check-out (${selectedActivityData.hotel_check_out}).`
+      : "")
+    : "";
+  const operatingDayStatus = isOpenOnDate(selectedActivityData?.open_days, pricingDate);
+  const operatingDayWarning = operatingDayStatus === false
+    ? `This location may be closed on ${new Date(`${pricingDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" })} (${selectedActivityData.open_days}).`
+    : "";
+  const operatingHoursPublished = selectedActivityData?.opening_time && selectedActivityData?.closing_time
+    && !/not published|unknown|n\/a/i.test(`${selectedActivityData.opening_time} ${selectedActivityData.closing_time}`);
+  const activityDurationLabel = selectedActivityData?.activity_duration || (
+    selectedActivityData?.duration_hours ? `${selectedActivityData.duration_hours} hrs` : ""
+  );
+  const amenities = splitRichValues(selectedPricingTier?.amenities_or_inclusions || selectedActivityData?.amenities_or_inclusions);
+  const promos = splitRichValues(selectedPricingTier?.promos_or_discounts || selectedActivityData?.promos_or_discounts);
 
-  // 3. Dynamic total price (Static Base Price × Pax)
-  const activityTotalPrice = (!isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0)
-    ? parsedPricePerGuest * parsedGuests
-    : null;
+  useEffect(() => {
+    if (!operatingHoursPublished) return;
+    const selectedMinutes = timeToMinutes(selectedTime);
+    const openingMinutes = timeToMinutes(selectedActivityData.opening_time);
+    const closingMinutes = timeToMinutes(selectedActivityData.closing_time);
+    if (selectedMinutes == null || (openingMinutes != null && selectedMinutes < openingMinutes) || (closingMinutes != null && selectedMinutes > closingMinutes)) {
+      const nextTime = normalizedTime(selectedActivityData.opening_time);
+      if (nextTime) setSelectedTime(nextTime);
+    }
+  }, [operatingHoursPublished, selectedActivityData, selectedTime]);
+
+  // 3. Dynamic total price (Math takes priority)
+  const activityTotalPrice = (!isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0) ? parsedPricePerGuest * parsedGuests : null;
 
   // 4. Formatted Display Texts
   const activityTotalPriceText = selectedActivityIsFree
     ? "Free"
     : activityTotalPrice != null
     ? `PHP ${activityTotalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : selectedActivityData?.price_display?.trim() || selectedActivityData?.Price_Display?.trim() || "Not listed";
-
+    : selectedPriceDisplay.trim() || "Not listed";
+    
   const staticBasePriceText = !isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0
     ? `PHP ${parsedPricePerGuest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
+  const selectedPriceText = activityTotalPriceText !== "Not listed"
+    ? activityTotalPriceText
+    : formatActivityPrice(selectedPriceDisplay, rawPricePerGuest) || activityTotalPriceText;
 
   const guestWarning = getGuestWarning(guests);
   
@@ -272,8 +407,15 @@ function SpecificDestinationsContent() {
   }, [activityQuery, currentActivities, destinationQuery, endDate, startDate]);
 
   useEffect(() => {
+    const firstRoomType = selectedActivityData?.pricing_tiers?.[0]?.room_type;
+    if (firstRoomType) setRoomType(firstRoomType);
+  }, [selectedActivityData]);
+
+  useEffect(() => {
     setTripReady(true);
   }, []);
+
+  
 
   useEffect(() => {
     let cancelled = false;
@@ -293,12 +435,23 @@ function SpecificDestinationsContent() {
             pool.push({ ...destination, highlightActivity: activity });
           });
         });
+        const nearbyTargets = selectedNearbyActivities
+          .split(/[;,|\n]+/)
+          .map(normalizeNearbyText)
+          .filter((target) => target.length > 2);
+        const prioritizedPool = nearbyTargets.length
+          ? pool.filter((item) => {
+            const destinationText = normalizeNearbyText(item.name);
+            const activityText = normalizeNearbyText(item.highlightActivity?.name);
+            return nearbyTargets.some((target) => destinationText.includes(target) || activityText.includes(target) || target.includes(destinationText));
+          })
+          : [];
         const picked = [];
         const usedDestinations = new Set();
-        shuffleList(pool).forEach((item) => {
+        shuffleList([...prioritizedPool, ...pool.filter((item) => !prioritizedPool.includes(item))]).forEach((item) => {
           if (usedDestinations.has(item.id) || picked.length >= 3) return;
           usedDestinations.add(item.id);
-          picked.push(item);
+          picked.push({ ...item, proximityBasis: prioritizedPool.includes(item) ? selectedNearbyProximityBasis : "" });
         });
         let previousIds = [];
         try {
@@ -323,7 +476,7 @@ function SpecificDestinationsContent() {
     };
     loadNearbyDestinations();
     return () => { cancelled = true; };
-  }, [activityQuery, destinationQuery]);
+  }, [activityQuery, destinationQuery, selectedNearbyActivities, selectedNearbyProximityBasis]);
 
   useEffect(() => {
     if (!tripReady) return;
@@ -389,6 +542,36 @@ function SpecificDestinationsContent() {
         }
 
         if (isMounted) setIsLoading(false);
+
+        // Restore MLR Hotel Prediction Request
+        setIsEstimatingHotel(true);
+        try {
+          const chosenHotelType = matchingAct?.hotel_type || "City Hotel";
+          const priceResponse = await fetch("/api/backend/predict-price", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              check_in: pricingDate || startDate,
+              check_out: endDate || pricingDate || toDateString(new Date()),
+              guests: guests,
+              destination: destination.name,
+              hotel_type: chosenHotelType,
+              room_type: roomType,
+            }),
+          });
+          const priceData = await priceResponse.json();
+          if (priceResponse.ok && priceData.status === "success" && priceData.total_price) {
+            setHotelEstimate(priceData);
+          } else {
+            setHotelEstimate(null); // Explicitly clear if no local rate exists
+          }
+        } catch (error) {
+          console.warn("Hotel MLR prediction failed", error);
+          setHotelEstimate(null);
+        } finally {
+          setIsEstimatingHotel(false);
+        }
+
       } catch (error) {
         console.warn("Destination data is unavailable from the backend.", error);
         if (isMounted) {
@@ -402,7 +585,7 @@ function SpecificDestinationsContent() {
     return () => {
       isMounted = false;
     };
-  }, [pricingDate, searchParams, startDate, tripReady]);
+  }, [pricingDate, searchParams, startDate, endDate, guests, roomType, tripReady]);
 
   const addToPlanner = () => {
     if (!generateDateRange(startDate, endDate).includes(pricingDate)) {
@@ -425,6 +608,10 @@ function SpecificDestinationsContent() {
       guests,
       time: selectedTime,
       roomType,
+      price_per_pax: rawPricePerGuest,
+      price_display: selectedPriceDisplay,
+      real_price_php: selectedPricingTier?.price ?? activity.real_price_php,
+      selected_pricing_tier: selectedPricingTier || null,
       image: selectedActivityImage,
       weather: weatherForecast?.condition || destinationDetails.main_weather || "Sunny",
       weather_forecast: weatherForecast,
@@ -435,32 +622,6 @@ function SpecificDestinationsContent() {
     setToastMessage("Activity added to your itinerary.");
     window.setTimeout(() => setToastMessage(""), 3000);
   };
-
-const formatActivityPrice = (displayStr, rawPrice) => {
-  if (!displayStr) return "";
-  let cleaned = displayStr.trim();
-  
-  if (
-    /not published|unlisted|tba|n\/a/i.test(cleaned) ||
-    cleaned === "Not published in cited source"
-  ) {
-    return ""; // Leaves the space blank as requested
-  }
-
-  if (cleaned.includes("$")) {
-    cleaned = cleaned.replace(/\$(\d+(?:\.\d+)?)/g, (match, usdVal) => {
-      const phpVal = (parseFloat(usdVal) * 56.0).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      return `₱${phpVal} ($${usdVal})`;
-    });
-  }
-
-  return cleaned;
-};
-
-
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
@@ -615,9 +776,30 @@ const formatActivityPrice = (displayStr, rawPrice) => {
               <h1 className="text-4xl md:text-5xl font-black text-[#0f172a] mb-2 tracking-tight">
                 {selectedActivity || destinationDetails.name}
               </h1>
-              <p className="mb-8 text-lg leading-relaxed text-gray-700">
-                {destinationDetails.description}
+              <p className="mb-8 text-base leading-relaxed text-gray-700">
+                {selectedDataQualityNotes || destinationDetails.description}
               </p>
+              {activityDurationLabel ? (
+                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Duration: <span className="text-slate-800">{activityDurationLabel}</span>
+                </p>
+              ) : null}
+              {amenities.length || promos.length ? (
+                <div className="mb-6 grid gap-3 sm:grid-cols-2">
+                  {amenities.length ? (
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                      <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">Amenities / inclusions</p>
+                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-emerald-950">{amenities.map((item) => <li key={item}>{item}</li>)}</ul>
+                    </div>
+                  ) : null}
+                  {promos.length ? (
+                    <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+                      <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-amber-700">Promos / discounts</p>
+                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-amber-950">{promos.map((item) => <li key={item}>{item}</li>)}</ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="h-px w-full bg-gray-200 mb-6"></div>
 
               {/* Horizontal 2-Column Layout: Price | Next Destinations */}
@@ -634,11 +816,11 @@ const formatActivityPrice = (displayStr, rawPrice) => {
                         ? "Free"
                         : isLoading
                         ? "Loading..."
-                        : formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) || activityTotalPriceText}
+                        : selectedPriceText}
                     </h3>
-                    {!selectedActivityIsFree && staticBasePriceText && formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) ? (
+                    {!selectedActivityIsFree && staticBasePriceText && selectedPriceText ? (
                       <p className="mt-1 text-[11px] font-semibold text-slate-500">
-                        Static base rate: <span className="font-bold text-slate-800">{staticBasePriceText}</span> / guest ({guests} {guests === 1 ? 'guest' : 'guests'})
+                        Base price: <span className="font-bold text-slate-800">{staticBasePriceText}</span> / person
                       </p>
                     ) : null}
                   </div>
@@ -650,7 +832,7 @@ const formatActivityPrice = (displayStr, rawPrice) => {
                       rel="noopener noreferrer"
                       className="mt-3 text-xs font-medium text-[#4a8b8b] underline transition-colors hover:text-[#76B3DD]"
                     >
-                      View activity listing
+                      Source Data{selectedActivityData.source_type ? ` (${selectedActivityData.source_type})` : ""}
                     </a>
                   ) : null}
                 </div>
@@ -664,6 +846,20 @@ const formatActivityPrice = (displayStr, rawPrice) => {
                     ))}
                   </div>
                 </div>
+
+                {selectedActivityData?.source_url ? (
+                  <div className="mt-6 border-t border-slate-100 pt-4 text-xs text-slate-500">
+                    <span className="font-bold uppercase tracking-wider text-slate-400">Source data: </span>
+                    <a
+                      href={selectedActivityData.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-[#4a8b8b] underline hover:text-[#76B3DD]"
+                    >
+                      {selectedActivityData.source_type || "External source"}
+                    </a>
+                  </div>
+                ) : null}
 
               </div>
 
@@ -684,16 +880,16 @@ const formatActivityPrice = (displayStr, rawPrice) => {
                         ? "Free"
                         : isLoading
                         ? "Loading..."
-                        : formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) || activityTotalPriceText}
+                        : selectedPriceText}
                     </h3>
-                    {!selectedActivityIsFree && activityTotalPrice != null && formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) ? (
+                    {!selectedActivityIsFree && activityTotalPrice != null && selectedPriceText ? (
                       <span className="text-sm text-gray-500 font-medium">
                         total for {guests} {guests === 1 ? 'guest' : 'guests'}
                       </span>
                     ) : null}
                   </div>
                   
-                  {!selectedActivityIsFree && staticBasePriceText && formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) ? (
+                  {!selectedActivityIsFree && staticBasePriceText && selectedPriceText ? (
                     <span className="mt-1 text-xs font-semibold text-slate-400">
                       Base price: {staticBasePriceText} / person
                     </span>
@@ -733,6 +929,37 @@ const formatActivityPrice = (displayStr, rawPrice) => {
                     </div>
                   </div>
                 ) : isLoading ? <p role="status" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">Loading weather prediction for {formatDate(pricingDate)}...</p> : null}
+              
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Estimated Accommodation</p>
+                {isEstimatingHotel ? (
+                  <p className="text-sm font-semibold text-slate-500">Calculating MLR surge...</p>
+                ) : accommodationNightlyTotal != null ? (
+                  <div>
+                    <h4 className="text-xl font-black text-[#0f172a]">PHP {(accommodationNightlyTotal * stayNights).toLocaleString()}</h4>
+                    <p className="text-xs font-medium text-slate-500 mb-2">Exact dataset rate for {stayNights} {stayNights === 1 ? "night" : "nights"}</p>
+                    <div className="flex flex-col gap-1 text-[11px] text-slate-600">
+                      <p className="flex justify-between"><span>Room rate:</span> <span className="font-semibold text-slate-800">PHP {hotelRatePerNight.toLocaleString()} / night</span></p>
+                      <p className="flex justify-between"><span>Occupancy:</span> <span className="font-semibold text-slate-800">{hotelOccupancyPax} pax / room</span></p>
+                      <p className="flex justify-between"><span>Rooms required:</span> <span className="font-semibold text-slate-800">{hotelRoomsRequired}</span></p>
+                      <p className="flex justify-between"><span>Per-pax nightly rate:</span> <span className="font-semibold text-slate-800">PHP {accommodationPerPaxPerNight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></p>
+                    </div>
+                  </div>
+                ) : hotelEstimate ? (
+                  <div>
+                    <h4 className="text-xl font-black text-[#0f172a]">PHP {hotelEstimate.total_price.toLocaleString()}</h4>
+                    <p className="text-xs font-medium text-slate-500 mb-2">Total for {hotelEstimate.length_of_stay} nights</p>
+                    <div className="flex flex-col gap-1 text-[11px] text-slate-600">
+                      <p className="flex justify-between"><span>Base Rate:</span> <span className="font-semibold text-slate-800">PHP {hotelEstimate.base_price.toLocaleString()}</span></p>
+                      <p className="flex justify-between"><span>MLR Surge Multiplier:</span> <span className="font-bold text-[#860001]">{hotelEstimate.surge_multiplier}x</span></p>
+                      <p className="text-[9px] text-[#4a8b8b] italic mt-1 text-right">{hotelEstimate.source}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-slate-400 italic">No local hotel rate available for this destination.</p>
+                )}
+              </div>
+              
               </div>
 
               <div className="mb-2 grid w-full grid-cols-1 gap-6">
@@ -746,8 +973,9 @@ const formatActivityPrice = (displayStr, rawPrice) => {
                       onChange={(e) => setRoomType(e.target.value)}
                       className="h-[48px] w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 text-sm font-medium text-slate-700 outline-none transition-colors hover:border-gray-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
                     >
-                      <option>Standard Room</option>
-                      <option>Premium Suite</option>
+                      {roomOptions.map((option) => (
+                        <option key={option.room_type} value={option.room_type}>{option.room_type}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -769,7 +997,13 @@ const formatActivityPrice = (displayStr, rawPrice) => {
 
                   <div className="mt-1 flex flex-col gap-3">
                     <div className="grid grid-cols-2 gap-3">
-                      <ActivityTimePicker value={selectedTime} onChange={setSelectedTime} className="min-w-0" />
+                      <ActivityTimePicker
+                        value={selectedTime}
+                        onChange={setSelectedTime}
+                        minTime={operatingHoursPublished ? selectedActivityData.opening_time : undefined}
+                        maxTime={operatingHoursPublished ? selectedActivityData.closing_time : undefined}
+                        className="min-w-0"
+                      />
                       <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4">
                         <span className="text-sm font-medium text-slate-700">Guests</span>
                         <div className="flex items-center gap-2">
@@ -779,6 +1013,25 @@ const formatActivityPrice = (displayStr, rawPrice) => {
                         </div>
                       </div>
                     </div>
+                    {operatingHoursPublished ? (
+                      <p className="text-xs font-semibold text-slate-500">
+                        Operating hours: {selectedActivityData.opening_time}–{selectedActivityData.closing_time}
+                      </p>
+                    ) : (
+                      <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                        Operating hours not published — please verify locally.
+                      </p>
+                    )}
+                    {operatingDayWarning ? (
+                      <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
+                        {operatingDayWarning}
+                      </p>
+                    ) : null}
+                    {hotelTimeWarning ? (
+                      <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                        {hotelTimeWarning}
+                      </p>
+                    ) : null}
                     {guestWarning ? <p className="text-xs font-semibold text-amber-600">{guestWarning}</p> : null}
                 </div>
               </div>
@@ -827,6 +1080,19 @@ const formatActivityPrice = (displayStr, rawPrice) => {
             </div>
           </div>
         </div>
+
+        <section className="mt-8 w-full rounded-[2rem] border border-gray-100 bg-white p-4 shadow-[0_12px_40px_rgba(0,0,0,0.06)] sm:p-6">
+          <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-500">Destination map</h2>
+          <DynamicMap
+            activities={[{
+              name: selectedActivity || destinationDetails.name,
+              type: selectedActivityData?.type || "Activity",
+              exact_latitude: Number(selectedActivityData?.exact_latitude ?? destinationDetails.latitude ?? 14.5995),
+              exact_longitude: Number(selectedActivityData?.exact_longitude ?? destinationDetails.longitude ?? 120.9842),
+            }]}
+            routeSegments={[]}
+          />
+        </section>
 
       </main>
 
