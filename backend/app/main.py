@@ -98,6 +98,14 @@ def normalize_city_name(value: str) -> str:
     return re.sub(r"\s+(city|municipality)$", "", city)
 
 
+def activity_group_name(value: str) -> tuple[str, str]:
+    name = re.sub(r"\s+", " ", value).strip()
+    match = re.match(r"^(.*?)\s+[—–]\s+(.+)$", name)
+    if not match:
+        return name, ""
+    return match.group(1).strip(), match.group(2).strip()
+
+
 def activity_price_per_pax(row: pd.Series) -> float | None:
     price = pd.to_numeric(row.get("Price_Per_Pax_PHP"), errors="coerce")
     if pd.notna(price):
@@ -111,6 +119,15 @@ def activity_price_per_pax(row: pd.Series) -> float | None:
     if pd.isna(display):
         return None
     match = re.fullmatch(r"\s*(?:₱|PHP\s*)?([\d,]+(?:\.\d{1,2})?)\s*", str(display), re.IGNORECASE)
+    if not match:
+        return None
+    return round(float(match.group(1).replace(",", "")), 2)
+
+
+def display_price_amount(value: object) -> float | None:
+    if pd.isna(value):
+        return None
+    match = re.search(r"(?:₱|PHP\s*)\s*([\d,]+(?:\.\d{1,2})?)", str(value), re.IGNORECASE)
     if not match:
         return None
     return round(float(match.group(1).replace(",", "")), 2)
@@ -407,6 +424,16 @@ def load_destinations_from_golden_dataset() -> list[dict]:
 
     data = pd.read_csv(GOLDEN_CSV_PATH, encoding="utf-8-sig")
     destinations_by_city: dict[str, dict] = {}
+    column_names = {str(column).strip().casefold(): column for column in data.columns}
+
+    def row_value(row: pd.Series, *names: str):
+        for name in names:
+            column = column_names.get(name.casefold())
+            if column is not None:
+                value = row.get(column)
+                if pd.notna(value) and str(value).strip():
+                    return value
+        return None
 
     for _, row in data.iterrows():
         city_name = str(row.get("City_or_Municipality", "")).strip()
@@ -424,20 +451,71 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             },
         )
 
-        latitude = pd.to_numeric(row.get("latitude"), errors="coerce")
-        longitude = pd.to_numeric(row.get("longitude"), errors="coerce")
+        raw_latitude = row_value(row, "latitude", "exact_latitude")
+        raw_longitude = row_value(row, "longitude", "exact_longitude")
+        latitude = pd.to_numeric(raw_latitude, errors="coerce")
+        longitude = pd.to_numeric(raw_longitude, errors="coerce")
         if destination["latitude"] is None and pd.notna(latitude) and pd.notna(longitude):
             destination["latitude"] = float(latitude)
             destination["longitude"] = float(longitude)
 
-        name = str(row.get("Name", "")).strip()
-        if not name or name.casefold() == "nan":
+        raw_name = str(row.get("Name", "")).strip()
+        if not raw_name or raw_name.casefold() == "nan":
             continue
+        name, name_variant = activity_group_name(raw_name)
 
         price = activity_price_per_pax(row)
         price_display = str(row.get("Price_Display", "")).strip()
         if not price_display or price_display.casefold() == "nan":
             price_display = ""
+        hotel_rate = pd.to_numeric(row.get("Hotel_Rate_PHP_per_Night"), errors="coerce")
+        numeric_price = (
+            float(hotel_rate)
+            if pd.notna(hotel_rate)
+            else price if price is not None
+            else display_price_amount(price_display)
+        )
+        hotel_room_type = str(row.get("Hotel_Room_Type", "")).strip()
+        if hotel_room_type.casefold() == "nan":
+            hotel_room_type = ""
+        room_type = hotel_room_type or name_variant
+        if not room_type:
+            room_type = str(row.get("Activity_or_Room_Category", "")).strip()
+        if not room_type or room_type.casefold() == "nan":
+            room_type = name_variant or "Standard Room"
+        tier = {
+            "room_type": room_type,
+            "option_label": name_variant or room_type,
+            "price": numeric_price,
+            "price_per_pax": price,
+            "price_display": price_display,
+            "record_type": str(row.get("Record_Type", "")).strip(),
+            "category": str(row.get("Activity_or_Room_Category", "")).strip(),
+            "amenities_or_inclusions": str(row.get("Amenities_or_Inclusions", "")).strip(),
+        }
+
+        existing_activity = next(
+            (activity for activity in destination["activities"] if activity["name"] == name),
+            None,
+        )
+        if existing_activity is not None:
+            if not any(
+                option["room_type"] == tier["room_type"]
+                and option["price"] == tier["price"]
+                for option in existing_activity["pricing_tiers"]
+            ):
+                existing_activity["pricing_tiers"].append(tier)
+            numeric_tiers = [
+                option for option in existing_activity["pricing_tiers"]
+                if option["price"] is not None
+            ]
+            if numeric_tiers:
+                primary_tier = min(numeric_tiers, key=lambda option: option["price"])
+                existing_activity["price_per_pax"] = primary_tier["price_per_pax"]
+                existing_activity["price_display"] = primary_tier["price_display"]
+                existing_activity["real_price_php"] = primary_tier["price"]
+            continue
+
         activity = {
             "name": name,
             "type": activity_type_for_record(row),
@@ -447,7 +525,8 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             "exact_longitude": float(longitude) if pd.notna(longitude) else destination["longitude"],
             "price_per_pax": price,
             "price_display": price_display,
-            "real_price_php": price if price is not None else 0.0,
+            "real_price_php": numeric_price if numeric_price is not None else 0.0,
+            "pricing_tiers": [tier],
             "source_url": source_url_for_row(row),
         }
         destination["activities"].append(activity)
@@ -458,29 +537,6 @@ def load_destinations_from_golden_dataset() -> list[dict]:
         activities = destination["activities"]
         city_lat = destination["latitude"] or 14.6042
         city_lon = destination["longitude"] or 120.9822
-
-        if not any(activity["type"] == "indoor" for activity in activities):
-            activities.append({
-                "name": f"{city_name} Heritage Tour",
-                "type": "indoor",
-                "hotel_type": "City Hotel",
-                "duration_hours": 3,
-                "exact_latitude": city_lat,
-                "exact_longitude": city_lon,
-                "real_price_php": 0.0,
-                "source_url": "City Center Fallback",
-            })
-        if not any(activity["type"] == "outdoor" for activity in activities):
-            activities.append({
-                "name": f"{city_name} City Park Walk",
-                "type": "outdoor",
-                "hotel_type": "Resort Hotel",
-                "duration_hours": 3,
-                "exact_latitude": city_lat,
-                "exact_longitude": city_lon,
-                "real_price_php": 0.0,
-                "source_url": "City Center Fallback",
-            })
 
         is_cold = bool(re.search(
             r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada",
