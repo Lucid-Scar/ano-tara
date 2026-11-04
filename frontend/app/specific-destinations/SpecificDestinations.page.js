@@ -828,6 +828,19 @@ const formatActivityPrice = (displayStr, rawPrice) => {
           </div>
         </div>
 
+        <section className="mt-8 w-full rounded-[2rem] border border-gray-100 bg-white p-4 shadow-[0_12px_40px_rgba(0,0,0,0.06)] sm:p-6">
+          <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-500">Destination map</h2>
+          <DynamicMap
+            activities={[{
+              name: selectedActivity || destinationDetails.name,
+              type: selectedActivityData?.type || "Activity",
+              exact_latitude: Number(selectedActivityData?.exact_latitude ?? destinationDetails.latitude ?? 14.5995),
+              exact_longitude: Number(selectedActivityData?.exact_longitude ?? destinationDetails.longitude ?? 120.9842),
+            }]}
+            routeSegments={[]}
+          />
+        </section>
+
       </main>
 
       <Footer />

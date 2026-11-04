@@ -96,9 +96,9 @@ function OutfitPlannerContent() {
         const data = await response.json();
         if (!response.ok || !Array.isArray(data.destinations)) throw new Error();
         list = data.destinations;
-      } catch {
-        const { MOCK_DESTINATIONS } = await import("../destinations/mockDestinations");
-        list = MOCK_DESTINATIONS;
+      } catch (error) {
+        console.error("Could not load destinations from the tourism dataset.", error);
+        list = [];
       }
       if (!active) return;
       setDestinations(list);

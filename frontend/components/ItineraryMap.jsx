@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from "react-leaflet";
+import { useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -15,15 +17,29 @@ const customIcon = L.icon({
   shadowSize: [41, 41]
 });
 
+function MapViewport({ center }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView(center, 13);
+  }, [center, map]);
+
+  return null;
+}
+
 export default function ItineraryMap({ activities = [], routeSegments = [] }) {
-  // Center the map on the first scheduled activity, or fallback to Manila
-  const center = activities.length > 0 && activities[0].exact_latitude 
-    ? [activities[0].exact_latitude, activities[0].exact_longitude] 
+  const firstActivity = activities.find((activity) => (
+    Number.isFinite(Number(activity.exact_latitude))
+    && Number.isFinite(Number(activity.exact_longitude))
+  ));
+  const center = firstActivity
+    ? [Number(firstActivity.exact_latitude), Number(firstActivity.exact_longitude)]
     : [14.6042, 120.9822];
 
   return (
     <div className="h-[450px] w-full overflow-hidden rounded-xl border border-slate-200 shadow-sm z-0 relative">
       <MapContainer center={center} zoom={13} scrollWheelZoom={false} className="h-full w-full z-0">
+        <MapViewport center={center} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -45,11 +61,11 @@ export default function ItineraryMap({ activities = [], routeSegments = [] }) {
 
         {/* Drop pins for each scheduled activity */}
         {activities.map((activity, index) => {
-           if (!activity.exact_latitude) return null;
+           if (!Number.isFinite(Number(activity.exact_latitude)) || !Number.isFinite(Number(activity.exact_longitude))) return null;
            return (
              <Marker 
                key={`marker-${index}`} 
-               position={[activity.exact_latitude, activity.exact_longitude]} 
+               position={[Number(activity.exact_latitude), Number(activity.exact_longitude)]} 
                icon={customIcon}
              >
                <Popup className="font-sans">
