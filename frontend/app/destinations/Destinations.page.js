@@ -2,11 +2,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
-import { MLR_BASE_PRICES } from "../pricing";
 import { useTravel } from "../TravelContext";
 import { clampToSelectableDate, getGuestWarning, getMinSelectableDate } from "../tripUtils";
 
 const CARDS_PER_PAGE = 24;
+const isFreeActivity = (activity) => (
+  (activity?.price_per_pax != null && Number(activity.price_per_pax) === 0)
+  || /^free(?:\s*\(|$)/i.test(activity?.price_display?.trim() || "")
+);
 const activityFallbackImage = (activity, destination) => {
   const name = `${activity.name || ""} ${activity.type || ""}`.toLowerCase();
   if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
@@ -15,6 +18,30 @@ const activityFallbackImage = (activity, destination) => {
   return destination.image;
 };
 const activityImage = (activity, destination) => activity.image || activityFallbackImage(activity, destination);
+
+const formatActivityPrice = (displayStr, rawPrice) => {
+  if (!displayStr) return "";
+  let cleaned = displayStr.trim();
+  
+  if (
+    /not published|unlisted|tba|n\/a/i.test(cleaned) ||
+    cleaned === "Not published in cited source"
+  ) {
+    return ""; // Leaves the space blank as requested
+  }
+
+  if (cleaned.includes("$")) {
+    cleaned = cleaned.replace(/\$(\d+(?:\.\d+)?)/g, (match, usdVal) => {
+      const phpVal = (parseFloat(usdVal) * 56.0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return `₱${phpVal} ($${usdVal})`;
+    });
+  }
+
+  return cleaned;
+};
 
 function ActivityDestinationCard({ item }) {
   return (
@@ -93,9 +120,19 @@ function ActivityDestinationCard({ item }) {
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </span>
-          <span className="text-xs font-bold text-slate-600">
-            ₱{(item.base_price || MLR_BASE_PRICES[item.hotelType]).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} base
-          </span>
+          <div className="flex flex-col items-end">
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Activity price</span>
+            
+            {item.isFreeActivity ? (
+              <span className="text-sm font-black text-slate-800">Free</span>
+            ) : (
+              <span className="max-w-[180px] text-right text-xs font-black text-slate-800 leading-tight">
+                {formatActivityPrice(item.activityPriceDisplay, item.activityPrice) || (
+                  <span className="text-slate-300 font-normal italic"></span>
+                )}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </Link>
@@ -103,8 +140,20 @@ function ActivityDestinationCard({ item }) {
 }
 
 export default function DestinationsPage() {
+  // Fisher-Yates Shuffle helper to randomize activity card order
+  const shuffleList = (items) => {
+    const shuffled = [...items];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
   const { dateRange, setDateRange, guests, setGuests } = useTravel();
   const [destinations, setDestinations] = useState([]);
+  const [destinationError, setDestinationError] = useState("");
+  const [isLoadingDestinations, setIsLoadingDestinations] = useState(true);
   const [tripReady, setTripReady] = useState(false);
   const minDate = getMinSelectableDate();
   const [checkIn, setCheckIn] = useState(dateRange.startDate || minDate);
@@ -131,28 +180,43 @@ export default function DestinationsPage() {
     const nextEndDate = query.get("endDate");
     if (nextEndDate) setEndDate(clampToSelectableDate(nextEndDate));
     if (query.get("guests")) setGuests(Number(query.get("guests")) || 1);
+    setTripReady(true);
+  }, [setGuests]);
 
+  useEffect(() => {
+    if (!tripReady) return;
     let isMounted = true;
 
     const loadDestinations = async () => {
       try {
-        const response = await fetch("http://localhost:8000/destinations");
+        const params = new URLSearchParams({
+          check_in: checkIn,
+          check_out: endDate || checkIn,
+          guests: String(guests),
+          room_type: "Standard Room",
+        });
+        const response = await fetch(`/api/backend/destinations?${params}`);
         const data = await response.json();
-        if (!response.ok || !data.destinations?.length) throw new Error("Destination data is unavailable.");
-        if (isMounted) setDestinations(data.destinations);
-      } catch {
-        const { MOCK_DESTINATIONS: fallbackDestinations } = await import("./mockDestinations");
-        if (isMounted) setDestinations(fallbackDestinations);
+        if (!response.ok || !Array.isArray(data.destinations) || !data.destinations.length) {
+          throw new Error(data.detail || "The tourism dataset returned no destinations.");
+        }
+        if (isMounted) {
+          setDestinations(data.destinations);
+          setDestinationError("");
+        }
+      } catch (error) {
+        console.error("Could not load destinations from the tourism dataset.", error);
+        if (isMounted) setDestinationError("Could not load destinations from the tourism dataset. Check that the backend is running and try again.");
+      } finally {
+        if (isMounted) setIsLoadingDestinations(false);
       }
     };
 
     loadDestinations();
-    setTripReady(true);
-
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [checkIn, endDate, guests, tripReady]);
 
   useEffect(() => {
     if (!tripReady) return;
@@ -180,67 +244,41 @@ export default function DestinationsPage() {
 
   const displayRange = formatDate(checkIn) || "Select date";
 
-  // Flatten destinations into 2 distinct activities (1 outdoor, 1 indoor)
+  // Cards represent the actual activity records returned from the tourism dataset.
   const allActivities = useMemo(() => {
     const list = [];
     destinations.forEach((dest) => {
-      const acts = dest.activities || [];
-      const outdoor = acts.find((a) => a.type === "outdoor") || {
-        name: `${dest.name} scenic landmarks and nature park tour`,
-        type: "outdoor",
-        hotel_type: "Resort Hotel",
-        duration_hours: 4,
-      };
-      const indoor = acts.find((a) => a.type === "indoor") || {
-        name: `${dest.name} cultural heritage museum visit`,
-        type: "indoor",
-        hotel_type: "City Hotel",
-        duration_hours: 3,
-      };
-
-      const isCold = /baguio|tagaytay|malaybalay|canlaon|sagada|bontoc/i.test(dest.name);
-
-      // 1. Outdoor Activity (mapped to Resort Hotel)
-      list.push({
-        id: `${dest.id}-outdoor`,
-        destinationId: dest.id,
-        cityName: dest.name,
-        country: dest.country || "Philippines",
-        activityName: outdoor.name,
-        activityType: "outdoor",
-        hotelType: "Resort Hotel",
-        base_price: dest.base_prices?.["Resort Hotel"] || MLR_BASE_PRICES["Resort Hotel"],
-        weatherTag: outdoor.weather_tag || (isCold ? "Cold" : "Sunny"),
-        image: activityImage(outdoor, dest),
-        fallbackImage: activityFallbackImage(outdoor, dest),
-        description: dest.description,
-        durationHours: outdoor.duration_hours || 4,
-      });
-
-      // 2. Indoor Activity (mapped to City Hotel)
-      list.push({
-        id: `${dest.id}-indoor`,
-        destinationId: dest.id,
-        cityName: dest.name,
-        country: dest.country || "Philippines",
-        activityName: indoor.name,
-        activityType: "indoor",
-        hotelType: "City Hotel",
-        base_price: dest.base_prices?.["City Hotel"] || MLR_BASE_PRICES["City Hotel"],
-        weatherTag: indoor.weather_tag || (isCold ? "Cold" : "Rainy"),
-        image: activityImage(indoor, dest),
-        fallbackImage: activityFallbackImage(indoor, dest),
-        description: dest.description,
-        durationHours: indoor.duration_hours || 3,
+      (dest.activities || []).forEach((activity, index) => {
+        const hotelType = activity.hotel_type || dest.hotel_type || "City Hotel";
+        list.push({
+          id: `${dest.id}-${index}`,
+          destinationId: dest.id,
+          cityName: dest.name,
+          country: dest.country || "Philippines",
+          activityName: activity.name,
+          activityType: activity.type,
+          hotelType,
+          base_price: dest.base_price ?? null,
+          isLocalRate: Boolean(dest.has_local_rate),
+          estimatedDailyPrice: dest.estimated_prices?.[hotelType]?.daily_price ?? null,
+          priceMultiplier: dest.estimated_prices?.[hotelType]?.multiplier ?? null,
+          activityPrice: activity.price_per_pax ?? null,
+          activityPriceDisplay: activity.price_display || "",
+          isFreeActivity: isFreeActivity(activity),
+          weatherTag: activity.weather_tag || dest.main_weather || "Cloudy",
+          image: activityImage(activity, dest),
+          fallbackImage: activityFallbackImage(activity, dest),
+          description: activity.description || dest.description,
+          durationHours: activity.duration_hours || 3,
+        });
       });
     });
-    return list;
+    return shuffleList(list);
   }, [destinations]);
 
   // Filter activities based on search bar, activity type filter, and weather tag filter
   const filteredActivities = useMemo(() => {
     return allActivities.filter((item) => {
-      // 1. Search filter: matches activity name OR city name
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesName = item.activityName.toLowerCase().includes(q);
@@ -248,7 +286,6 @@ export default function DestinationsPage() {
         if (!matchesName && !matchesCity) return false;
       }
 
-      // 2. Weather tag filter (Sunny, Rainy, Cold)
       if (weatherFilter !== null) {
         if (item.weatherTag !== weatherFilter) return false;
       }
@@ -405,6 +442,21 @@ export default function DestinationsPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">City Weather:</span>
                 <div className="flex items-center gap-2">
+                  
+                  {/* 1. Explicit "All" Option */}
+                  <button
+                    type="button"
+                    onClick={() => setWeatherFilter(null)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
+                      weatherFilter === null
+                        ? "bg-slate-900 text-white shadow-sm scale-105"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    All
+                  </button>
+
+                  {/* 2. Sunny Pill (Shows close icon when active) */}
                   <button
                     type="button"
                     onClick={() => toggleWeather("Sunny")}
@@ -415,8 +467,15 @@ export default function DestinationsPage() {
                     }`}
                   >
                     Sunny
+                    {weatherFilter === "Sunny" && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5 opacity-80 hover:opacity-100">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    )}
                   </button>
 
+                  {/* 3. Rainy Pill (Shows close icon when active) */}
                   <button
                     type="button"
                     onClick={() => toggleWeather("Rainy")}
@@ -427,8 +486,15 @@ export default function DestinationsPage() {
                     }`}
                   >
                     Rainy
+                    {weatherFilter === "Rainy" && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5 opacity-80 hover:opacity-100">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    )}
                   </button>
 
+                  {/* 4. Cold Pill (Shows close icon when active) */}
                   <button
                     type="button"
                     onClick={() => toggleWeather("Cold")}
@@ -439,6 +505,12 @@ export default function DestinationsPage() {
                     }`}
                   >
                     Cold
+                    {weatherFilter === "Cold" && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5 opacity-80 hover:opacity-100">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    )}
                   </button>
                 </div>
               </div>
@@ -470,9 +542,13 @@ export default function DestinationsPage() {
               <ActivityDestinationCard key={item.id} item={item} />
             ))}
           </div>
-        ) : destinations.length === 0 ? (
+        ) : isLoadingDestinations ? (
           <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm">
             <p className="text-sm font-medium text-slate-500">Loading destinations…</p>
+          </div>
+        ) : destinationError ? (
+          <div role="alert" className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center shadow-sm">
+            <p className="text-sm font-semibold text-amber-900">{destinationError}</p>
           </div>
         ) : (
           <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm">

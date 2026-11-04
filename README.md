@@ -19,6 +19,8 @@ npm install
 npm run dev
 ```
 
+The frontend proxies backend requests through `/api/backend`. For a non-local backend, set `BACKEND_API_URL` in the frontend server environment (defaults to `http://127.0.0.1:8000`).
+
 ## Backend (FastAPI)
 
 ```bash

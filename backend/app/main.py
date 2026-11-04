@@ -1,12 +1,13 @@
-import csv
 import re
 from base64 import b64decode
 from binascii import Error as Base64Error
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 import joblib
 import pandas as pd
+import holidays
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -21,7 +22,7 @@ app = FastAPI(title="Ano Tara API")
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR.parent / "data"
 MODEL_PATH = BASE_DIR / "model" / "best.pt"
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
 class OutfitPayload(BaseModel):
@@ -33,8 +34,9 @@ class PricePayload(BaseModel):
     check_in: date
     check_out: date
     guests: int
-    hotel_type: str
-    room_type: str
+    destination: str | None = None
+    hotel_type: str | None = "City Hotel"
+    room_type: str = "Standard Room"
     destination_id: str | None = None
     destination_name: str | None = None
 
@@ -69,17 +71,83 @@ MONTHLY_WEATHER = {
 
 DEFAULT_BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
 
-# Load the trained unified MLR bundle once when the API starts.
-PRICE_MODEL_PATH = BASE_DIR / "model" / "price_model_bundle.joblib"
-try:
-    PRICE_MODEL_BUNDLE = joblib.load(PRICE_MODEL_PATH)
-except (FileNotFoundError, ImportError, ValueError):
-    PRICE_MODEL_BUNDLE = None
 
-BASE_PRICES = (
-    PRICE_MODEL_BUNDLE.get("base_prices", DEFAULT_BASE_PRICES)
-    if PRICE_MODEL_BUNDLE
-    else DEFAULT_BASE_PRICES
+def normalize_city_name(value: str) -> str:
+    city = value.strip().casefold()
+    city = re.sub(r"^city of\s+", "", city)
+    return re.sub(r"\s+(city|municipality)$", "", city)
+
+
+def activity_price_per_pax(row: pd.Series) -> float | None:
+    price = pd.to_numeric(row.get("Price_Per_Pax_PHP"), errors="coerce")
+    if pd.notna(price):
+        return round(float(price), 2)
+
+    basis = str(row.get("Price_Unit_or_Basis", "")).casefold()
+    if not re.search(r"\bper\s+(visitor|person|pax)\b", basis):
+        return None
+
+    display = row.get("Price_Display")
+    if pd.isna(display):
+        return None
+    match = re.fullmatch(r"\s*(?:₱|PHP\s*)?([\d,]+(?:\.\d{1,2})?)\s*", str(display), re.IGNORECASE)
+    if not match:
+        return None
+    return round(float(match.group(1).replace(",", "")), 2)
+
+
+# Load the newly trained MLR models
+try:
+    MLR_MODEL = joblib.load(BASE_DIR / "model" / "price_surge_mlr_model.joblib")
+    MLR_FEATURES = joblib.load(BASE_DIR / "model" / "model_features.joblib")
+except (FileNotFoundError, ImportError, ValueError):
+    MLR_MODEL = None
+    MLR_FEATURES = []
+
+# Load local Philippine hotel and activity data.
+PHILIPPINE_HOTEL_RATES = {}
+PHILIPPINE_ACTIVITY_COSTS = {}
+PHILIPPINE_ACTIVITY_PRICES = {}
+PHILIPPINE_TOURISM_PATH = DATA_DIR / "philippines_tourism_activities_and_hotels.csv"
+if not PHILIPPINE_TOURISM_PATH.is_file():
+    PHILIPPINE_TOURISM_PATH = BASE_DIR / "philippines_tourism_activities_and_hotels.csv"
+if not PHILIPPINE_TOURISM_PATH.is_file():
+    raise FileNotFoundError(f"Tourism dataset not found at {PHILIPPINE_TOURISM_PATH}")
+
+PHILIPPINE_TOURISM_DATA = pd.read_csv(PHILIPPINE_TOURISM_PATH, encoding="utf-8-sig")
+hotel_rows = PHILIPPINE_TOURISM_DATA[
+    pd.to_numeric(PHILIPPINE_TOURISM_DATA["Hotel_Rate_PHP_per_Night"], errors="coerce").notna()
+]
+hotel_rates_by_city = {}
+for _, row in hotel_rows.iterrows():
+    city = normalize_city_name(str(row["City_or_Municipality"]))
+    price = float(row["Hotel_Rate_PHP_per_Night"])
+    if price > 0:
+        hotel_rates_by_city.setdefault(city, []).append(price)
+PHILIPPINE_HOTEL_RATES = {
+    city: sum(prices) / len(prices)
+    for city, prices in hotel_rates_by_city.items()
+}
+
+activity_prices_by_name = {}
+for _, row in PHILIPPINE_TOURISM_DATA.iterrows():
+    price = activity_price_per_pax(row)
+    if price is None:
+        continue
+    city = normalize_city_name(str(row["City_or_Municipality"]))
+    PHILIPPINE_ACTIVITY_COSTS.setdefault(city, []).append(price)
+    name = str(row["Name"]).strip().casefold()
+    if name:
+        activity_prices_by_name.setdefault((city, name), []).append(price)
+PHILIPPINE_ACTIVITY_PRICES = {
+    name: sum(prices) / len(prices)
+    for name, prices in activity_prices_by_name.items()
+}
+
+print(
+    f"Loaded tourism data from {PHILIPPINE_TOURISM_PATH}: "
+    f"{PHILIPPINE_TOURISM_DATA['City_or_Municipality'].nunique()} cities, "
+    f"{len(PHILIPPINE_HOTEL_RATES)} cities with hotel rates."
 )
 
 # Load the NEW trained Weather Decision Tree
@@ -93,51 +161,115 @@ except (FileNotFoundError, ImportError, ValueError):
 def predict_mlr_price(
     check_in: date,
     guests: int,
-    hotel_type: str,
+    destination: str,
     length_of_stay: int,
     room_type: str,
-) -> tuple[float, float, dict]:
-    bundle = PRICE_MODEL_BUNDLE
-    if bundle is None:
-        raise RuntimeError("The trained price model bundle is unavailable.")
-    weather_table = bundle["monthly_weather"]
-    weather_row = weather_table.loc[weather_table["month"] == check_in.strftime("%B")]
-    if weather_row.empty:
-        raise RuntimeError("No monthly weather baseline exists for this date.")
+    hotel_type: str,
+) -> tuple[float, float, dict, str, float, str]:
+    if MLR_MODEL is None:
+        raise RuntimeError("The trained price model is unavailable.")
 
-    base_price = float(bundle["base_prices"][hotel_type])
+    is_resort = float(hotel_type == "Resort Hotel")
+    base_price, base_price_source = accommodation_base_price(destination, hotel_type)
+
+    avg_temp, avg_rain, _ = MONTHLY_WEATHER[check_in.month]
     pax = float(guests)
     lead_time = max(0, (check_in - datetime.now().date()).days)
     is_weekend = float(check_in.weekday() in {4, 5, 6})
-    is_resort = float(hotel_type == "Resort Hotel")
-    model_input = pd.DataFrame({
-        "pax": [pax],
-        "lead_time": [float(lead_time)],
-        "length_of_stay": [float(length_of_stay)],
-        "is_premium_room": [float(room_type != "Standard Room")],
-        "is_weekend": [is_weekend],
-        "pax_squared": [pax ** 2],
-        "avg_monthly_temp": [avg_temp],
-        "avg_monthly_rain": [avg_rain],
-        "hotel_is_resort": [is_resort],
-        "hotel_temp": [is_resort * avg_temp],
-        "hotel_rain": [is_resort * avg_rain],
-        "hotel_pax": [is_resort * pax],
-    })
 
-    for feature in bundle["features"]:
+    ph_holidays = holidays.PH(years=[check_in.year])
+    is_holiday = float(check_in in ph_holidays)
+    current_inflation_rate = 6.1
+
+    feature_dict = {
+        "lead_time": float(lead_time),
+        "pax": pax,
+        "length_of_stay": float(length_of_stay),
+        "is_weekend": is_weekend,
+        "is_premium_room": float(room_type != "Standard Room"),
+        "hotel_is_resort": is_resort,
+        "is_holiday": is_holiday,
+        "avg_monthly_temp": float(avg_temp),
+        "avg_monthly_rain": float(avg_rain),
+        "psa_inflation_rate": current_inflation_rate,
+        "hotel_temp": is_resort * avg_temp,
+        "hotel_rain": is_resort * avg_rain,
+        "hotel_pax": is_resort * pax,
+        "pax_squared": pax ** 2,
+    }
+
+    model_input = pd.DataFrame([feature_dict])
+    for feature in MLR_FEATURES:
         if feature not in model_input:
             model_input[feature] = 0.0
-    month_feature = f"arrival_date_month_{check_in.strftime('%B')}"
-    if month_feature in model_input:
-        model_input[month_feature] = 1.0
-    model_input = model_input[bundle["features"]].astype(float)
+    model_input = model_input[MLR_FEATURES].astype(float)
 
-    predicted_log_multiplier = float(bundle["model"].predict(model_input)[0])
-    multiplier = max(1.0, float(np.exp(predicted_log_multiplier)))
-    price = round(base_price * multiplier, 2)
+    predicted_log_multiplier = float(MLR_MODEL.predict(model_input)[0])
+    multiplier = float(np.exp(predicted_log_multiplier))
 
-    return price, multiplier, {}
+    final_price = round(base_price * multiplier, 2)
+
+    return (
+        final_price,
+        multiplier,
+        {},
+        "Unified MLR with log target and engineered interactions",
+        base_price,
+        base_price_source,
+    )
+
+
+def accommodation_base_price(destination: str, hotel_type: str) -> tuple[float, str]:
+    city_key = normalize_city_name(destination)
+    if city_key in PHILIPPINE_HOTEL_RATES:
+        return PHILIPPINE_HOTEL_RATES[city_key], "local_csv_average"
+    return float(DEFAULT_BASE_PRICES[hotel_type]), "regional_baseline"
+
+
+def infer_hotel_type(destination: str) -> str:
+    resort_cities = {"puerto princesa city", "tagaytay city", "alaminos", "legazpi city", "bohol"}
+    return "Resort Hotel" if destination.strip().casefold() in resort_cities else "City Hotel"
+
+
+def estimate_hotel_price(
+    check_in: date,
+    guests: int,
+    destination: str,
+    length_of_stay: int,
+    room_type: str,
+    hotel_type: str,
+) -> dict:
+    base_price, base_price_source = accommodation_base_price(destination, hotel_type)
+    try:
+        _, multiplier, model_evaluation, model_source, _, _ = predict_mlr_price(
+            check_in,
+            guests,
+            destination,
+            length_of_stay,
+            room_type,
+            hotel_type,
+        )
+        multiplier = min(multiplier, 3.0)
+        price_source = f"{model_source} × {base_price_source.replace('_', ' ')}"
+    except RuntimeError:
+        seasonal = 1.15 if check_in.month in {12, 1, 2, 4} else 1.0
+        multiplier = (1 + (guests - 1) * 0.12) * seasonal
+        model_evaluation = {}
+        price_source = f"Rule-based fallback × {base_price_source.replace('_', ' ')}; trained MLR unavailable"
+
+    daily_price = round(base_price * multiplier, 2)
+    season = "Peak season" if check_in.month in {12, 1, 2, 4} else "Regular season"
+    return {
+        "daily_price": daily_price,
+        "total_price": round(daily_price * length_of_stay, 2),
+        "length_of_stay": length_of_stay,
+        "base_price": base_price,
+        "base_price_source": base_price_source,
+        "multiplier": round(multiplier, 4),
+        "season": season,
+        "model_evaluation": model_evaluation,
+        "source": price_source,
+    }
 
 
 def weather_label_from_code(code: int) -> str:
@@ -239,72 +371,143 @@ CURATED_IMAGES = [
 ]
 
 
+def activity_type_for_record(row: pd.Series) -> str:
+    text = " ".join(
+        str(row.get(field, ""))
+        for field in ("Record_Type", "Name", "Activity_or_Room_Category")
+    ).casefold()
+    if re.search(r"museum|gallery|indoor|culinary|food|tasting|aquarium|religious|heritage", text):
+        return "indoor"
+    return "outdoor"
+
+
+def activity_duration_hours(value: object) -> int:
+    text = str(value).casefold()
+    if "full day" in text or "whole day" in text:
+        return 8
+    if "half day" in text:
+        return 4
+    match = re.search(r"\d+(?:\.\d+)?", text)
+    if not match:
+        return 3
+    duration = float(match.group())
+    if "minute" in text:
+        return max(1, int(np.ceil(duration / 60)))
+    if "day" in text:
+        return max(1, int(duration * 8))
+    return max(1, int(np.ceil(duration)))
+
+
+def source_url_for_row(row: pd.Series) -> str | None:
+    value = row.get("Source_URLs")
+    if pd.isna(value):
+        return None
+    for candidate in re.split(r"[;\r\n]+", str(value)):
+        candidate = candidate.strip()
+        parsed = urlparse(candidate)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return candidate
+    return None
+
+
 def load_destinations() -> list[dict]:
-    dest_path = DATA_DIR / "destinations.csv"
-    act_path = DATA_DIR / "activities.csv"
-    acts_by_dest: dict[str, list[dict]] = {}
-    if act_path.exists():
-        with act_path.open(encoding="utf-8") as f:
-            for row in csv.DictReader(f):
-                act_type = row["activity_type"].strip().lower()
-                dest_name = row["destination"]
-                existing = acts_by_dest.setdefault(dest_name, [])
-                if not any(a["type"] == act_type for a in existing):
-                    existing.append({
-                        "name": row["activity_name"],
-                        "type": act_type,
-                        "hotel_type": "Resort Hotel" if act_type == "outdoor" else "City Hotel",
-                        "duration_hours": int(row.get("duration_hours", 4 if act_type == "outdoor" else 3)),
-                    })
+    coordinates_by_city = {}
+    coordinate_path = DATA_DIR / "destinations.csv"
+    if coordinate_path.is_file():
+        coordinates = pd.read_csv(coordinate_path, encoding="utf-8-sig")
+        for _, row in coordinates.iterrows():
+            city_key = normalize_city_name(str(row["destination"]))
+            coordinates_by_city[city_key] = row
+
+    grouped_rows = {}
+    display_names = {}
+    for _, row in PHILIPPINE_TOURISM_DATA.iterrows():
+        name = str(row.get("City_or_Municipality", "")).strip()
+        activity_name = str(row.get("Name", "")).strip()
+        if not name or name.casefold() == "nan" or not activity_name or activity_name.casefold() == "nan":
+            continue
+        if pd.notna(pd.to_numeric(row.get("Hotel_Rate_PHP_per_Night"), errors="coerce")):
+            continue
+
+        city_key = normalize_city_name(name)
+        display_names.setdefault(city_key, name)
+        grouped_rows.setdefault(city_key, []).append(row)
+
+    metadata_by_city = {
+        normalize_city_name(name): metadata
+        for name, metadata in DESTINATION_METADATA.items()
+    }
+    hotel_bookings_by_city = {}
+    for _, row in PHILIPPINE_TOURISM_DATA.iterrows():
+        if str(row.get("Record_Type", "")).strip().casefold() != "hotel room":
+            continue
+        city_key = normalize_city_name(str(row.get("City_or_Municipality", "")).strip())
+        name = str(row.get("Name", "")).strip()
+        booking_url = source_url_for_row(row)
+        if not city_key or not name or name.casefold() == "nan" or not booking_url:
+            continue
+        bookings = hotel_bookings_by_city.setdefault(city_key, [])
+        if not any(item["name"] == name and item["url"] == booking_url for item in bookings):
+            bookings.append({"name": name, "url": booking_url})
+
     destinations = []
-    if dest_path.exists():
-        with dest_path.open(encoding="utf-8") as f:
-            for idx, row in enumerate(csv.DictReader(f)):
-                name = row["destination"]
-                meta = DESTINATION_METADATA.get(name, {})
-                image = meta.get("image", CURATED_IMAGES[idx % len(CURATED_IMAGES)])
-                desc = meta.get("description", f"Discover scenic attractions, cultural landmarks, and local experiences in {name}.")
-                dest_acts = acts_by_dest.get(name, [])
-                
-                outdoor = next((a for a in dest_acts if a["type"] == "outdoor"), {
-                    "name": f"{name} scenic landmarks & nature park tour",
-                    "type": "outdoor",
-                    "hotel_type": "Resort Hotel",
-                    "duration_hours": 4,
-                })
-                indoor = next((a for a in dest_acts if a["type"] == "indoor"), {
-                    "name": f"{name} cultural heritage museum & culinary tasting",
-                    "type": "indoor",
-                    "hotel_type": "City Hotel",
-                    "duration_hours": 3,
-                })
+    for index, (city_key, activity_rows) in enumerate(grouped_rows.items()):
+        name = display_names[city_key]
+        metadata = metadata_by_city.get(city_key, {})
+        coordinate = coordinates_by_city.get(city_key)
+        hotel_type = metadata.get("hotel_type", "City Hotel")
+        local_price = PHILIPPINE_HOTEL_RATES.get(city_key)
+        is_cold = bool(re.search(r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada", name, re.I))
+        activities = []
 
-                is_cold = bool(re.search(r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada", name, re.I))
-                outdoor["weather_tag"] = "Cold" if is_cold else "Sunny"
-                indoor["weather_tag"] = "Cold" if is_cold else "Rainy"
+        for row in activity_rows:
+            activity_type = activity_type_for_record(row)
+            price_per_pax = activity_price_per_pax(row)
+            category = str(row.get("Activity_or_Room_Category", "")).strip()
+            address = str(row.get("Location_or_Address", "")).strip()
+            description_parts = [part for part in (category, address) if part and part.casefold() != "nan"]
+            activities.append({
+                "name": str(row["Name"]).strip(),
+                "type": activity_type,
+                "hotel_type": "Resort Hotel" if activity_type == "outdoor" else "City Hotel",
+                "weather_tag": "Cold" if is_cold else ("Sunny" if activity_type == "outdoor" else "Rainy"),
+                "duration_hours": activity_duration_hours(row.get("Activity_Duration")),
+                "description": " · ".join(description_parts),
+                "price_per_pax": price_per_pax,
+                "price_display": "" if pd.isna(row.get("Price_Display")) else str(row.get("Price_Display")).strip(),
+                "source_url": source_url_for_row(row),
+            })
 
-                destinations.append({
-                    "id": slugify(name),
-                    "name": name,
-                    "location": name,
-                    "country": row.get("country", "Philippines"),
-                    "hotel_type": meta.get("hotel_type", "City Hotel"),
-                    "base_price": BASE_PRICES[meta.get("hotel_type", "City Hotel")],
-                    "base_prices": BASE_PRICES,
-                    "latitude": float(row["latitude"]),
-                    "longitude": float(row["longitude"]),
-                    "main_weather": "Cold" if is_cold else row.get("main_weather", "Cloudy"),
-                    "image": image,
-                    "description": desc,
-                    "activities": [outdoor, indoor],
-                })
+        destination = {
+            "id": slugify(name),
+            "name": name,
+            "location": name,
+            "country": "Philippines",
+            "hotel_type": hotel_type,
+            "base_price": local_price if local_price is not None else DEFAULT_BASE_PRICES[hotel_type],
+            "has_local_rate": local_price is not None,
+            "base_prices": DEFAULT_BASE_PRICES,
+            "latitude": float(coordinate["latitude"]) if coordinate is not None else None,
+            "longitude": float(coordinate["longitude"]) if coordinate is not None else None,
+            "main_weather": "Cold" if is_cold else (coordinate.get("main_weather", "Cloudy") if coordinate is not None else "Cloudy"),
+            "image": metadata.get("image", CURATED_IMAGES[index % len(CURATED_IMAGES)]),
+            "description": metadata.get("description", f"Explore attractions and activities in {name}."),
+            "hotel_bookings": hotel_bookings_by_city.get(city_key, []),
+            "activities": activities,
+        }
+        destinations.append(destination)
     return destinations
 
 
 DESTINATIONS = load_destinations()
-DESTINATION_COORDINATES = {d["name"].lower(): (d["latitude"], d["longitude"]) for d in DESTINATIONS}
+DESTINATION_COORDINATES = {
+    d["name"].lower(): (d["latitude"], d["longitude"])
+    for d in DESTINATIONS
+    if d["latitude"] is not None and d["longitude"] is not None
+}
 for d in DESTINATIONS:
-    DESTINATION_COORDINATES[d["id"]] = (d["latitude"], d["longitude"])
+    if d["latitude"] is not None and d["longitude"] is not None:
+        DESTINATION_COORDINATES[d["id"]] = (d["latitude"], d["longitude"])
 
 
 def destination_coordinates(destination: str) -> tuple[float, float]:
@@ -694,7 +897,35 @@ def read_root(): return {"status": "Ano Tara API is live!"}
 
 
 @app.get("/destinations")
-def get_destinations(): return {"destinations": DESTINATIONS}
+def get_destinations(
+    check_in: date | None = None,
+    check_out: date | None = None,
+    guests: int = 1,
+    room_type: str = "Standard Room",
+):
+    if guests < 1:
+        raise HTTPException(422, "guests must be at least one.")
+
+    target_date = check_in or date.today()
+    if check_out and check_out < target_date:
+        raise HTTPException(422, "check_out must not be before check_in.")
+    length_of_stay = max(1, (check_out - target_date).days) if check_out else 1
+
+    destinations = []
+    for destination in DESTINATIONS:
+        estimated_prices = {}
+        for hotel_type in ("City Hotel", "Resort Hotel"):
+            estimate = estimate_hotel_price(
+                target_date,
+                guests,
+                destination["name"],
+                length_of_stay,
+                room_type,
+                hotel_type,
+            )
+            estimated_prices[hotel_type] = estimate
+        destinations.append({**destination, "estimated_prices": estimated_prices})
+    return {"destinations": destinations}
 
 
 @app.get("/destinations/{destination_id}")
@@ -711,11 +942,15 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
         raise HTTPException(404, "Destination not found")
 
     target_date = date_str or date.today().isoformat()
-    lat, lon = destination["latitude"], destination["longitude"]
-    
-    fc_map = fetch_forecast(lat, lon, [target_date])
-    fc = fc_map[target_date]
-    hist = historical_weather(lat, lon, [target_date])
+    try:
+        lat, lon = destination_coordinates(destination["name"])
+        fc_map = fetch_forecast(lat, lon, [target_date])
+        fc = fc_map[target_date]
+        hist = historical_weather(lat, lon, [target_date])
+    except HTTPException:
+        fc = monthly_weather_for_date(date.fromisoformat(target_date))
+        fc["average_temperature"] = MONTHLY_WEATHER[date.fromisoformat(target_date).month][0]
+        hist = historical_weather(14.6042, 120.9822, [target_date])
     comparison = build_weather_comparison(fc, hist)
     
     # NEW MACHINE LEARNING ROUTING (5-feature binary Decision Tree):
@@ -769,42 +1004,42 @@ def predict_price(payload: PricePayload):
     if payload.check_out <= payload.check_in:
         raise HTTPException(422, "check_out must be after check_in.")
 
-    hotel_type = payload.hotel_type if payload.hotel_type in {"City Hotel", "Resort Hotel"} else "Resort Hotel"
-    base_price = float(BASE_PRICES[hotel_type])
-    length_of_stay = max(1, (payload.check_out - payload.check_in).days)
-    try:
-        price, multiplier, model_evaluation = predict_mlr_price(
-            payload.check_in,
-            payload.guests,
-            hotel_type,
-            length_of_stay,
-            payload.room_type,
+    destination_name = payload.destination or payload.destination_name
+    if not destination_name and payload.destination_id:
+        destination_record = next(
+            (item for item in DESTINATIONS if item["id"] == payload.destination_id),
+            None,
         )
-        multiplier = min(multiplier, 3.0)
-        price = base_price * multiplier
-        season = "Peak season" if payload.check_in.month in {12, 1, 2, 4} else "Regular season"
-        price_source = "Unified MLR with log target and engineered interactions"
-    except RuntimeError:
-        seasonal = 1.15 if payload.check_in.month in {12, 1, 2, 4} else 1.0
-        price = round(base_price * (1 + (payload.guests - 1) * 0.12) * seasonal, 2)
-        multiplier = round(price / base_price, 4)
-        model_evaluation = {}
-        season = "Peak season" if seasonal > 1 else "Regular season"
-        price_source = "Rule-based fallback; trained MLR bundle unavailable"
+        destination_name = destination_record["name"] if destination_record else None
+    if not destination_name:
+        raise HTTPException(422, "A destination name or valid destination_id is required.")
 
-    dest_name = payload.destination_name or payload.destination_id
-    if dest_name:
-        try:
-            lat, lon = destination_coordinates(dest_name)
-            fc_map = fetch_forecast(lat, lon, [payload.check_in.isoformat()])
-            weather = fc_map[payload.check_in.isoformat()]
-            hist = historical_weather(lat, lon, [payload.check_in.isoformat()])
-            comparison = build_weather_comparison(weather, hist)
-        except Exception:
-            weather = monthly_weather_for_date(payload.check_in)
-            hist = historical_weather(14.6042, 120.9822, [payload.check_in.isoformat()])
-            comparison = build_weather_comparison(weather, hist)
-    else:
+    hotel_type = payload.hotel_type
+    if hotel_type not in {"City Hotel", "Resort Hotel"}:
+        hotel_type = infer_hotel_type(destination_name)
+    length_of_stay = max(1, (payload.check_out - payload.check_in).days)
+    estimate = estimate_hotel_price(
+        payload.check_in,
+        payload.guests,
+        destination_name,
+        length_of_stay,
+        payload.room_type,
+        hotel_type,
+    )
+    base_price = estimate["base_price"]
+    base_price_source = estimate["base_price_source"]
+    multiplier = estimate["multiplier"]
+    model_evaluation = estimate["model_evaluation"]
+    season = estimate["season"]
+    price_source = estimate["source"]
+
+    try:
+        lat, lon = destination_coordinates(destination_name)
+        fc_map = fetch_forecast(lat, lon, [payload.check_in.isoformat()])
+        weather = fc_map[payload.check_in.isoformat()]
+        hist = historical_weather(lat, lon, [payload.check_in.isoformat()])
+        comparison = build_weather_comparison(weather, hist)
+    except Exception:
         weather = monthly_weather_for_date(payload.check_in)
         hist = historical_weather(14.6042, 120.9822, [payload.check_in.isoformat()])
         comparison = build_weather_comparison(weather, hist)
@@ -828,8 +1063,8 @@ def predict_price(payload: PricePayload):
         f"Rainy forecast detected ({weather.get('precipitation_sum_mm', 10)} mm rain) — indoor activities are recommended."
     )
     
-    daily_price = round(price, 2)
-    total_price = round(daily_price * length_of_stay, 2)
+    daily_price = estimate["daily_price"]
+    total_price = estimate["total_price"]
 
     return {
         "status": "success",
@@ -840,6 +1075,8 @@ def predict_price(payload: PricePayload):
         "currency": "PHP",
         "hotel_type": hotel_type,
         "base_price": base_price,
+        "base_price_source": base_price_source,
+        "price_source_flag": "local_rate" if base_price_source == "local_csv_average" else "regional_baseline",
         "multiplier": round(multiplier, 4),
         "surge_multiplier": round(multiplier, 2),
         "month": payload.check_in.strftime("%B"),
@@ -918,15 +1155,11 @@ def generate_itinerary(payload: ItineraryPayload):
         matched_fc = forecasts.get(destination, {}).get(day, monthly_weather_for_date(date.fromisoformat(day)))
         
         act_type = activity.type.strip().lower()
-        hotel_type = activity.hotel_type if activity.hotel_type in BASE_PRICES else ("Resort Hotel" if act_type == "outdoor" else "City Hotel")
+        hotel_type = activity.hotel_type if activity.hotel_type in DEFAULT_BASE_PRICES else ("Resort Hotel" if act_type == "outdoor" else "City Hotel")
         hotel_is_resort = int(hotel_type == "Resort Hotel")
-        activity_date = date.fromisoformat(day)
-        try:
-            _, multiplier, _ = predict_mlr_price(activity_date, activity.guests, hotel_type, 1, activity.room_type)
-            estimated_price = round(float(BASE_PRICES[hotel_type]) * min(multiplier, 3.0), 2)
-        except RuntimeError:
-            seasonal = 1.15 if activity_date.month in {12, 1, 2, 4} else 1.0
-            estimated_price = round(float(BASE_PRICES[hotel_type]) * (1 + (activity.guests - 1) * 0.12) * seasonal, 2)
+        activity_key = (normalize_city_name(destination), activity.name.strip().casefold())
+        price_per_person = PHILIPPINE_ACTIVITY_PRICES.get(activity_key)
+        estimated_price = round(price_per_person * activity.guests, 2) if price_per_person is not None else None
         average_temperature = float(matched_fc.get("average_temperature", MONTHLY_WEATHER[date.fromisoformat(day).month][0]))
         rainfall = float(matched_fc.get("precipitation_sum_mm", 0.0) or 0.0)
         decision_features = {
@@ -977,6 +1210,7 @@ def generate_itinerary(payload: ItineraryPayload):
             "guests": activity.guests,
             "time": activity.time,
             "estimated_price": estimated_price,
+            "price_source": "local_activity_csv" if estimated_price is not None else "unavailable",
             "weather": matched_fc["condition"],
             "weather_forecast": matched_fc,
             "decision_features": decision_features,
@@ -987,8 +1221,11 @@ def generate_itinerary(payload: ItineraryPayload):
     totals: dict[str, dict[str, float]] = {}
     for activities in scheduled.values():
         for activity in activities:
+            if activity["estimated_price"] is None:
+                activity["price_range"] = None
+                continue
             estimated_price = float(activity["estimated_price"])
-            activity["price_range"] = {"min": round(estimated_price * 0.8, 2), "max": round(estimated_price * 1.2, 2)}
+            activity["price_range"] = {"min": estimated_price, "max": estimated_price}
             total = totals.setdefault(str(activity["destination"]), {"min": 0, "max": 0})
             total["min"] += activity["price_range"]["min"]
             total["max"] += activity["price_range"]["max"]
