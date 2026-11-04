@@ -29,12 +29,9 @@ export default function Home() {
           return result;
         }, { outdoor: 0, indoor: 0 });
         if (active) setExperienceCounts(counts);
-      } catch {
-        const { MOCK_DESTINATIONS } = await import("./destinations/mockDestinations");
-        if (active) setExperienceCounts(MOCK_DESTINATIONS.reduce((result, destination) => {
-          (destination.activities || []).forEach((activity) => { if (activity.type === "outdoor") result.outdoor += 1; if (activity.type === "indoor") result.indoor += 1; });
-          return result;
-        }, { outdoor: 0, indoor: 0 }));
+      } catch (error) {
+        console.error("Could not load experience counts from the tourism dataset.", error);
+        if (active) setExperienceCounts({ outdoor: 0, indoor: 0 });
       }
     };
     loadExperienceCounts();
