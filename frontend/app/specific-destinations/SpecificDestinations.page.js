@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
+import DynamicMap from "../../components/DynamicMap";
 import { useTravel } from "../TravelContext";
 import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString } from "../tripUtils";
 
@@ -402,11 +403,6 @@ function SpecificDestinationsContent() {
     }
     const currentActivitiesList = activityList.length > 0 ? activityList : (destinationDetails.activities || []);
     const activity = currentActivitiesList.find((item) => item.name === selectedActivity) || currentActivitiesList[0];
-    if (hasActivityConflict({ ...activity, assignedDay })) {
-      setToastMessage("This day already has an activity. Choose another day before adding this one.");
-      window.setTimeout(() => setToastMessage(""), 3000);
-      return;
-    }
     const selected = {
       ...activity,
       destination: destinationDetails.name,
@@ -521,6 +517,17 @@ function SpecificDestinationsContent() {
               <p className="mb-8 text-lg leading-relaxed text-gray-700">
                 {destinationDetails.description}
               </p>
+              <div className="mb-8 overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+                <DynamicMap
+                  activities={[{
+                    name: selectedActivity || destinationDetails.name,
+                    type: selectedActivityData?.type || "Activity",
+                    exact_latitude: destinationDetails.latitude || 14.5995,
+                    exact_longitude: destinationDetails.longitude || 120.9842,
+                  }]}
+                  routeSegments={[]}
+                />
+              </div>
               <div className="h-px w-full bg-gray-200 mb-8"></div>
               
               <div className="mt-2">

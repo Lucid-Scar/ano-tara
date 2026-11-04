@@ -7,6 +7,7 @@ from binascii import Error as Base64Error
 from datetime import date, datetime
 from pathlib import Path
 
+import json
 import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
@@ -92,6 +93,7 @@ except (FileNotFoundError, ImportError, ValueError):
     WEATHER_DECISION_TREE = None
 
 
+# Helper: predict a stay price using the trained MLR bundle.
 def predict_mlr_price(
     check_in: date,
     guests: int,
@@ -99,6 +101,8 @@ def predict_mlr_price(
     length_of_stay: int,
     room_type: str,
 ) -> tuple[float, float, dict]:
+    """Predict a PHP price using the same features and log equation as training."""
+    # Use the stable training weather baseline, because live weather is not known at training time.
     bundle = PRICE_MODEL_BUNDLE
     if bundle is None:
         raise RuntimeError("The trained price model bundle is unavailable.")
@@ -107,11 +111,18 @@ def predict_mlr_price(
     if weather_row.empty:
         raise RuntimeError("No monthly weather baseline exists for this date.")
 
+    # Recreate every engineered numeric feature used by mlr-price.py.
     base_price = float(bundle["base_prices"][hotel_type])
     pax = float(guests)
     lead_time = max(0, (check_in - datetime.now().date()).days)
     is_weekend = float(check_in.weekday() in {4, 5, 6})
+    
+    # THESE TWO LINES WERE MISSING:
+    avg_temp = float(weather_row["avg_monthly_temp"].iloc[0])
+    avg_rain = float(weather_row["avg_monthly_rain"].iloc[0])
+    
     is_resort = float(hotel_type == "Resort Hotel")
+
     model_input = pd.DataFrame({
         "pax": [pax],
         "lead_time": [float(lead_time)],
@@ -127,6 +138,7 @@ def predict_mlr_price(
         "hotel_pax": [is_resort * pax],
     })
 
+    # Initialize absent one-hot month columns to zero, then activate this arrival month.
     for feature in bundle["features"]:
         if feature not in model_input:
             model_input[feature] = 0.0
@@ -135,17 +147,19 @@ def predict_mlr_price(
         model_input[month_feature] = 1.0
     model_input = model_input[bundle["features"]].astype(float)
 
+    # Keep the configured base price as the minimum before applying demand effects.
     predicted_log_multiplier = float(bundle["model"].predict(model_input)[0])
     multiplier = max(1.0, float(np.exp(predicted_log_multiplier)))
     price = round(base_price * multiplier, 2)
+    return price, multiplier, bundle.get("evaluation", {})
 
-    return price, multiplier, {}
 
-
+# Helper: translate Open-Meteo weather codes into the app's weather labels.
 def weather_label_from_code(code: int) -> str:
     return "Sunny" if code == 0 else "Cloudy" if code in {1, 2, 3, 45, 48} else "Rainy"
 
 
+# Helper: provide the offline monthly weather fallback.
 def monthly_weather_for_date(target_date: date) -> dict[str, object]:
     temperature, rainfall, condition = MONTHLY_WEATHER[target_date.month]
     return {
@@ -160,6 +174,7 @@ def monthly_weather_for_date(target_date: date) -> dict[str, object]:
     }
 
 
+# Helper: convert destination names into stable URL-safe IDs.
 def slugify(text: str) -> str:
     text = text.lower().strip()
     text = re.sub(r"[^a-z0-9]+", "-", text)
@@ -185,6 +200,7 @@ CLOTHING_WEATHER_MAP = {
 }
 
 
+# Helper: map a detected clothing category to suitable weather conditions.
 def classify_clothing_weather(category: str) -> dict[str, object]:
     normalized = category.strip().lower().replace("-", " ").replace("_", " ")
     mapping = CLOTHING_WEATHER_MAP.get(normalized)
@@ -210,105 +226,96 @@ def classify_clothing_weather(category: str) -> dict[str, object]:
     }
     return fallbacks.get(normalized, {"conditions": ["Cloudy"], "phrase": "mild or unpredictable conditions", "primary": "Cloudy"})
 
-DESTINATION_METADATA = {
-    "Baguio": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80", "description": "The Summer Capital of the Philippines known for cool pine-scented breezes."},
-    "Cebu City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=80", "description": "The Queen City of the South blending rich historical Spanish landmarks."},
-    "Davao": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=1200&q=80", "description": "The King City of the South renowned for majestic Mount Apo."},
-    "Manila": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1518544866330-95a85b8f8f6f?auto=format&fit=crop&w=1200&q=80", "description": "The historic capital featuring Intramuros walled city."},
-    "Puerto Princesa City": {"hotel_type": "Resort Hotel", "image": "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1200&q=80", "description": "The eco-tourism haven of Palawan, home to the Subterranean River."},
-    "Tagaytay City": {"hotel_type": "Resort Hotel", "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80", "description": "A picturesque mountain ridge getaway offering breathtaking panoramic views."},
-    "Alaminos": {"hotel_type": "Resort Hotel", "image": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80", "description": "Gateway to the iconic Hundred Islands National Park."},
-    "Iloilo City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1200&q=80", "description": "The City of Love celebrated for heritage mansions."},
-    "Bacolod": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=1200&q=80", "description": "The City of Smiles known for the iconic Ruins."},
-    "Vigan": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1200&q=80", "description": "A UNESCO World Heritage city showcasing Spanish colonial architecture."},
-    "Legazpi City": {"hotel_type": "Resort Hotel", "image": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80", "description": "The adventure capital of Bicol with front-row vistas of Mayon Volcano."},
-    "Dumaguete": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80", "description": "The City of Gentle People featuring breezy coastal boulevards."},
-    "Zamboanga City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80", "description": "The vibrant Asia Latin City known for pink sand beaches."},
-    "Laoag": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&q=80", "description": "The Sunshine City of Ilocos Norte boasting sprawling sand dunes."},
-    "Batangas City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1470214304380-aadaedcfff0b?auto=format&fit=crop&w=1200&q=80", "description": "An industrial and cultural port city rich in Southern Tagalog history."},
-    "Angeles City": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80", "description": "The culinary capital of Pampanga offering heritage mansions."},
-}
+# Data helper: load the tourism dataset and build destination activity records.
+GOLDEN_CSV_PATH = DATA_DIR / "philippines_tourism_with_coordinates_final.csv"
 
-CURATED_IMAGES = [
-    "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&q=80",
-]
+# Helper: convert the source CSV into the destination structure used by the API.
+def load_destinations_from_golden_dataset() -> list[dict]:
+    if not GOLDEN_CSV_PATH.exists():
+        print("WARNING: Golden CSV not found. Ensure it is inside the /data folder.")
+        return []
 
-
-def load_destinations() -> list[dict]:
-    dest_path = DATA_DIR / "destinations.csv"
-    act_path = DATA_DIR / "activities.csv"
-    acts_by_dest: dict[str, list[dict]] = {}
-    if act_path.exists():
-        with act_path.open(encoding="utf-8") as f:
-            for row in csv.DictReader(f):
-                act_type = row["activity_type"].strip().lower()
-                dest_name = row["destination"]
-                existing = acts_by_dest.setdefault(dest_name, [])
-                if not any(a["type"] == act_type for a in existing):
-                    existing.append({
-                        "name": row["activity_name"],
-                        "type": act_type,
-                        "hotel_type": "Resort Hotel" if act_type == "outdoor" else "City Hotel",
-                        "duration_hours": int(row.get("duration_hours", 4 if act_type == "outdoor" else 3)),
-                    })
-    destinations = []
-    if dest_path.exists():
-        with dest_path.open(encoding="utf-8") as f:
-            for idx, row in enumerate(csv.DictReader(f)):
-                name = row["destination"]
-                meta = DESTINATION_METADATA.get(name, {})
-                image = meta.get("image", CURATED_IMAGES[idx % len(CURATED_IMAGES)])
-                desc = meta.get("description", f"Discover scenic attractions, cultural landmarks, and local experiences in {name}.")
-                dest_acts = acts_by_dest.get(name, [])
+    # Read the dataset you just created
+    df = pd.read_csv(GOLDEN_CSV_PATH)
+    
+    # Clean up empty prices and missing coordinates (failsafe)
+    df['Price_Per_Pax_PHP'] = df['Price_Per_Pax_PHP'].fillna(0.0)
+    df['latitude'] = df['latitude'].fillna(14.5995) 
+    df['longitude'] = df['longitude'].fillna(120.9842)
+    
+    destinations_list = []
+    
+    # Group by City to construct the hierarchical format Next.js expects
+    grouped = df.groupby('City_or_Municipality')
+    
+    for city_name, group in grouped:
+        city_lat = float(group['latitude'].iloc[0])
+        city_lon = float(group['longitude'].iloc[0])
+        
+        # Categorize activities based on real CSV data
+        activities = []
+        for _, row in group.iterrows():
+            if row['Record_Type'] == 'Hotel / Resort':
+                continue # Skip hotels for the activity list
                 
-                outdoor = next((a for a in dest_acts if a["type"] == "outdoor"), {
-                    "name": f"{name} scenic landmarks & nature park tour",
-                    "type": "outdoor",
-                    "hotel_type": "Resort Hotel",
-                    "duration_hours": 4,
-                })
-                indoor = next((a for a in dest_acts if a["type"] == "indoor"), {
-                    "name": f"{name} cultural heritage museum & culinary tasting",
-                    "type": "indoor",
-                    "hotel_type": "City Hotel",
-                    "duration_hours": 3,
-                })
+            # Classify indoor vs outdoor based on your real categories
+            cat = str(row['Activity_or_Room_Category']).lower()
+            act_type = "indoor" if "museum" in cat or "indoor" in cat or "heritage" in cat else "outdoor"
+            price = float(row['Price_Per_Pax_PHP'])
+            
+            activities.append({
+                "name": row['Name'],
+                "type": act_type,
+                "hotel_type": "Resort Hotel" if act_type == "outdoor" else "City Hotel",
+                "duration_hours": 4 if act_type == "outdoor" else 3,
+                "exact_latitude": float(row['latitude']),
+                "exact_longitude": float(row['longitude']),
+                "real_price_php": price,
+                "source_url": str(row['Source_URLs'])
+            })
+            
+        # Failsafe: Ensure at least 1 indoor and 1 outdoor activity exists per city so the Decision Tree doesn't break
+        has_indoor = any(a['type'] == 'indoor' for a in activities)
+        has_outdoor = any(a['type'] == 'outdoor' for a in activities)
+        if not has_indoor:
+            activities.append({"name": f"{city_name} Heritage Tour", "type": "indoor", "hotel_type": "City Hotel", "duration_hours": 3, "exact_latitude": city_lat, "exact_longitude": city_lon, "real_price_php": 0.0, "source_url": "City Center Fallback"})
+        if not has_outdoor:
+            activities.append({"name": f"{city_name} City Park Walk", "type": "outdoor", "hotel_type": "Resort Hotel", "duration_hours": 3, "exact_latitude": city_lat, "exact_longitude": city_lon, "real_price_php": 0.0, "source_url": "City Center Fallback"})
+            
+        is_cold = bool(re.search(r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada", city_name, re.I))
+        
+        for a in activities:
+            a["weather_tag"] = "Cold" if is_cold else ("Sunny" if a['type'] == 'outdoor' else "Rainy")
 
-                is_cold = bool(re.search(r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada", name, re.I))
-                outdoor["weather_tag"] = "Cold" if is_cold else "Sunny"
-                indoor["weather_tag"] = "Cold" if is_cold else "Rainy"
+        destinations_list.append({
+            "id": slugify(city_name),
+            "name": city_name,
+            "location": city_name,
+            "country": "Philippines",
+            "hotel_type": "City Hotel",
+            "base_price": BASE_PRICES["City Hotel"],
+            "base_prices": BASE_PRICES,
+            "latitude": city_lat,
+            "longitude": city_lon,
+            "main_weather": "Cold" if is_cold else "Cloudy",
+            "image": "https://images.unsplash.com/photo-1518544866330-95a85b8f8f6f?auto=format&fit=crop&w=1200&q=80",
+            "description": f"Verified activities and historical landmarks in {city_name}.",
+            "activities": activities,
+        })
+        
+    return destinations_list
 
-                destinations.append({
-                    "id": slugify(name),
-                    "name": name,
-                    "location": name,
-                    "country": row.get("country", "Philippines"),
-                    "hotel_type": meta.get("hotel_type", "City Hotel"),
-                    "base_price": BASE_PRICES[meta.get("hotel_type", "City Hotel")],
-                    "base_prices": BASE_PRICES,
-                    "latitude": float(row["latitude"]),
-                    "longitude": float(row["longitude"]),
-                    "main_weather": "Cold" if is_cold else row.get("main_weather", "Cloudy"),
-                    "image": image,
-                    "description": desc,
-                    "activities": [outdoor, indoor],
-                })
-    return destinations
+DESTINATIONS = load_destinations_from_golden_dataset()
 
-
-DESTINATIONS = load_destinations()
-DESTINATION_COORDINATES = {d["name"].lower(): (d["latitude"], d["longitude"]) for d in DESTINATIONS}
+# Flatten coordinate dictionary so OSRM routing can lookup any specific activity name or city
+DESTINATION_COORDINATES = {}
 for d in DESTINATIONS:
+    DESTINATION_COORDINATES[d["name"].lower()] = (d["latitude"], d["longitude"])
     DESTINATION_COORDINATES[d["id"]] = (d["latitude"], d["longitude"])
+    for act in d["activities"]:
+        DESTINATION_COORDINATES[act["name"].lower()] = (act["exact_latitude"], act["exact_longitude"])
 
-
+# Helper: resolve a destination or activity name to latitude and longitude.
 def destination_coordinates(destination: str) -> tuple[float, float]:
     key = destination.strip().lower()
     if key in DESTINATION_COORDINATES:
@@ -317,26 +324,57 @@ def destination_coordinates(destination: str) -> tuple[float, float]:
         return DESTINATION_COORDINATES[key[:-5]]
     if f"{key} city" in DESTINATION_COORDINATES:
         return DESTINATION_COORDINATES[f"{key} city"]
-    if key in {"city hotel", "resort hotel", "general itinerary"}:
-        return DESTINATION_COORDINATES.get("manila", (14.6042, 120.9822))
-    names = [destination, destination + ", Philippines"]
-    for name in names:
-        try:
-            response = requests.get(
-                "https://geocoding-api.open-meteo.com/v1/search",
-                params={"name": name, "count": 1, "language": "en", "format": "json"},
-                timeout=20,
-            )
-            response.raise_for_status()
-            if results := response.json().get("results"):
-                return float(results[0]["latitude"]), float(results[0]["longitude"])
-        except Exception:
-            pass
-    raise HTTPException(422, f"Could not locate destination '{destination}'.")
+        
+    # If not found, return Manila center so the API never crashes
+    return 14.6042, 120.9822
+
+
+# Helper: query OSRM for a road route between two exact coordinate pairs.
+def get_osrm_route(start_lat: float, start_lon: float, end_lat: float, end_lon: float) -> dict:
+    """
+    Queries the public OSRM routing engine using exact latitude and longitude.
+    Returns GeoJSON road geometry, total road distance in meters, and travel duration in seconds.
+    """
+    # CRITICAL: OSRM expects coordinates in longitude,latitude order!
+    url = f"http://router.project-osrm.org/route/v1/driving/{start_lon},{start_lat};{end_lon},{end_lat}"
+    params = {
+        "overview": "full",
+        "geometries": "geojson"
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get("code") == "Ok" and data.get("routes"):
+            route = data["routes"][0]
+            return {
+                "status": "success",
+                "distance_meters": route["distance"],
+                "distance_km": round(route["distance"] / 1000.0, 2),
+                "duration_seconds": route["duration"],
+                "duration_minutes": round(route["duration"] / 60.0, 1),
+                "geometry": route["geometry"],  # GeoJSON line geometry for Leaflet.
+            }
+    except Exception as exc:
+        print(f"OSRM Routing warning: Could not fetch road path ({exc})")
+
+    # Fallback response when the public OSRM service is unavailable.
+    return {
+        "status": "fallback",
+        "distance_meters": 0.0,
+        "distance_km": 0.0,
+        "duration_seconds": 0.0,
+        "duration_minutes": 0.0,
+        "geometry": None
+    }
+
 
 WEATHER_CACHE: dict[str, dict] = {}
 FORECAST_WINDOW_CACHE: dict[str, dict] = {}
 
+# Helper: fetch and cache live, historical, or fallback weather data.
 def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[str, dict[str, object]]:
     results: dict[str, dict[str, object]] = {}
     today = date.today()
@@ -510,6 +548,7 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
     return results
 
 
+# Helper: calculate a five-year historical weather comparison.
 def historical_weather(latitude: float, longitude: float, dates: list[str]) -> dict[str, object]:
     start = date.fromisoformat(min(dates))
     today = date.today()
@@ -581,6 +620,7 @@ def historical_weather(latitude: float, longitude: float, dates: list[str]) -> d
     return hist_result
 
 
+# Helper: compare a forecast's rainfall with historical rainfall.
 def build_weather_comparison(forecast: dict, historical: dict) -> dict:
     fc_rain = float(forecast.get("precipitation_sum_mm", 0.0))
     hist_rain = float(historical.get("average_rainfall_mm", 0.0))
@@ -603,6 +643,7 @@ def build_weather_comparison(forecast: dict, historical: dict) -> dict:
     }
 
 
+# Helper: return weather conditions preferred by an activity type.
 def preference(activity_type: str) -> tuple[str, ...]:
     normalized = activity_type.strip().lower()
     if normalized == "outdoor": return ("Sunny", "Cloudy")
@@ -610,6 +651,7 @@ def preference(activity_type: str) -> tuple[str, ...]:
     raise HTTPException(422, "Activity type must be either 'indoor' or 'outdoor'.")
 
 
+# Helper: load outfit image bytes from base64 data or a URL.
 def image_bytes(payload: OutfitPayload) -> bytes:
     if payload.image_base64:
         try: return b64decode(payload.image_base64.split(",", 1)[-1], validate=True)
@@ -620,6 +662,7 @@ def image_bytes(payload: OutfitPayload) -> bytes:
 
 model = None
 
+# Helper: lazily load the YOLO clothing model on first use.
 def load_outfit_model() -> bool:
     global model
     if model is not None:
@@ -971,10 +1014,16 @@ def generate_itinerary(payload: ItineraryPayload):
         else:
             hazard_flag = act_type == "outdoor" and matched_fc["condition"] == "Rainy"
 
+        activity_coords = DESTINATION_COORDINATES.get(
+            activity.name.strip().lower(),
+            destination_coordinates(destination),
+        )
         scheduled[day].append({
             "name": activity.name.strip(),
             "type": act_type,
             "destination": destination,
+            "exact_latitude": activity_coords[0],
+            "exact_longitude": activity_coords[1],
             "assigned_day": activity.assigned_day,
             "guests": activity.guests,
             "time": activity.time,
@@ -997,11 +1046,36 @@ def generate_itinerary(payload: ItineraryPayload):
 
     itinerary = []
     for day in payload.target_dates:
-        activities = scheduled[day]
-        destination = str(activities[0]["destination"]) if activities else destinations[0]
+        day_activities = scheduled[day]
+        destination = str(day_activities[0]["destination"]) if day_activities else destinations[0]
         forecast = forecasts.get(destination, {}).get(day, monthly_weather_for_date(date.fromisoformat(day)))
         hist = history.get(destination, {"years": 5, "dominant_condition": "Unknown", "average_rainfall_mm": 0, "source": "historical weather data"})
         comp = comparisons.get(destination, {}).get(day, build_weather_comparison(forecast, hist))
+
+        # Build road routes between consecutive stops using their exact coordinates.
+        route_segments = []
+        for i in range(len(day_activities) - 1):
+            curr = day_activities[i]
+            nxt = day_activities[i + 1]
+            start_coords = (
+                curr["exact_latitude"],
+                curr["exact_longitude"],
+            )
+            end_coords = (
+                nxt["exact_latitude"],
+                nxt["exact_longitude"],
+            )
+            road_data = get_osrm_route(
+                start_coords[0],
+                start_coords[1],
+                end_coords[0],
+                end_coords[1],
+            )
+            route_segments.append({
+                "from": curr["name"],
+                "to": nxt["name"],
+                "routing": road_data,
+            })
 
         dest_forecasts = []
         for dest in destinations:
@@ -1023,7 +1097,8 @@ def generate_itinerary(payload: ItineraryPayload):
             "historical_weather": hist,
             "comparison": comp,
             "destination_forecasts": dest_forecasts,
-            "scheduled_activities": activities,
+            "scheduled_activities": day_activities,
+            "route_segments": route_segments,
             "outfit_advice": f"At {destination}, {OUTFIT_ADVICE.get(forecast['condition'], OUTFIT_ADVICE['Cloudy'])}",
         })
 
