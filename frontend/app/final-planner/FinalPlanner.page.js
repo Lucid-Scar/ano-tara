@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import GarmentImage from "../../components/GarmentImage";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
 import { useTravel } from "../TravelContext";
-import { clampActivityTime, getGuestWarning, getMinSelectableDate, isPastOrTodayDate, isValidActivityTime, toDateString, getPAGASABadgeColor } from "../tripUtils";
+import DynamicMap from "../../components/DynamicMap";
+import { clampActivityTime, getGuestWarning, getMinSelectableDate, isPastOrTodayDate, isValidActivityTime, toDateString } from "../tripUtils";
 
 const formatDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 const formatShortDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -16,6 +17,11 @@ const generateDateRange = (startDate, endDate) => {
   const dates = []; const current = new Date(`${startDate}T00:00:00`); const last = new Date(`${endDate}T00:00:00`);
   while (current <= last) { dates.push(toDateString(current)); current.setDate(current.getDate() + 1); }
   return dates;
+};
+const addDays = (dateString, amount) => {
+  const dateValue = new Date(`${dateString}T00:00:00`);
+  dateValue.setDate(dateValue.getDate() + amount);
+  return toDateString(dateValue);
 };
 const valueFrom = (item, keys) => keys.map((key) => item?.[key]).find((value) => value !== undefined && value !== null && value !== "");
 const getTime = (activity) => { const start = valueFrom(activity, ["time", "schedule", "start_time"]); const end = valueFrom(activity, ["end_time"]); return start && end ? `${start} - ${end}` : start || "Time to be confirmed"; };
@@ -197,6 +203,14 @@ export default function FinalPlannerPage() {
       const priceResponse = await fetch("/api/backend/predict-price", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          check_in: targetDates[0],
+          check_out: addDays(targetDates[targetDates.length - 1] || targetDates[0], 1),
+          guests: guestCount,
+          hotel_type: hotelType,
+          room_type: "Standard Room",
+          destination_name: primaryActivity.destination,
+        }),
         body: JSON.stringify({ check_in: targetDates[0], check_out: toDateString(checkOutDate), guests: guestCount, destination: primaryActivity.destination, hotel_type: hotelType, room_type: "Standard Room" }),
       });
       const priceData = await priceResponse.json();
@@ -238,7 +252,9 @@ export default function FinalPlannerPage() {
       dayNumber: `Day ${index + 1}`,
       dateLabel: formatDate(day.date || day.day),
       weatherDescription: describeWeather(day),
-      activities: (day.scheduled_activities || []).map((activity) => ({
+      scheduled_activities: Array.isArray(day.scheduled_activities) ? day.scheduled_activities : [],
+      route_segments: Array.isArray(day.route_segments) ? day.route_segments : [],
+      activities: (Array.isArray(day.scheduled_activities) ? day.scheduled_activities : []).map((activity) => ({
         ...activity,
         location: activity.location || activity.destination,
         price: activity.estimated_price == null
@@ -254,6 +270,9 @@ export default function FinalPlannerPage() {
   const pricePerPerson = totalPrice / initialGuestCount;
   const plannerStart = planner?.dateRange?.startDate || itineraryDays[0]?.date || itineraryDays[0]?.day || startDate;
   const plannerEnd = planner?.dateRange?.endDate || itineraryDays[itineraryDays.length - 1]?.date || itineraryDays[itineraryDays.length - 1]?.day || endDate;
+  // Combine all days into one trip-wide map array
+  const allTripActivities = itineraryDays.flatMap(day => day.activities);
+  const allTripRoutes = itineraryDays.flatMap(day => day.route_segments || []);
 
   return (
     <main className="planner-shell min-h-screen bg-[#f5f7fa] text-slate-900">
@@ -427,6 +446,30 @@ export default function FinalPlannerPage() {
                       <p className="text-xs font-bold text-slate-700">{group.name}</p>
                       <div className="mt-1 flex flex-wrap gap-2">{group.items.map((item) => <GarmentImage key={item.id} src={item.image} alt={`${item.category} for ${day.dayNumber}`} className="h-14 w-14 rounded" />)}</div>
                     </div>)}</div> : null}
+                    {day.activities.map((activity, activityIndex) => (
+                      <Fragment key={`${activity.name}-${activityIndex}`}>
+                        <p className="mt-2 text-xs font-semibold">{activity.name} · {activity.location || activity.destination} · {activity.guests} guests</p>
+                        <p className="mt-2 text-sm">
+                          <span className="font-black text-emerald-700">
+                            {activity.real_price_php === 0 ? "FREE" : `₱${Number(activity.real_price_php).toFixed(2)}`}
+                          </span>
+                          <span className="ml-2 text-xs text-slate-500">
+                            (Verified via {activity.source_url || "Official LGU"})
+                          </span>
+                        </p>
+                        {day.route_segments?.[activityIndex]?.routing?.status === "success" ? (
+                          <div className="my-4 flex items-center gap-2 border-l-2 border-slate-300 pl-4 text-sm font-bold text-slate-500">
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                            Drive time: {day.route_segments[activityIndex].routing.duration_minutes} mins
+                            <span className="font-normal text-slate-400">
+                              ({day.route_segments[activityIndex].routing.distance_km} km) via real road network
+                            </span>
+                          </div>
+                        ) : null}
+                      </Fragment>
+                    ))}
                     {day.activities.map((activity) => <p key={activity.name} className="mt-2 text-xs font-semibold">{activity.name} · {activity.location || activity.destination} · {activity.guests} guests · Admission: {Number.isFinite(activity.price) ? `PHP ${activity.price.toLocaleString()}` : "not listed"}</p>)}
                   </section>
                 );
@@ -457,6 +500,12 @@ export default function FinalPlannerPage() {
                   </div>
                 </div>
               </header>
+              <div className="mb-8 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                <DynamicMap
+                  activities={allTripActivities}
+                  routeSegments={allTripRoutes}
+                />
+              </div>
               <div className="itinerary-day-grid">
                 {itineraryDays.map((day, index) => {
                   const dayKey = day.date || day.day;
@@ -475,14 +524,33 @@ export default function FinalPlannerPage() {
                         <div className="itinerary-activity-details">
                           <p className="itinerary-section-label">Activity Details</p>
                           {day.activities.length ? day.activities.map((activity, activityIndex) => (
-                            <div key={`${activity.name}-${activityIndex}`}>
+                            <Fragment key={`${activity.name}-${activityIndex}`}>
                               {activity.hazard_flag ? <p role="alert" className="mb-1 text-[10px] font-black text-rose-800">Safety alert: rainy outdoor activity</p> : null}
                               <p className="font-bold">{activity.name}</p>
                               <p>{activity.location || activity.destination}</p>
                               <p>Guests: {activity.guests}</p>
+                              <p className="mt-2 text-sm">
+                                <span className="font-black text-emerald-700">
+                                  {activity.real_price_php === 0 ? "FREE" : `₱${Number(activity.real_price_php).toFixed(2)}`}
+                                </span>
+                                <span className="ml-2 text-xs text-slate-500">
+                                  (Verified via {activity.source_url || "Official LGU"})
+                                </span>
+                              </p>
                               <p>Admission: {Number.isFinite(activity.price) ? `PHP ${activity.price.toLocaleString()}` : "not listed"}</p>
                               <p>Time: {getTime(activity)}</p>
-                            </div>
+                              {day.route_segments?.[activityIndex]?.routing?.status === "success" ? (
+                                <div className="my-4 flex items-center gap-2 border-l-2 border-slate-300 pl-4 text-sm font-bold text-slate-500">
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                  </svg>
+                                  Drive time: {day.route_segments[activityIndex].routing.duration_minutes} mins
+                                  <span className="font-normal text-slate-400">
+                                    ({day.route_segments[activityIndex].routing.distance_km} km) via real road network
+                                  </span>
+                                </div>
+                              ) : null}
+                            </Fragment>
                           )) : <p>No activity assigned.</p>}
                         </div>
                         {hasOutfit ? (

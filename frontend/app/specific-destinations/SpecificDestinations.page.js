@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
+import DynamicMap from "../../components/DynamicMap";
 import { useTravel } from "../TravelContext";
 import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString, getPAGASABadgeColor } from "../tripUtils";
 
