@@ -157,6 +157,9 @@ function SpecificDestinationsContent() {
   const [tripReady, setTripReady] = useState(false);
   const minDate = getMinSelectableDate();
 
+  const [hotelEstimate, setHotelEstimate] = useState(null);
+  const [isEstimatingHotel, setIsEstimatingHotel] = useState(false);
+
   const [startDate, setStartDate] = useState(dateRange.startDate || minDate);
   const [endDate, setEndDate] = useState(() => {
     if (dateRange.endDate) return dateRange.endDate;
@@ -210,35 +213,23 @@ function SpecificDestinationsContent() {
   const selectedActivityImage = activityImage(selectedActivityData, destinationDetails);
 
   // 1. Extract static per-guest base price from dataset
-  const rawPricePerGuest = 
-    selectedActivityData?.price_per_pax ?? 
-    selectedActivityData?.Price_Per_Pax_PHP ?? 
-    null;
-
-  const parsedPricePerGuest = rawPricePerGuest !== null && rawPricePerGuest !== undefined
-    ? parseFloat(rawPricePerGuest)
-    : NaN;
-
+  const rawPricePerGuest = selectedActivityData?.price_per_pax ?? selectedActivityData?.Price_Per_Pax_PHP ?? null;
+  const parsedPricePerGuest = rawPricePerGuest !== null ? parseFloat(rawPricePerGuest) : NaN;
   const parsedGuests = Number(guests) || 1;
 
   // 2. Determine if activity is free
-  const selectedActivityIsFree = 
-    isFreeActivity(selectedActivityData) ||
-    rawPricePerGuest === 0 || 
-    rawPricePerGuest === "0";
+  const selectedActivityIsFree = isFreeActivity(selectedActivityData) || rawPricePerGuest === 0 || rawPricePerGuest === "0";
 
-  // 3. Dynamic total price (Static Base Price × Pax)
-  const activityTotalPrice = (!isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0)
-    ? parsedPricePerGuest * parsedGuests
-    : null;
+  // 3. Dynamic total price (Math takes priority)
+  const activityTotalPrice = (!isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0) ? parsedPricePerGuest * parsedGuests : null;
 
   // 4. Formatted Display Texts
   const activityTotalPriceText = selectedActivityIsFree
     ? "Free"
     : activityTotalPrice != null
     ? `PHP ${activityTotalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : selectedActivityData?.price_display?.trim() || selectedActivityData?.Price_Display?.trim() || "Not listed";
-
+    : selectedActivityData?.price_display?.trim() || "Not listed";
+    
   const staticBasePriceText = !isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0
     ? `PHP ${parsedPricePerGuest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
@@ -274,6 +265,8 @@ function SpecificDestinationsContent() {
   useEffect(() => {
     setTripReady(true);
   }, []);
+
+  
 
   useEffect(() => {
     let cancelled = false;
@@ -389,6 +382,36 @@ function SpecificDestinationsContent() {
         }
 
         if (isMounted) setIsLoading(false);
+
+        // Restore MLR Hotel Prediction Request
+        setIsEstimatingHotel(true);
+        try {
+          const chosenHotelType = matchingAct?.hotel_type || "City Hotel";
+          const priceResponse = await fetch("/api/backend/predict-price", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              check_in: pricingDate || startDate,
+              check_out: endDate || pricingDate || toDateString(new Date()),
+              guests: guests,
+              destination: destination.name,
+              hotel_type: chosenHotelType,
+              room_type: roomType,
+            }),
+          });
+          const priceData = await priceResponse.json();
+          if (priceResponse.ok && priceData.status === "success" && priceData.total_price) {
+            setHotelEstimate(priceData);
+          } else {
+            setHotelEstimate(null); // Explicitly clear if no local rate exists
+          }
+        } catch (error) {
+          console.warn("Hotel MLR prediction failed", error);
+          setHotelEstimate(null);
+        } finally {
+          setIsEstimatingHotel(false);
+        }
+
       } catch (error) {
         console.warn("Destination data is unavailable from the backend.", error);
         if (isMounted) {
@@ -402,7 +425,7 @@ function SpecificDestinationsContent() {
     return () => {
       isMounted = false;
     };
-  }, [pricingDate, searchParams, startDate, tripReady]);
+  }, [pricingDate, searchParams, startDate, endDate, guests, roomType, tripReady]);
 
   const addToPlanner = () => {
     if (!generateDateRange(startDate, endDate).includes(pricingDate)) {
@@ -444,11 +467,12 @@ const formatActivityPrice = (displayStr, rawPrice) => {
     /not published|unlisted|tba|n\/a/i.test(cleaned) ||
     cleaned === "Not published in cited source"
   ) {
-    return ""; // Leaves the space blank as requested
+    return "";
   }
 
+  // Safely capture and replace "US$", "USD $", or "$"
   if (cleaned.includes("$")) {
-    cleaned = cleaned.replace(/\$(\d+(?:\.\d+)?)/g, (match, usdVal) => {
+    cleaned = cleaned.replace(/(?:US\s*D?|USD)?\s*\$(\d+(?:\.\d+)?)/gi, (match, usdVal) => {
       const phpVal = (parseFloat(usdVal) * 56.0).toLocaleString(undefined, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -459,8 +483,6 @@ const formatActivityPrice = (displayStr, rawPrice) => {
 
   return cleaned;
 };
-
-
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
@@ -684,7 +706,7 @@ const formatActivityPrice = (displayStr, rawPrice) => {
                         ? "Free"
                         : isLoading
                         ? "Loading..."
-                        : formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) || activityTotalPriceText}
+                        : activityTotalPriceText}
                     </h3>
                     {!selectedActivityIsFree && activityTotalPrice != null && formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) ? (
                       <span className="text-sm text-gray-500 font-medium">
@@ -733,6 +755,26 @@ const formatActivityPrice = (displayStr, rawPrice) => {
                     </div>
                   </div>
                 ) : isLoading ? <p role="status" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">Loading weather prediction for {formatDate(pricingDate)}...</p> : null}
+              
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Estimated Accommodation</p>
+                {isEstimatingHotel ? (
+                  <p className="text-sm font-semibold text-slate-500">Calculating MLR surge...</p>
+                ) : hotelEstimate ? (
+                  <div>
+                    <h4 className="text-xl font-black text-[#0f172a]">PHP {hotelEstimate.total_price.toLocaleString()}</h4>
+                    <p className="text-xs font-medium text-slate-500 mb-2">Total for {hotelEstimate.length_of_stay} nights</p>
+                    <div className="flex flex-col gap-1 text-[11px] text-slate-600">
+                      <p className="flex justify-between"><span>Base Rate:</span> <span className="font-semibold text-slate-800">PHP {hotelEstimate.base_price.toLocaleString()}</span></p>
+                      <p className="flex justify-between"><span>MLR Surge Multiplier:</span> <span className="font-bold text-[#860001]">{hotelEstimate.surge_multiplier}x</span></p>
+                      <p className="text-[9px] text-[#4a8b8b] italic mt-1 text-right">{hotelEstimate.source}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-slate-400 italic">No local hotel rate available for this destination.</p>
+                )}
+              </div>
+              
               </div>
 
               <div className="mb-2 grid w-full grid-cols-1 gap-6">
