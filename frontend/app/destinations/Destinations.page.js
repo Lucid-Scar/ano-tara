@@ -70,7 +70,7 @@ function ActivityDestinationCard({ item }) {
                 : "bg-teal-600/95 text-white"
             }`}
           >
-            <span>{item.weatherTag} chance</span>
+            <span>{item.weatherTag}</span>
           </span>
         </div>
 
@@ -456,7 +456,7 @@ export default function DestinationsPage() {
                     All
                   </button>
 
-                  {/* 2. Sunny Pill (Shows close icon when active) */}
+                  {/* 2.  Pill (Shows close icon when active) */}
                   <button
                     type="button"
                     onClick={() => toggleWeather("Sunny")}
