@@ -92,7 +92,7 @@ function OutfitPlannerContent() {
     const load = async () => {
       let list;
       try {
-        const response = await fetch("http://localhost:8000/destinations");
+        const response = await fetch("/api/backend/destinations");
         const data = await response.json();
         if (!response.ok || !Array.isArray(data.destinations)) throw new Error();
         list = data.destinations;
@@ -221,7 +221,7 @@ function OutfitPlannerContent() {
     try {
       const match = destinations.find((item) => item.name === destination);
       const id = match?.id || destination.toLowerCase().replace(/\s+/g, "-");
-      const response = await fetch(`http://localhost:8000/destinations/${id}/forecast?date_str=${date}`);
+      const response = await fetch(`/api/backend/destinations/${id}/forecast?date_str=${date}`);
       const data = await response.json();
       if (!response.ok || !data.forecast) throw new Error();
       setWeather({ condition: data.forecast.condition, temperature: data.forecast.average_temperature, rainfall: data.forecast.precipitation_sum_mm });
@@ -239,7 +239,7 @@ function OutfitPlannerContent() {
     setLoadingOutfit(true);
     
     try {
-      const response = await fetch("http://localhost:8000/predict-outfit", {
+      const response = await fetch("/api/backend/predict-outfit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image_base64: dataUrl }),

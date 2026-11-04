@@ -159,15 +159,17 @@ log_multiplier = log(surge_multiplier)
 
 Features include lead time, party size, length of stay, weekend arrival, room class, hotel class, month-based temperature/rainfall and hotel/weather/party-size interactions. The API uses the same weather table. The historical booking data is not Philippine hotel data, so the conversion and baseline are modeling assumptions; resulting prices are estimates, not observed Philippine market prices.
 
+At runtime, `backend/data/philippines_tourism_activities_and_hotels.csv` supplies the destination activity records and activity admission prices. Where that file includes hotel rates for a city, their average is the destination-specific base rate; otherwise, the configured city/resort baseline is used and identified as a regional model baseline. The MLR multiplier is applied to either base, so the booking model supplies date-, party-, stay-, room-, and hotel-type variation without replacing local CSV rates.
+
 ---
 
 ## 6. The real app runtime vs. the training script
 
-`backend/app/main.py` loads the model and feature list exported by `mlr-model.py`. On `POST /predict-price`, it reconstructs those features, predicts a log multiplier, converts it back with `exp()`, limits the multiplier to 1–3, multiplies by the configured PHP baseline, and applies the number of nights.
+`backend/app/main.py` loads the model and feature list exported by `mlr-model.py`. On `POST /predict-price` and `GET /destinations`, it reconstructs those features, predicts a log multiplier, converts it back with `exp()`, caps the multiplier at 3, multiplies it by the destination's CSV hotel-rate average when available (otherwise the configured regional baseline), and applies the number of nights. Multipliers below 1 are retained so the estimate can decrease as well as increase, consistent with the trained target. Destination cards request estimates for their selected dates and guest count. Specific destination pages add a selected activity's numeric per-person CSV price to the total when available; otherwise, they show the CSV's raw price label and exclude it from the calculated total.
 
 The separate `backend/app/mlr-price.py` script produces a different legacy model bundle and is not loaded by the current API. Retrain the runtime model after changing features by running `python app\mlr-model.py` from the `backend` directory. The generated artifacts must be kept in `backend/app/`, where the API loads them.
 
-If the model files are missing or the saved feature list is incompatible with the API, the pricing endpoint uses the rule-based fallback so the planner remains available. The fallback uses the same configured baseline prices, a seasonal factor, and a guest-count adjustment.
+If the trained model is unavailable, the pricing endpoint uses a rule-based fallback so the planner remains available. The fallback uses the same destination-specific or regional base, a seasonal factor, and a guest-count adjustment.
 
 The weather forecast returned to users is for activity recommendations; pricing features use the monthly baseline in `pricing_config.py`, not the live forecast.
 
