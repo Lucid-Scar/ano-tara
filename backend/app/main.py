@@ -385,6 +385,7 @@ def load_destinations_from_golden_dataset() -> list[dict]:
         if not city_name or city_name.casefold() == "nan":
             continue
 
+
         city_key = normalize_city_name(city_name)
         destination = destinations_by_city.setdefault(
             city_key,
