@@ -9,6 +9,23 @@ import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateStrin
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
+const localImageFallback = "/destination-placeholder.svg";
+
+const applyImageFallback = (event, fallbackImage) => {
+  const image = event.currentTarget;
+  if (!image.dataset.fallbackAttempted) {
+    image.dataset.fallbackAttempted = "true";
+    image.src = fallbackImage;
+    return;
+  }
+  if (!image.dataset.localFallbackAttempted) {
+    image.dataset.localFallbackAttempted = "true";
+    image.src = localImageFallback;
+    return;
+  }
+  image.onerror = null;
+  image.hidden = true;
+};
 
 const activityFallbackImage = (activity, destination) => {
   const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
@@ -18,15 +35,19 @@ const activityFallbackImage = (activity, destination) => {
   return destination.image;
 };
 const activityImage = (activity, destination) => activity?.image || activityFallbackImage(activity, destination);
+const isFreeActivity = (activity) => (
+  (activity?.price_per_pax != null && Number(activity.price_per_pax) === 0)
+  || /^free(?:\s*\(|$)/i.test(activity?.price_display?.trim() || "")
+);
 
 const FALLBACK_DESTINATION = {
-  id: "alaminos",
-  name: "Alaminos",
-  location: "Alaminos, Philippines",
+  id: "manila",
+  name: "Manila",
+  location: "Manila, Philippines",
   country: "Philippines",
   main_weather: "Clear / Sunny",
   image: mainImage,
-  description: "Discover scenic attractions, cultural landmarks, and local experiences in Alaminos.",
+  description: "Discover scenic attractions, cultural landmarks, and local experiences in Manila.",
   activities: [],
 };
 
@@ -66,8 +87,8 @@ function NearbyCard({ destination }) {
   const image = activityImage(activity, destination);
   const weatherTag = activity?.weather_tag || destination.main_weather || "Clear / Sunny";
   return (
-    <Link href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-32 overflow-hidden rounded-xl shadow-sm">
-      <img src={image} alt={title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+    <Link key={`${destination.id}-${activity?.name || ""}`} href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-32 overflow-hidden rounded-xl shadow-sm">
+      <img src={image} alt={title} onError={(event) => applyImageFallback(event, activityFallbackImage(activity, destination))} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
       <span className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase text-white">{weatherTag} chance</span>
       <div className="absolute bottom-2 left-2 right-2">
@@ -146,21 +167,17 @@ function SpecificDestinationsContent() {
   const [selectedTime, setSelectedTime] = useState("10:00");
   const [assignedDay, setAssignedDay] = useState("Day 1");
   const [pricingDate, setPricingDate] = useState(dateRange.startDate || minDate);
-  const [failedActivityImage, setFailedActivityImage] = useState("");
   const [toastMessage, setToastMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
-  const [predictedPrice, setPredictedPrice] = useState("...");
-  const [priceError, setPriceError] = useState("");
-  const [pricingDetails, setPricingDetails] = useState(null);
   const [weatherForecast, setWeatherForecast] = useState(null);
   const [recommendedType, setRecommendedType] = useState("outdoor");
   const [recommendationReason, setRecommendationReason] = useState("");
   const [weatherComparison, setWeatherComparison] = useState(null);
+  const [destinationError, setDestinationError] = useState("");
   
   const [destinationDetails, setDestinationDetails] = useState(FALLBACK_DESTINATION);
   const [activityList, setActivityList] = useState([]);
-  const [selectedActivity, setSelectedActivity] = useState("Scenic landmarks and nature park tour");
+  const [selectedActivity, setSelectedActivity] = useState("");
   const [nearbyDestinations, setNearbyDestinations] = useState([]);
 
   const handleMinus = (e) => {
@@ -188,8 +205,42 @@ function SpecificDestinationsContent() {
 
   const selectedActivityData = activityList.find((activity) => activity.name === selectedActivity)
     || destinationDetails.activities?.find((activity) => activity.name === selectedActivity);
-  const requestedActivityImage = activityImage(selectedActivityData, destinationDetails);
-  const selectedActivityImage = failedActivityImage === requestedActivityImage ? activityFallbackImage(selectedActivityData, destinationDetails) : requestedActivityImage;
+  
+  const selectedActivityImage = activityImage(selectedActivityData, destinationDetails);
+
+  // 1. Extract static per-guest base price from dataset
+  const rawPricePerGuest = 
+    selectedActivityData?.price_per_pax ?? 
+    selectedActivityData?.Price_Per_Pax_PHP ?? 
+    null;
+
+  const parsedPricePerGuest = rawPricePerGuest !== null && rawPricePerGuest !== undefined
+    ? parseFloat(rawPricePerGuest)
+    : NaN;
+
+  const parsedGuests = Number(guests) || 1;
+
+  // 2. Determine if activity is free
+  const selectedActivityIsFree = 
+    isFreeActivity(selectedActivityData) ||
+    rawPricePerGuest === 0 || 
+    rawPricePerGuest === "0";
+
+  // 3. Dynamic total price (Static Base Price × Pax)
+  const activityTotalPrice = (!isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0)
+    ? parsedPricePerGuest * parsedGuests
+    : null;
+
+  // 4. Formatted Display Texts
+  const activityTotalPriceText = selectedActivityIsFree
+    ? "Free"
+    : activityTotalPrice != null
+    ? `PHP ${activityTotalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : selectedActivityData?.price_display?.trim() || selectedActivityData?.Price_Display?.trim() || "Not listed";
+
+  const staticBasePriceText = !isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0
+    ? `PHP ${parsedPricePerGuest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
 
   const guestWarning = getGuestWarning(guests);
   
@@ -226,38 +277,48 @@ function SpecificDestinationsContent() {
   useEffect(() => {
     let cancelled = false;
     const loadNearbyDestinations = async () => {
-      const { MOCK_DESTINATIONS } = await import("../destinations/mockDestinations");
-      const currentId = destinationQuery || FALLBACK_DESTINATION.id;
-      const pool = [];
-      MOCK_DESTINATIONS.forEach((destination) => {
-        if (destination.id === currentId) return;
-        (destination.activities || []).forEach((activity) => {
-          pool.push({ ...destination, highlightActivity: activity });
+      try {
+        const response = await fetch("/api/backend/destinations");
+        const data = await response.json();
+        if (!response.ok || !Array.isArray(data.destinations)) {
+          throw new Error(data.detail || "Destination data is unavailable.");
+        }
+        const destinations = data.destinations;
+        const currentId = destinationQuery || FALLBACK_DESTINATION.id;
+        const pool = [];
+        destinations.forEach((destination) => {
+          if (destination.id === currentId) return;
+          (destination.activities || []).forEach((activity) => {
+            pool.push({ ...destination, highlightActivity: activity });
+          });
         });
-      });
-      const picked = [];
-      const usedDestinations = new Set();
-      shuffleList(pool).forEach((item) => {
-        if (usedDestinations.has(item.id) || picked.length >= 3) return;
-        usedDestinations.add(item.id);
-        picked.push(item);
-      });
-      let previousIds = [];
-      try {
-        const storedIds = JSON.parse(window.sessionStorage.getItem("anoTaraNearbyDestinations") || "[]");
-        previousIds = Array.isArray(storedIds) ? storedIds : [];
-      } catch {
-        previousIds = [];
+        const picked = [];
+        const usedDestinations = new Set();
+        shuffleList(pool).forEach((item) => {
+          if (usedDestinations.has(item.id) || picked.length >= 3) return;
+          usedDestinations.add(item.id);
+          picked.push(item);
+        });
+        let previousIds = [];
+        try {
+          const storedIds = JSON.parse(window.sessionStorage.getItem("anoTaraNearbyDestinations") || "[]");
+          previousIds = Array.isArray(storedIds) ? storedIds : [];
+        } catch {
+          previousIds = [];
+        }
+        const pickedIds = new Set(picked.map((item) => item.id));
+        if (picked.length === 3 && previousIds.length === 3 && previousIds.every((id) => pickedIds.has(id))) {
+          const alternative = shuffleList(pool.filter((item) => !pickedIds.has(item.id)))[0];
+          if (alternative) picked[Math.floor(Math.random() * picked.length)] = alternative;
+        }
+        try {
+          window.sessionStorage.setItem("anoTaraNearbyDestinations", JSON.stringify(picked.map((item) => item.id)));
+        } catch {}
+        if (!cancelled) setNearbyDestinations(picked);
+      } catch (error) {
+        console.warn("Nearby tourism destinations are unavailable.", error);
+        if (!cancelled) setNearbyDestinations([]);
       }
-      const pickedIds = new Set(picked.map((item) => item.id));
-      if (picked.length === 3 && previousIds.length === 3 && previousIds.every((id) => pickedIds.has(id))) {
-        const alternative = shuffleList(pool.filter((item) => !pickedIds.has(item.id)))[0];
-        if (alternative) picked[Math.floor(Math.random() * picked.length)] = alternative;
-      }
-      try {
-        window.sessionStorage.setItem("anoTaraNearbyDestinations", JSON.stringify(picked.map((item) => item.id)));
-      } catch {}
-      if (!cancelled) setNearbyDestinations(picked);
     };
     loadNearbyDestinations();
     return () => { cancelled = true; };
@@ -275,30 +336,27 @@ function SpecificDestinationsContent() {
       setWeatherForecast(null);
       setWeatherComparison(null);
       setRecommendationReason("");
-      const { MOCK_DESTINATIONS } = await import("../destinations/mockDestinations");
-      const mockDestination = MOCK_DESTINATIONS.find((destination) => destination.id === destinationId) || MOCK_DESTINATIONS[0] || FALLBACK_DESTINATION;
-      if (!isMounted) return;
-      setDestinationDetails(mockDestination);
       try {
-        let destinationResponse;
-        let destination = mockDestination;
-        try {
-          destinationResponse = await fetch(`http://localhost:8000/destinations/${destinationId}`);
-          if (destinationResponse.ok) destination = await destinationResponse.json();
-        } catch (error) {
-          console.warn("Destination details are unavailable; continuing with local data", error);
+        // Fetch priority Open-Meteo forecast and activity recommendations
+        const destinationResponse = await fetch(`/api/backend/destinations/${destinationId}`);
+        const destination = await destinationResponse.json();
+        if (!destinationResponse.ok) {
+          throw new Error(destination.detail || "Destination details are unavailable.");
         }
+        if (!isMounted) return;
+        setDestinationDetails(destination);
+        setDestinationError("");
 
         let forecastResponse;
         let forecastData = {};
         try {
-          forecastResponse = await fetch(`http://localhost:8000/destinations/${destinationId}/forecast?date_str=${pricingDate || startDate}`);
+          forecastResponse = await fetch(`/api/backend/destinations/${destinationId}/forecast?date_str=${pricingDate || startDate}`);
           forecastData = forecastResponse.ok ? await forecastResponse.json() : {};
         } catch (error) {
           console.warn("Weather forecast is unavailable; continuing with destination pricing", error);
         }
         
-        let acts = destination.activities || mockDestination.activities || [];
+        let acts = destination.activities || [];
         if (forecastResponse?.ok && forecastData.activities && forecastData.activities.length > 0) {
           acts = forecastData.activities;
           setActivityList(forecastData.activities);
@@ -329,51 +387,13 @@ function SpecificDestinationsContent() {
           setSelectedActivity(targetActName);
         }
 
-        const chosenHotelType = matchingAct?.hotel_type || (matchingAct?.type === "outdoor" ? "Resort Hotel" : "City Hotel");
-
-        const priceResponse = await fetch("http://localhost:8000/predict-price", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            check_in: pricingDate || startDate || toDateString(new Date()),
-            check_out: (() => {
-              const nextDate = new Date(`${pricingDate || startDate}T00:00:00`);
-              nextDate.setDate(nextDate.getDate() + 1);
-              return toDateString(nextDate);
-            })(),
-            guests,
-            hotel_type: chosenHotelType,
-            room_type: roomType,
-          }),
-        });
-        const price = await priceResponse.json();
-
-        if (isMounted && destination.id) {
-          setDestinationDetails((current) => ({ ...current, ...destination }));
-        }
-
-        if (isMounted && priceResponse.ok && price.status === "success") {
-          setPredictedPrice(price.total_price.toLocaleString());
-          setPricingDetails(price);
-          setPriceError("");
-          setIsLoading(false);
-        } else {
-          throw new Error(price.detail || "Price prediction is unavailable.");
-        }
+        if (isMounted) setIsLoading(false);
       } catch (error) {
-        console.warn("Using fallback destination data because the backend is unavailable", error);
+        console.warn("Destination data is unavailable from the backend.", error);
         if (isMounted) {
-          setPriceError("Price unavailable. Start the backend service to calculate the estimate.");
+          setDestinationError(error.message || "Destination details are unavailable.");
+          setIsLoading(false);
         }
-        const acts = (mockDestination.activities || []).map((a) => ({
-          ...a,
-          hotel_type: a.type === "outdoor" ? "Resort Hotel" : "City Hotel",
-          recommended: a.type === "outdoor",
-          locked: false,
-        }));
-        setActivityList(acts);
-        if (acts[0]) setSelectedActivity(acts[0].name);
-        setIsLoading(false);
       }
     };
 
@@ -381,7 +401,7 @@ function SpecificDestinationsContent() {
     return () => {
       isMounted = false;
     };
-  }, [endDate, guests, pricingDate, roomType, searchParams, startDate, tripReady]);
+  }, [pricingDate, searchParams, startDate, tripReady]);
 
   const addToPlanner = () => {
     if (!generateDateRange(startDate, endDate).includes(pricingDate)) {
@@ -414,6 +434,32 @@ function SpecificDestinationsContent() {
     setToastMessage("Activity added to your itinerary.");
     window.setTimeout(() => setToastMessage(""), 3000);
   };
+
+const formatActivityPrice = (displayStr, rawPrice) => {
+  if (!displayStr) return "";
+  let cleaned = displayStr.trim();
+  
+  if (
+    /not published|unlisted|tba|n\/a/i.test(cleaned) ||
+    cleaned === "Not published in cited source"
+  ) {
+    return ""; // Leaves the space blank as requested
+  }
+
+  if (cleaned.includes("$")) {
+    cleaned = cleaned.replace(/\$(\d+(?:\.\d+)?)/g, (match, usdVal) => {
+      const phpVal = (parseFloat(usdVal) * 56.0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return `₱${phpVal} ($${usdVal})`;
+    });
+  }
+
+  return cleaned;
+};
+
+
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
@@ -467,27 +513,93 @@ function SpecificDestinationsContent() {
         </div>
       </header>
 
-      <div className="activity-date-strip border-b border-slate-200 bg-white px-6 py-4 lg:px-12">
-        <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-wider text-slate-500">Trip dates</p>
-            <p className="text-sm font-semibold text-slate-700">Dates are shared with your itinerary.</p>
+      {/* Unified Action & Date Toolbar */}
+      <div className="border-b border-slate-200/80 bg-white px-6 py-3 lg:px-12">
+        <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4">
+          
+          {/* Left: Sleek Ghost Back Button */}
+          <Link
+            href="/destinations"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Back to destinations</span>
+          </Link>
+
+          {/* Right: Consolidated Date Segment Pill */}
+          <div className="flex items-center gap-2.5">
+            <span className="hidden sm:inline-block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Trip Dates
+            </span>
+
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-1 shadow-inner">
+              {/* Start Date */}
+              <div className="flex items-center gap-1.5 px-2">
+                <span className="text-[10px] font-bold uppercase text-slate-400">Start</span>
+                <input
+                  type="date"
+                  min={minDate}
+                  value={startDate}
+                  onChange={(event) => {
+                    const nextStartDate = event.target.value;
+                    const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate;
+                    setStartDate(nextStartDate);
+                    setEndDate(nextEndDate);
+                    setDateRange({ startDate: nextStartDate, endDate: nextEndDate });
+                  }}
+                  className="rounded-md border-0 bg-transparent py-1 text-xs font-semibold text-slate-800 outline-none cursor-pointer"
+                />
+              </div>
+
+              <span className="text-slate-300 font-light text-xs">/</span>
+
+              {/* End Date */}
+              <div className="flex items-center gap-1.5 px-2">
+                <span className="text-[10px] font-bold uppercase text-slate-400">End</span>
+                <input
+                  type="date"
+                  min={startDate || minDate}
+                  value={endDate}
+                  onChange={(event) => {
+                    const nextEndDate = event.target.value;
+                    setEndDate(nextEndDate);
+                    setDateRange({ startDate, endDate: nextEndDate });
+                  }}
+                  className="rounded-md border-0 bg-transparent py-1 text-xs font-semibold text-slate-800 outline-none cursor-pointer"
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="text-xs font-bold text-slate-500">Start<input type="date" min={minDate} value={startDate} onChange={(event) => { const nextStartDate = event.target.value; const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate; setStartDate(nextStartDate); setEndDate(nextEndDate); setDateRange({ startDate: nextStartDate, endDate: nextEndDate }); }} className="ml-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800" /></label>
-            <label className="text-xs font-bold text-slate-500">End<input type="date" min={startDate || minDate} value={endDate} onChange={(event) => { const nextEndDate = event.target.value; setEndDate(nextEndDate); setDateRange({ startDate, endDate: nextEndDate }); }} className="ml-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800" /></label>
-          </div>
+
         </div>
       </div>
 
       <main className="mx-auto w-full max-w-[1400px] px-6 lg:px-12 py-10 flex-grow">
-        <Link href="/destinations" className="mb-6 inline-flex rounded-lg border-2 border-slate-900 px-4 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-900 hover:text-white">Back to destinations</Link>
+        {destinationError ? (
+          <div role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+            <p>Could not load this destination: {destinationError}</p>
+            <Link href="/destinations" className="mt-2 inline-block underline">Browse available destinations</Link>
+          </div>
+        ) : null}
         
         <div className="flex flex-col lg:flex-row gap-12 items-start mb-16">
           
           <div className="flex-1 flex flex-col w-full max-w-4xl">
-            <div className="w-full h-[400px] lg:h-[500px] overflow-hidden rounded-[2rem] shadow-sm mb-8 bg-gray-100">
-              <img src={selectedActivityImage} alt={selectedActivity || destinationDetails.name} onError={(event) => { if (event.currentTarget.src !== activityFallbackImage(selectedActivityData, destinationDetails)) setFailedActivityImage(requestedActivityImage); else event.currentTarget.style.visibility = "hidden"; }} className="h-full w-full object-cover" />
+            <div className="w-full h-[300px] lg:h-[400px] overflow-hidden rounded-[2rem] shadow-sm mb-8 bg-gray-100">
+              <img key={`${destinationQuery}-${selectedActivity}-${selectedActivityImage}`} src={selectedActivityImage} alt={selectedActivity || destinationDetails.name} onError={(event) => applyImageFallback(event, activityFallbackImage(selectedActivityData, destinationDetails))} className="h-full w-full object-cover" />
             </div>
             
             <div className="flex flex-col px-2 sm:px-4">
@@ -505,46 +617,88 @@ function SpecificDestinationsContent() {
               <p className="mb-8 text-lg leading-relaxed text-gray-700">
                 {destinationDetails.description}
               </p>
-              <div className="h-px w-full bg-gray-200 mb-8"></div>
-              
-              <div className="mt-2">
-                <p className="text-sm font-bold uppercase tracking-wider text-gray-400">Total estimated cost</p>
-                <h3 className="text-4xl font-black text-[#860001]">{isLoading ? "Predicting..." : priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
-                {isLoading ? <p role="status" className="mt-2 text-sm font-semibold text-slate-500">Loading price prediction...</p> : null}
-                {pricingDetails ? (
-                  <p className="mt-2 text-sm text-gray-500">
-                    PHP {pricingDetails.daily_price.toLocaleString()} / night for {pricingDetails.length_of_stay} {pricingDetails.length_of_stay === 1 ? "night" : "nights"}
-                  </p>
-                ) : null}
-                <a href="#" className="mt-2 inline-block text-sm font-medium italic text-gray-500 underline transition-colors hover:text-[#76B3DD]">
-                  look more here! Bookingsite.com
-                </a>
-                <div className="mt-6 border-t border-gray-200 pt-4">
-                  <h2 className="text-sm font-black uppercase tracking-wider text-slate-500">Next destinations</h2>
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {nearbyDestinations.slice(0, 3).map((dest) => <NearbyCard key={dest.id} destination={dest} />)}
+              <div className="h-px w-full bg-gray-200 mb-6"></div>
+
+              {/* Horizontal 2-Column Layout: Price | Next Destinations */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                
+                {/* Column 1: Total Activity Price */}
+                <div className="p-4 flex flex-col justify-between h-full">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                      {selectedActivityIsFree ? "Activity admission" : "Total Activity Price"}
+                    </p>
+                    <h3 className="mt-1 text-sm font-black text-[#860001] justify-normal">
+                      {selectedActivityIsFree
+                        ? "Free"
+                        : isLoading
+                        ? "Loading..."
+                        : formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) || activityTotalPriceText}
+                    </h3>
+                    {!selectedActivityIsFree && staticBasePriceText && formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) ? (
+                      <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                        Static base rate: <span className="font-bold text-slate-800">{staticBasePriceText}</span> / guest ({guests} {guests === 1 ? 'guest' : 'guests'})
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {selectedActivityData?.source_url ? (
+                    <a
+                      href={selectedActivityData.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 text-xs font-medium text-[#4a8b8b] underline transition-colors hover:text-[#76B3DD]"
+                    >
+                      View activity listing
+                    </a>
+                  ) : null}
+                </div>
+
+                {/* Column 2: Next Destinations (Takes 3 of 5 columns) */}
+                <div className="md:col-span-3 p-4 h-full flex flex-col justify-between">
+                  <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Next destinations</h2>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {nearbyDestinations.slice(0, 3).map((dest) => (
+                      <NearbyCard key={dest.id} destination={dest} />
+                    ))}
                   </div>
                 </div>
+
               </div>
-            </div>
+
+          </div>
           </div>
 
           <div className="w-full lg:w-[400px] xl:w-[440px] shrink-0 sticky top-28 pt-2">
             <div className="rounded-[2rem] border border-gray-100 bg-white p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.06)] relative z-10">
               
               <div className="mb-6 pb-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Estimated cost</p>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-[2rem] font-black text-[#0f172a]">{isLoading ? "Predicting..." : priceError ? "Unavailable" : `PHP ${predictedPrice}`}</h3>
-                  <span className="text-sm text-gray-500 font-medium">total for {guests} {guests === 1 ? 'guest' : 'guests'}</span>
-                </div>
-                {pricingDetails ? (
-                  <div className="mt-3 space-y-1 text-xs text-gray-500">
-                    <p>PHP {pricingDetails.daily_price.toLocaleString()} / night · {pricingDetails.length_of_stay} {pricingDetails.length_of_stay === 1 ? "night" : "nights"}</p>
-                    <p>Base daily rate: PHP {pricingDetails.base_price.toLocaleString()}</p>
-                    <p>{pricingDetails.month} · {pricingDetails.season}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
+                  {selectedActivityIsFree ? "Activity admission" : "Activity cost"}
+                </p>
+                <div className="flex flex-col">
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-[2rem] font-black text-[#0f172a]">
+                      {selectedActivityIsFree
+                        ? "Free"
+                        : isLoading
+                        ? "Loading..."
+                        : formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) || activityTotalPriceText}
+                    </h3>
+                    {!selectedActivityIsFree && activityTotalPrice != null && formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) ? (
+                      <span className="text-sm text-gray-500 font-medium">
+                        total for {guests} {guests === 1 ? 'guest' : 'guests'}
+                      </span>
+                    ) : null}
                   </div>
-                ) : null}
+                  
+                  {!selectedActivityIsFree && staticBasePriceText && formatActivityPrice(selectedActivityData?.price_display, selectedActivityData?.price_per_pax) ? (
+                    <span className="mt-1 text-xs font-semibold text-slate-400">
+                      Base price: {staticBasePriceText} / person
+                    </span>
+                  ) : null}
+                </div>
+              
 
                 {/* Weather Forecast & Recommendation Badge */}
                 {weatherForecast ? (
@@ -580,10 +734,10 @@ function SpecificDestinationsContent() {
                 ) : isLoading ? <p role="status" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">Loading weather prediction for {formatDate(pricingDate)}...</p> : null}
               </div>
 
-              <div className="mb-6 grid w-full grid-cols-1 gap-6">
+              <div className="mb-2 grid w-full grid-cols-1 gap-6">
                 
                 <div>
-                  <div className="mt-3">
+                  <div className="mt-1">
                     <label htmlFor="room-type" className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">Room type</label>
                     <select
                       id="room-type"
@@ -643,15 +797,30 @@ function SpecificDestinationsContent() {
                 </div>
               ) : null}
 
-              <div className="rounded-xl bg-[#f8fafc] p-4 flex items-start gap-3 border border-gray-100">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#58a573] mt-0.5 flex-shrink-0">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>
-                </svg>
-                <div>
-                  <p className="text-xs font-semibold text-slate-800 mb-1">Synced with Itinerary Planner</p>
-                  <p className="text-[11px] text-gray-500 leading-relaxed max-w-lg">
-                    This location, date, and guest count will automatically be populated into your group's shared itinerary board. No payments are processed on this page.
-                  </p>
+              {/* Sync Notice with Hover Tooltip */}
+              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#58a573]">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                  <span>Synced with Planner</span>
+                </div>
+
+                {/* Hoverable Information Icon */}
+                <div className="group relative cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 hover:text-slate-600 transition-colors">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+
+                  {/* Tooltip Content */}
+                  <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-64 opacity-0 transition-opacity duration-200 group-hover:opacity-100 z-30">
+                    <div className="rounded-xl bg-slate-900 p-3 text-[11px] text-white shadow-xl leading-relaxed">
+                      This location, date, and guest count will automatically populate into your group&apos;s shared itinerary board. No payments are processed on this page.
+                      <div className="absolute top-full right-2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

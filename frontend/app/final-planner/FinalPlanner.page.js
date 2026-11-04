@@ -20,6 +20,7 @@ const generateDateRange = (startDate, endDate) => {
 const valueFrom = (item, keys) => keys.map((key) => item?.[key]).find((value) => value !== undefined && value !== null && value !== "");
 const getTime = (activity) => { const start = valueFrom(activity, ["time", "schedule", "start_time"]); const end = valueFrom(activity, ["end_time"]); return start && end ? `${start} - ${end}` : start || "Time to be confirmed"; };
 const getStay = (activity) => { const checkIn = valueFrom(activity, ["check_in", "checkIn", "checkin"]); const checkOut = valueFrom(activity, ["check_out", "checkOut", "checkout"]); return checkIn || checkOut ? `Check-in ${checkIn || "-"} · Check-out ${checkOut || "-"}` : "No check-in details"; };
+const getAssignedDay = (activity) => activity?.assignedDay || activity?.assigned_day || "";
 const fallbackDayImage = (activity) => {
   const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
   if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
@@ -96,14 +97,14 @@ export default function FinalPlannerPage() {
     const nextChanges = Object.prototype.hasOwnProperty.call(changes, "time") ? { ...changes, time: clampActivityTime(changes.time) } : changes;
     const next = activities.map((activity, activityIndex) => activityIndex === index ? { ...activity, ...nextChanges, ...(nextChanges.assignedDay ? { assigned_day: nextChanges.assignedDay } : {}) } : activity);
     if (nextChanges.assignedDay && hasActivityConflict(next[index], index)) {
-      const otherIndex = next.findIndex((activity, activityIndex) => activityIndex !== index && activity.assignedDay === changes.assignedDay);
-      if (otherIndex >= 0 && activities[index]?.assignedDay) {
-        const previousDay = activities[index].assignedDay;
+      const otherIndex = next.findIndex((activity, activityIndex) => activityIndex !== index && getAssignedDay(activity) === changes.assignedDay);
+      if (otherIndex >= 0 && getAssignedDay(activities[index])) {
+        const previousDay = getAssignedDay(activities[index]);
         next[otherIndex] = { ...next[otherIndex], assignedDay: previousDay, assigned_day: previousDay };
       }
     }
     const ordered = next
-      .map((activity, originalIndex) => ({ activity, originalIndex, day: Number(String(activity.assignedDay || "").replace("Day ", "")) || Number.MAX_SAFE_INTEGER }))
+      .map((activity, originalIndex) => ({ activity, originalIndex, day: Number(String(getAssignedDay(activity)).replace("Day ", "")) || Number.MAX_SAFE_INTEGER }))
       .sort((left, right) => left.day - right.day || left.originalIndex - right.originalIndex)
       .map(({ activity }) => activity);
     setWarningActivityIndex(-1);
@@ -190,17 +191,20 @@ export default function FinalPlannerPage() {
       const primaryActivity = scheduledActivities[0];
       const hotelType = primaryActivity.hotel_type || (String(primaryActivity.type).toLowerCase() === "outdoor" ? "Resort Hotel" : "City Hotel");
       const guestCount = Number(primaryActivity.guests) || guests;
-      const priceResponse = await fetch("http://localhost:8000/predict-price", {
+      const lastTripDate = targetDates[targetDates.length - 1];
+      const checkOutDate = new Date(`${lastTripDate}T00:00:00`);
+      if (lastTripDate === targetDates[0]) checkOutDate.setDate(checkOutDate.getDate() + 1);
+      const priceResponse = await fetch("/api/backend/predict-price", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ check_in: targetDates[0], check_out: targetDates[targetDates.length - 1] || targetDates[0], guests: guestCount, hotel_type: hotelType, room_type: "Standard Room", destination_name: primaryActivity.destination }),
+        body: JSON.stringify({ check_in: targetDates[0], check_out: toDateString(checkOutDate), guests: guestCount, destination: primaryActivity.destination, hotel_type: hotelType, room_type: "Standard Room" }),
       });
       const priceData = await priceResponse.json();
       if (!priceResponse.ok) throw new Error(priceData?.detail || "Could not fetch the MLR price.");
       const mlrPrice = Number(priceData.total_price ?? priceData.price);
       if (!Number.isFinite(mlrPrice)) throw new Error("The MLR price response was invalid.");
 
-      const response = await fetch("http://localhost:8000/api/generate-itinerary", {
+      const response = await fetch("/api/backend/api/generate-itinerary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ target_dates: targetDates, raw_activities: scheduledActivities.map((activity) => ({ ...activity, assigned_day: activity.assignedDay, room_type: activity.roomType || activity.room_type || "Standard Room" })), mlr_price: mlrPrice, guests: guestCount, outfit: outfits[0] || undefined }),
@@ -237,12 +241,14 @@ export default function FinalPlannerPage() {
       activities: (day.scheduled_activities || []).map((activity) => ({
         ...activity,
         location: activity.location || activity.destination,
-        price: Number(activity.estimated_price ?? activity.price ?? ((activity.price_range?.min || 0) + (activity.price_range?.max || 0)) / 2),
+        price: activity.estimated_price == null
+          ? (activity.price == null ? null : Number(activity.price))
+          : Number(activity.estimated_price),
         guests: Number(activity.guests) || guests,
       })),
     }));
   const totalPrice = itineraryDays.reduce((tripTotal, day) => (
-    tripTotal + day.activities.reduce((dayTotal, activity) => dayTotal + Number(activity.price || 0), 0)
+    tripTotal + day.activities.reduce((dayTotal, activity) => dayTotal + (Number.isFinite(activity.price) ? activity.price : 0), 0)
   ), 0);
   const initialGuestCount = Math.max(1, Number(planner?.guests) || guests || 1);
   const pricePerPerson = totalPrice / initialGuestCount;
@@ -319,7 +325,7 @@ export default function FinalPlannerPage() {
                   >
                     <div className="flex justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{activity.assignedDay || `Day ${index + 1}`}</p>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{getAssignedDay(activity) || `Day ${index + 1}`}</p>
                         <h4 className="truncate font-black">{activity.name}</h4>
                         <p className="mt-1 truncate text-xs text-slate-500">{activity.destination} · {activity.type || "Activity"}</p>
                       </div>
@@ -336,7 +342,7 @@ export default function FinalPlannerPage() {
                       <label className="flex min-w-0 flex-col gap-1 overflow-hidden">
                         Day
                         <select
-                          value={dates.some((_, dayIndex) => activity.assignedDay === `Day ${dayIndex + 1}`) ? activity.assignedDay : ""}
+                          value={dates.some((_, dayIndex) => getAssignedDay(activity) === `Day ${dayIndex + 1}`) ? getAssignedDay(activity) : ""}
                           onChange={(event) => changeActivity(index, { assignedDay: event.target.value })}
                           className="activity-day-select w-full max-w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-xs"
                         >
@@ -421,7 +427,7 @@ export default function FinalPlannerPage() {
                       <p className="text-xs font-bold text-slate-700">{group.name}</p>
                       <div className="mt-1 flex flex-wrap gap-2">{group.items.map((item) => <GarmentImage key={item.id} src={item.image} alt={`${item.category} for ${day.dayNumber}`} className="h-14 w-14 rounded" />)}</div>
                     </div>)}</div> : null}
-                    {day.activities.map((activity) => <p key={activity.name} className="mt-2 text-xs font-semibold">{activity.name} · {activity.location || activity.destination} · {activity.guests} guests · Estimated price: PHP {Number(activity.price || 0).toLocaleString()}</p>)}
+                    {day.activities.map((activity) => <p key={activity.name} className="mt-2 text-xs font-semibold">{activity.name} · {activity.location || activity.destination} · {activity.guests} guests · Admission: {Number.isFinite(activity.price) ? `PHP ${activity.price.toLocaleString()}` : "not listed"}</p>)}
                   </section>
                 );
               })}
@@ -439,8 +445,9 @@ export default function FinalPlannerPage() {
                 <h2 className="text-2xl font-black leading-tight text-slate-950">Itinerary Planner</h2>
                 <div className="mt-1 flex items-start justify-between gap-3 text-left text-xs font-bold text-slate-800">
                   <div>
-                    <p>Total Price: PHP {totalPrice.toLocaleString()}</p>
-                    <p className="mt-0.5 font-semibold text-slate-600">PHP {Math.round(pricePerPerson).toLocaleString()} / person · {initialGuestCount} guests</p>
+                    <p>Listed activity admissions: PHP {totalPrice.toLocaleString()}</p>
+                    <p className="mt-0.5 font-semibold text-slate-600">Accommodation estimate: {planner?.priceEstimate?.amount == null ? "not available" : `PHP ${Number(planner.priceEstimate.amount).toLocaleString()}`}</p>
+                    <p className="mt-0.5 font-semibold text-slate-600">Activity admissions per person: PHP {Math.round(pricePerPerson).toLocaleString()} · {initialGuestCount} guests</p>
                   </div>
                   <div className="text-right">
                     <p>{itineraryDays.length} Planned Days</p>
@@ -473,7 +480,7 @@ export default function FinalPlannerPage() {
                               <p className="font-bold">{activity.name}</p>
                               <p>{activity.location || activity.destination}</p>
                               <p>Guests: {activity.guests}</p>
-                              <p>Estimated price: PHP {Number(activity.price || 0).toLocaleString()}</p>
+                              <p>Admission: {Number.isFinite(activity.price) ? `PHP ${activity.price.toLocaleString()}` : "not listed"}</p>
                               <p>Time: {getTime(activity)}</p>
                             </div>
                           )) : <p>No activity assigned.</p>}

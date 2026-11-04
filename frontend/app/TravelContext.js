@@ -24,35 +24,40 @@ function defaultPlannerName(planner) {
   return [destination, date].filter(Boolean).join(" - ") || "Saved itinerary";
 }
 
+function getAssignedDay(activity) {
+  return activity?.assignedDay || activity?.assigned_day || null;
+}
+
 export function TravelProvider({ children }) {
   const [dateRange, setDateRangeState] = useState({ startDate: "", endDate: "" });
   const [guests, setGuestsState] = useState(1);
   const [currentActivities, setCurrentActivities] = useState([]);
   const [outfits, setOutfits] = useState([]);
-  const [savedItineraries, setSavedItinerariesState] = useState([]);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [savedItineraries, setSavedItinerariesState] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(SAVED_STORAGE_KEY) || "[]");
+      return Array.isArray(saved) ? saved.map((planner) => ({
+        ...planner,
+        name: typeof planner.name === "string" && planner.name.trim() ? planner.name : defaultPlannerName(planner),
+      })) : [];
+    } catch {
+      window.localStorage.removeItem(SAVED_STORAGE_KEY);
+      return [];
+    }
+  });
 
   // Working trip state (dates, guests, activities, outfits) is intentionally kept in memory only,
   // so it clears on every browser refresh. Only generated planners persist across refreshes.
   useEffect(() => {
+    if (typeof window === "undefined") return;
     window.localStorage.removeItem(TRIP_STORAGE_KEY);
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(SAVED_STORAGE_KEY) || "[]");
-      setSavedItinerariesState(Array.isArray(saved) ? saved.map((planner) => ({
-        ...planner,
-        name: typeof planner.name === "string" && planner.name.trim() ? planner.name : defaultPlannerName(planner),
-      })) : []);
-    } catch {
-      window.localStorage.removeItem(SAVED_STORAGE_KEY);
-    } finally {
-      setIsHydrated(true);
-    }
   }, []);
 
   useEffect(() => {
-    if (!isHydrated) return;
+    if (typeof window === "undefined") return;
     window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedItineraries));
-  }, [isHydrated, savedItineraries]);
+  }, [savedItineraries]);
 
   // Single source of truth: any page that updates the date range updates it everywhere.
   const setDateRange = useCallback((nextRange) => {
@@ -66,7 +71,11 @@ export function TravelProvider({ children }) {
 
   const addActivity = useCallback((activity) => {
     setCurrentActivities((current) => {
-      const exists = current.some((item) => item.name === activity.name && item.destination === activity.destination);
+      const targetDay = getAssignedDay(activity);
+      const exists = current.some((item) => {
+        const itemDay = getAssignedDay(item);
+        return item.name === activity.name && item.destination === activity.destination && itemDay === targetDay;
+      });
       return exists ? current : [...current, activity];
     });
   }, []);
@@ -80,8 +89,9 @@ export function TravelProvider({ children }) {
   }, []);
 
   const hasActivityConflict = useCallback((activity, ignoreIndex = -1) => {
-    if (!activity?.assignedDay) return false;
-    return currentActivities.some((item, index) => index !== ignoreIndex && item.assignedDay === activity.assignedDay);
+    const targetDay = getAssignedDay(activity);
+    if (!targetDay) return false;
+    return currentActivities.some((item, index) => index !== ignoreIndex && getAssignedDay(item) === targetDay);
   }, [currentActivities]);
 
   const saveItinerary = useCallback((itinerary) => {

@@ -9,21 +9,16 @@ import { getGuestWarning, getMinSelectableDate } from "./tripUtils";
 export default function Home() {
   const router = useRouter();
   const { dateRange, setDateRange, guests, setGuests } = useTravel();
-  const [startDate, setStartDate] = useState(dateRange.startDate || "");
-  const [endDate, setEndDate] = useState(dateRange.endDate || "");
+  const startDate = dateRange.startDate || "";
+  const endDate = dateRange.endDate || "";
   const [experienceCounts, setExperienceCounts] = useState({ outdoor: 0, indoor: 0 });
   const minDate = getMinSelectableDate();
-
-  useEffect(() => {
-    if (dateRange.startDate) setStartDate(dateRange.startDate);
-    if (dateRange.endDate) setEndDate(dateRange.endDate);
-  }, [dateRange.endDate, dateRange.startDate]);
 
   useEffect(() => {
     let active = true;
     const loadExperienceCounts = async () => {
       try {
-        const response = await fetch("http://localhost:8000/destinations");
+        const response = await fetch("/api/backend/destinations");
         const data = await response.json();
         if (!response.ok || !Array.isArray(data.destinations)) throw new Error();
         const counts = data.destinations.reduce((result, destination) => {
@@ -125,8 +120,10 @@ export default function Home() {
                 value={startDate}
                 onChange={(event) => {
                   const nextStartDate = event.target.value;
-                  setStartDate(nextStartDate);
-                  if (endDate && endDate < nextStartDate) setEndDate(nextStartDate);
+                  setDateRange({
+                    startDate: nextStartDate,
+                    endDate: endDate && endDate < nextStartDate ? nextStartDate : endDate,
+                  });
                 }}
                 className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer"
               />
@@ -137,7 +134,7 @@ export default function Home() {
                 type="date"
                 min={startDate || minDate}
                 value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
+                onChange={(event) => setDateRange({ startDate, endDate: event.target.value })}
                 className="mt-1 w-full border-0 bg-transparent p-0 text-base font-medium text-slate-900 outline-none cursor-pointer"
               />
             </div>
@@ -176,7 +173,7 @@ export default function Home() {
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">Search by experience type</h2>
           <p className="mt-4 text-slate-500 max-w-2xl mx-auto">
-            Looking for a relaxing beach side, or maybe just a city tour? Use the categories below to search for the experience that's right for you.
+            Looking for a relaxing beach side, or maybe just a city tour? Use the categories below to search for the experience that is right for you.
           </p>
         </div>
 
