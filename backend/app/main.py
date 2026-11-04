@@ -95,6 +95,9 @@ def get_pagasa_condition(temp: float, rain: float, wind: float, heat_index: floa
 
 
 DEFAULT_BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
+PHILIPPINE_PEAK_MONTHS = {12, 1, 2, 4}
+CURRENT_PSA_INFLATION_RATE = 7.2
+INFLATION_BASELINE_RATE = 4.0
 
 
 def normalize_city_name(value: str) -> str:
@@ -223,8 +226,6 @@ def predict_mlr_price(
 
     ph_holidays = holidays.PH(years=[check_in.year])
     is_holiday = float(check_in in ph_holidays)
-    current_inflation_rate = 7.2
-
     feature_dict = {
         "lead_time": float(lead_time),
         "pax": pax,
@@ -235,7 +236,7 @@ def predict_mlr_price(
         "is_holiday": is_holiday,
         "avg_monthly_temp": float(avg_temp),
         "avg_monthly_rain": float(avg_rain),
-        "psa_inflation_rate": current_inflation_rate,
+        "psa_inflation_rate": CURRENT_PSA_INFLATION_RATE,
         "hotel_temp": is_resort * avg_temp,
         "hotel_rain": is_resort * avg_rain,
         "hotel_pax": is_resort * pax,
@@ -256,12 +257,14 @@ def predict_mlr_price(
     predicted_log_multiplier = float(MLR_MODEL.predict(model_input)[0])
     multiplier = float(np.exp(predicted_log_multiplier))
     
-    is_peak_month = check_in.month in {12, 1, 2, 4}
+    is_peak_month = check_in.month in PHILIPPINE_PEAK_MONTHS
     if is_peak_month:
         multiplier *= 1.15
-        
-    inflation_baseline = 4.0
-    inflation_factor = max(0.0, (current_inflation_rate - inflation_baseline) * 0.01) # 1% price increase per 1% inflation over baseline
+
+    inflation_factor = max(
+        0.0,
+        (CURRENT_PSA_INFLATION_RATE - INFLATION_BASELINE_RATE) * 0.01,
+    )
     multiplier *= (1.0 + inflation_factor)
 
     final_price = round(base_price * multiplier, 2)
@@ -270,17 +273,17 @@ def predict_mlr_price(
         final_price,
         multiplier,
         {},
-        "Unified MLR with log target and engineered interactions",
+        "Unified MLR adapted for Philippine seasonality and inflation",
         base_price,
         base_price_source,
     )
 
 
-def accommodation_base_price(destination: str, hotel_type: str) -> tuple[float | None, str]:
+def accommodation_base_price(destination: str, hotel_type: str) -> tuple[float, str]:
     city_key = normalize_city_name(destination)
     if city_key in PHILIPPINE_HOTEL_RATES:
         return PHILIPPINE_HOTEL_RATES[city_key], "local_csv_average"
-    return None, "not_listed"
+    return float(DEFAULT_BASE_PRICES[hotel_type]), "regional_baseline"
 
 
 def infer_hotel_type(destination: str) -> str:
@@ -297,21 +300,7 @@ def estimate_hotel_price(
     hotel_type: str,
 ) -> dict:
     base_price, base_price_source = accommodation_base_price(destination, hotel_type)
-    season = "Peak season" if check_in.month in {12, 1, 2, 4} else "Regular season"
-
-    # NEW CATCH: If no local data exists, return nulls so the UI shows "Not listed"
-    if base_price is None:
-        return {
-            "daily_price": None,
-            "total_price": None,
-            "length_of_stay": length_of_stay,
-            "base_price": None,
-            "base_price_source": base_price_source,
-            "multiplier": None,
-            "season": season,
-            "model_evaluation": {},
-            "source": "Price not listed",
-        }
+    season = "Peak season" if check_in.month in PHILIPPINE_PEAK_MONTHS else "Regular season"
 
     try:
         _, multiplier, model_evaluation, model_source, _, _ = predict_mlr_price(
@@ -319,9 +308,14 @@ def estimate_hotel_price(
         )
         multiplier = min(multiplier, 3.0)
         price_source = f"{model_source} × {base_price_source.replace('_', ' ')}"
-    except (RuntimeError, TypeError, ValueError):
-        seasonal = 1.15 if check_in.month in {12, 1, 2, 4} else 1.0
+    except RuntimeError:
+        seasonal = 1.15 if check_in.month in PHILIPPINE_PEAK_MONTHS else 1.0
         multiplier = (1 + (guests - 1) * 0.12) * seasonal
+        inflation_factor = max(
+            0.0,
+            (CURRENT_PSA_INFLATION_RATE - INFLATION_BASELINE_RATE) * 0.01,
+        )
+        multiplier = min(multiplier * (1.0 + inflation_factor), 3.0)
         model_evaluation = {}
         price_source = f"Rule-based fallback × {base_price_source.replace('_', ' ')}; trained MLR unavailable"
 
@@ -668,7 +662,10 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             "location": city_name,
             "country": "Philippines",
             "hotel_type": "City Hotel",
-            "base_price": PHILIPPINE_HOTEL_RATES.get(city_key, None),
+            "base_price": PHILIPPINE_HOTEL_RATES.get(
+                city_key,
+                DEFAULT_BASE_PRICES["City Hotel"],
+            ),
             "has_local_rate": city_key in PHILIPPINE_HOTEL_RATES,
             "latitude": city_lat,
             "longitude": city_lon,
