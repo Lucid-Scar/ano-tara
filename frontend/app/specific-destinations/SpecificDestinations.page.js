@@ -517,31 +517,6 @@ function SpecificDestinationsContent() {
     window.setTimeout(() => setToastMessage(""), 3000);
   };
 
-const formatActivityPrice = (displayStr, rawPrice) => {
-  if (!displayStr) return "";
-  let cleaned = displayStr.trim();
-  
-  if (
-    /not published|unlisted|tba|n\/a/i.test(cleaned) ||
-    cleaned === "Not published in cited source"
-  ) {
-    return "";
-  }
-
-  // Safely capture and replace "US$", "USD $", or "$"
-  if (cleaned.includes("$")) {
-    cleaned = cleaned.replace(/(?:US\s*D?|USD)?\s*\$(\d+(?:\.\d+)?)/gi, (match, usdVal) => {
-      const phpVal = (parseFloat(usdVal) * 56.0).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      return `₱${phpVal} ($${usdVal})`;
-    });
-  }
-
-  return cleaned;
-};
-
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
       
