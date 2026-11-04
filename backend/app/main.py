@@ -116,6 +116,16 @@ def activity_price_per_pax(row: pd.Series) -> float | None:
     return round(float(match.group(1).replace(",", "")), 2)
 
 
+def display_price_amount(value: object) -> float | None:
+    """Extract the first PHP numeric amount from a display-price string."""
+    if value is None or pd.isna(value):
+        return None
+    match = re.search(r"(?:₱|PHP\s*)\s*([\d,]+(?:\.\d{1,2})?)", str(value), re.IGNORECASE)
+    if not match:
+        return None
+    return round(float(match.group(1).replace(",", "")), 2)
+
+
 # Load the newly trained MLR models
 try:
     MLR_MODEL = joblib.load(BASE_DIR / "model" / "price_surge_mlr_model.joblib")
@@ -400,6 +410,13 @@ def classify_clothing_weather(category: str) -> dict[str, object]:
 GOLDEN_CSV_PATH = DATA_DIR / "philippines_tourism_with_coordinates_final.csv"
 LEGACY_GOLDEN_CSV_PATH = DATA_DIR / "philippines_tourism_with_coordinates_final.csv"
 
+def activity_group_name(raw_name: str) -> tuple[str, str]:
+    """Split an activity's base name from an em/en-dash option suffix."""
+    parts = re.split(r"\s+[—–]\s+", raw_name, maxsplit=1)
+    if len(parts) == 2:
+        return parts[0].strip(), parts[1].strip()
+    return raw_name.strip(), ""
+
 # Helper: convert the source CSV into the destination structure used by the API.
 def load_destinations_from_golden_dataset() -> list[dict]:
     dataset_path = GOLDEN_CSV_PATH if GOLDEN_CSV_PATH.exists() else LEGACY_GOLDEN_CSV_PATH
@@ -409,6 +426,16 @@ def load_destinations_from_golden_dataset() -> list[dict]:
 
     data = pd.read_csv(dataset_path, encoding="utf-8-sig")
     destinations_by_city: dict[str, dict] = {}
+    column_names = {str(column).strip().casefold(): column for column in data.columns}
+
+    def row_value(row: pd.Series, *names: str):
+        for name in names:
+            column = column_names.get(name.casefold())
+            if column is not None:
+                value = row.get(column)
+                if pd.notna(value) and str(value).strip():
+                    return value
+        return None
 
     for _, row in data.iterrows():
         city_name = str(row.get("City_or_Municipality", "")).strip()
@@ -432,9 +459,10 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             destination["latitude"] = float(latitude)
             destination["longitude"] = float(longitude)
 
-        name = str(row.get("Name", "")).strip()
-        if not name or name.casefold() == "nan":
+        raw_name = str(row.get("Name", "")).strip()
+        if not raw_name or raw_name.casefold() == "nan":
             continue
+        name, name_variant = activity_group_name(raw_name)
 
         price = activity_price_per_pax(row)
         price_display = str(row.get("Price_Display", "")).strip()
@@ -578,7 +606,7 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             "price_per_pax": price,
             "price_display": price_display,
             "real_price_php": price if price is not None else 0.0,
-            "source_url": source_url_for_row(row),
+            "pricing_tiers": [tier],
         }
         destination["activities"].append(activity)
 
