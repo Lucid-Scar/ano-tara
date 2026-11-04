@@ -473,8 +473,8 @@ def load_destinations() -> list[dict]:
                 })
 
                 is_cold = bool(re.search(r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada", name, re.I))
-                outdoor["weather_tag"] = "Cold" if is_cold else "Clear / Sunny"
-                indoor["weather_tag"] = "Cold" if is_cold else "Heavy Rain / Rainy"
+                outdoor["weather_tag"] = "Cold" if is_cold else "Sunny"
+                indoor["weather_tag"] = "Cold" if is_cold else "Rainy"
 
                 destinations.append({
                     "id": slugify(name),

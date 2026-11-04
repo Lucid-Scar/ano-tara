@@ -45,7 +45,7 @@ const FALLBACK_DESTINATION = {
   name: "Manila",
   location: "Manila, Philippines",
   country: "Philippines",
-  main_weather: "Clear / Sunny",
+  main_weather: "Sunny",
   image: mainImage,
   description: "Discover scenic attractions, cultural landmarks, and local experiences in Manila.",
   activities: [],
@@ -85,12 +85,12 @@ function NearbyCard({ destination }) {
   const activity = destination.highlightActivity || destination.activities?.[0];
   const title = activity?.name || destination.name;
   const image = activityImage(activity, destination);
-  const weatherTag = activity?.weather_tag || destination.main_weather || "Clear / Sunny";
+  const weatherTag = activity?.weather_tag || destination.main_weather || "Sunny";
   return (
     <Link key={`${destination.id}-${activity?.name || ""}`} href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-32 overflow-hidden rounded-xl shadow-sm">
       <img src={image} alt={title} onError={(event) => applyImageFallback(event, activityFallbackImage(activity, destination))} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-      <span className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase text-white">{weatherTag} chance</span>
+      <span className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase text-white">{weatherTag}</span>
       <div className="absolute bottom-2 left-2 right-2">
         <p className="line-clamp-2 text-xs font-bold leading-snug text-white">{title}</p>
         <p className="text-[10px] text-white/80">{destination.name}</p>
@@ -425,7 +425,7 @@ function SpecificDestinationsContent() {
       time: selectedTime,
       roomType,
       image: selectedActivityImage,
-      weather: weatherForecast?.condition || destinationDetails.main_weather || "Clear / Sunny",
+      weather: weatherForecast?.condition || destinationDetails.main_weather || "Sunny",
       weather_forecast: weatherForecast,
     };
     
