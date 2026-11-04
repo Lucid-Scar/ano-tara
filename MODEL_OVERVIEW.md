@@ -159,7 +159,7 @@ log_multiplier = log(surge_multiplier)
 
 Features include lead time, party size, length of stay, weekend arrival, room class, hotel class, month-based temperature/rainfall and hotel/weather/party-size interactions. The API uses the same weather table. The historical booking data is not Philippine hotel data, so the conversion and baseline are modeling assumptions; resulting prices are estimates, not observed Philippine market prices.
 
-At runtime, `backend/data/philippines_tourism_activities_and_hotels.csv` supplies the destination activity records and activity admission prices. Where that file includes hotel rates for a city, their average is the destination-specific base rate; otherwise, the configured city/resort baseline is used and identified as a regional model baseline. The MLR multiplier is applied to either base, so the booking model supplies date-, party-, stay-, room-, and hotel-type variation without replacing local CSV rates.
+At runtime, `backend/data/philippines_tourism_with_coordinates_final.csv` supplies the destination activity records and activity admission prices. Where that file includes hotel rates for a city, their average is the destination-specific base rate; otherwise, the configured city/resort baseline is used and identified as a regional model baseline. The MLR multiplier is applied to either base, so the booking model supplies date-, party-, stay-, room-, and hotel-type variation without replacing local CSV rates.
 
 ---
 

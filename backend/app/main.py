@@ -128,9 +128,7 @@ except (FileNotFoundError, ImportError, ValueError):
 PHILIPPINE_HOTEL_RATES = {}
 PHILIPPINE_ACTIVITY_COSTS = {}
 PHILIPPINE_ACTIVITY_PRICES = {}
-PHILIPPINE_TOURISM_PATH = DATA_DIR / "philippines_tourism_activities_and_hotels.csv"
-if not PHILIPPINE_TOURISM_PATH.is_file():
-    PHILIPPINE_TOURISM_PATH = BASE_DIR / "philippines_tourism_activities_and_hotels.csv"
+PHILIPPINE_TOURISM_PATH = DATA_DIR / "philippines_tourism_with_coordinates_final.csv"
 if not PHILIPPINE_TOURISM_PATH.is_file():
     raise FileNotFoundError(f"Tourism dataset not found at {PHILIPPINE_TOURISM_PATH}")
 
@@ -379,6 +377,107 @@ def load_destinations_from_golden_dataset() -> list[dict]:
         print("WARNING: Golden CSV not found. Ensure it is inside the /data folder.")
         return []
 
+    data = pd.read_csv(GOLDEN_CSV_PATH, encoding="utf-8-sig")
+    destinations_by_city: dict[str, dict] = {}
+
+    for _, row in data.iterrows():
+        city_name = str(row.get("City_or_Municipality", "")).strip()
+        if not city_name or city_name.casefold() == "nan":
+            continue
+
+        city_key = normalize_city_name(city_name)
+        destination = destinations_by_city.setdefault(
+            city_key,
+            {
+                "name": city_name,
+                "latitude": None,
+                "longitude": None,
+                "activities": [],
+            },
+        )
+
+        latitude = pd.to_numeric(row.get("latitude"), errors="coerce")
+        longitude = pd.to_numeric(row.get("longitude"), errors="coerce")
+        if destination["latitude"] is None and pd.notna(latitude) and pd.notna(longitude):
+            destination["latitude"] = float(latitude)
+            destination["longitude"] = float(longitude)
+
+        name = str(row.get("Name", "")).strip()
+        if not name or name.casefold() == "nan":
+            continue
+
+        price = activity_price_per_pax(row)
+        activity = {
+            "name": name,
+            "type": activity_type_for_record(row),
+            "hotel_type": "Resort Hotel" if activity_type_for_record(row) == "outdoor" else "City Hotel",
+            "duration_hours": activity_duration_hours(row.get("Activity_Duration", "")),
+            "exact_latitude": float(latitude) if pd.notna(latitude) else destination["latitude"],
+            "exact_longitude": float(longitude) if pd.notna(longitude) else destination["longitude"],
+            "real_price_php": price if price is not None else 0.0,
+            "source_url": source_url_for_row(row),
+        }
+        destination["activities"].append(activity)
+
+    destinations_list = []
+    for destination in destinations_by_city.values():
+        city_name = destination["name"]
+        activities = destination["activities"]
+        city_lat = destination["latitude"] or 14.6042
+        city_lon = destination["longitude"] or 120.9822
+
+        if not any(activity["type"] == "indoor" for activity in activities):
+            activities.append({
+                "name": f"{city_name} Heritage Tour",
+                "type": "indoor",
+                "hotel_type": "City Hotel",
+                "duration_hours": 3,
+                "exact_latitude": city_lat,
+                "exact_longitude": city_lon,
+                "real_price_php": 0.0,
+                "source_url": "City Center Fallback",
+            })
+        if not any(activity["type"] == "outdoor" for activity in activities):
+            activities.append({
+                "name": f"{city_name} City Park Walk",
+                "type": "outdoor",
+                "hotel_type": "Resort Hotel",
+                "duration_hours": 3,
+                "exact_latitude": city_lat,
+                "exact_longitude": city_lon,
+                "real_price_php": 0.0,
+                "source_url": "City Center Fallback",
+            })
+
+        is_cold = bool(re.search(
+            r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada",
+            city_name,
+            re.IGNORECASE,
+        ))
+        for activity in activities:
+            activity["weather_tag"] = (
+                "Cold" if is_cold else
+                ("Sunny" if activity["type"] == "outdoor" else "Rainy")
+            )
+
+        destinations_list.append({
+            "id": slugify(city_name),
+            "name": city_name,
+            "location": city_name,
+            "country": "Philippines",
+            "hotel_type": "City Hotel",
+            "base_price": DEFAULT_BASE_PRICES["City Hotel"],
+            "base_prices": DEFAULT_BASE_PRICES,
+            "latitude": city_lat,
+            "longitude": city_lon,
+            "main_weather": "Cold" if is_cold else "Cloudy",
+            "image": "https://images.unsplash.com/photo-1518544866330-95a85b8f8f6f?auto=format&fit=crop&w=1200&q=80",
+            "description": f"Verified activities and historical landmarks in {city_name}.",
+            "activities": activities,
+        })
+
+    return destinations_list
+
 
 def activity_type_for_record(row: pd.Series) -> str:
     text = " ".join(
@@ -417,81 +516,6 @@ def source_url_for_row(row: pd.Series) -> str | None:
         if parsed.scheme in {"http", "https"} and parsed.netloc:
             return candidate
     return None
-
-
-def load_destinations() -> list[dict]:
-    dest_path = DATA_DIR / "destinations.csv"
-    act_path = DATA_DIR / "activities.csv"
-    acts_by_dest: dict[str, list[dict]] = {}
-    if act_path.exists():
-        with act_path.open(encoding="utf-8") as f:
-            for row in csv.DictReader(f):
-                act_type = row["activity_type"].strip().lower()
-                dest_name = row["destination"]
-                existing = acts_by_dest.setdefault(dest_name, [])
-                if not any(a["type"] == act_type for a in existing):
-                    existing.append({
-                        "name": row["activity_name"],
-                        "type": act_type,
-                        "hotel_type": "Resort Hotel" if act_type == "outdoor" else "City Hotel",
-                        "duration_hours": int(row.get("duration_hours", 4 if act_type == "outdoor" else 3)),
-                    })
-    destinations = []
-    if dest_path.exists():
-        with dest_path.open(encoding="utf-8") as f:
-            for idx, row in enumerate(csv.DictReader(f)):
-                name = row["destination"]
-                meta = DESTINATION_METADATA.get(name, {})
-                image = meta.get("image", CURATED_IMAGES[idx % len(CURATED_IMAGES)])
-                desc = meta.get("description", f"Discover scenic attractions, cultural landmarks, and local experiences in {name}.")
-                dest_acts = acts_by_dest.get(name, [])
-                
-            # Classify indoor vs outdoor based on your real categories
-            cat = str(row['Activity_or_Room_Category']).lower()
-            act_type = "indoor" if "museum" in cat or "indoor" in cat or "heritage" in cat else "outdoor"
-            price = float(row['Price_Per_Pax_PHP'])
-            
-            activities.append({
-                "name": row['Name'],
-                "type": act_type,
-                "hotel_type": "Resort Hotel" if act_type == "outdoor" else "City Hotel",
-                "duration_hours": 4 if act_type == "outdoor" else 3,
-                "exact_latitude": float(row['latitude']),
-                "exact_longitude": float(row['longitude']),
-                "real_price_php": price,
-                "source_url": str(row['Source_URLs'])
-            })
-            
-        # Failsafe: Ensure at least 1 indoor and 1 outdoor activity exists per city so the Decision Tree doesn't break
-        has_indoor = any(a['type'] == 'indoor' for a in activities)
-        has_outdoor = any(a['type'] == 'outdoor' for a in activities)
-        if not has_indoor:
-            activities.append({"name": f"{city_name} Heritage Tour", "type": "indoor", "hotel_type": "City Hotel", "duration_hours": 3, "exact_latitude": city_lat, "exact_longitude": city_lon, "real_price_php": 0.0, "source_url": "City Center Fallback"})
-        if not has_outdoor:
-            activities.append({"name": f"{city_name} City Park Walk", "type": "outdoor", "hotel_type": "Resort Hotel", "duration_hours": 3, "exact_latitude": city_lat, "exact_longitude": city_lon, "real_price_php": 0.0, "source_url": "City Center Fallback"})
-            
-        is_cold = bool(re.search(r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada", city_name, re.I))
-        
-        for a in activities:
-            a["weather_tag"] = "Cold" if is_cold else ("Sunny" if a['type'] == 'outdoor' else "Rainy")
-
-        destinations_list.append({
-            "id": slugify(city_name),
-            "name": city_name,
-            "location": city_name,
-            "country": "Philippines",
-            "hotel_type": "City Hotel",
-            "base_price": BASE_PRICES["City Hotel"],
-            "base_prices": BASE_PRICES,
-            "latitude": city_lat,
-            "longitude": city_lon,
-            "main_weather": "Cold" if is_cold else "Cloudy",
-            "image": "https://images.unsplash.com/photo-1518544866330-95a85b8f8f6f?auto=format&fit=crop&w=1200&q=80",
-            "description": f"Verified activities and historical landmarks in {city_name}.",
-            "activities": activities,
-        })
-        
-    return destinations_list
 
 DESTINATIONS = load_destinations_from_golden_dataset()
 
