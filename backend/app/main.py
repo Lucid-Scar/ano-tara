@@ -121,8 +121,13 @@ try:
     MLR_MODEL = joblib.load(BASE_DIR / "model" / "price_surge_mlr_model.joblib")
     MLR_FEATURES = joblib.load(BASE_DIR / "model" / "model_features.joblib")
 except (FileNotFoundError, ImportError, ValueError):
-    MLR_MODEL = None
-    MLR_FEATURES = []
+    try:
+        price_model_bundle = joblib.load(BASE_DIR / "model" / "price_model_bundle.joblib")
+        MLR_MODEL = price_model_bundle["model"]
+        MLR_FEATURES = price_model_bundle["features"]
+    except (FileNotFoundError, ImportError, KeyError, TypeError, ValueError):
+        MLR_MODEL = None
+        MLR_FEATURES = []
 
 # Load local Philippine hotel and activity data.
 PHILIPPINE_HOTEL_RATES = {}
@@ -222,6 +227,11 @@ def predict_mlr_price(
         "pax_squared": pax ** 2,
     }
 
+    for feature in MLR_FEATURES:
+        if feature.startswith("arrival_date_month_"):
+            feature_dict[feature] = float(
+                feature.removeprefix("arrival_date_month_") == check_in.strftime("%B")
+            )
     model_input = pd.DataFrame([feature_dict])
     for feature in MLR_FEATURES:
         if feature not in model_input:
@@ -408,6 +418,9 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             continue
 
         price = activity_price_per_pax(row)
+        price_display = str(row.get("Price_Display", "")).strip()
+        if not price_display or price_display.casefold() == "nan":
+            price_display = ""
         activity = {
             "name": name,
             "type": activity_type_for_record(row),
@@ -415,6 +428,8 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             "duration_hours": activity_duration_hours(row.get("Activity_Duration", "")),
             "exact_latitude": float(latitude) if pd.notna(latitude) else destination["latitude"],
             "exact_longitude": float(longitude) if pd.notna(longitude) else destination["longitude"],
+            "price_per_pax": price,
+            "price_display": price_display,
             "real_price_php": price if price is not None else 0.0,
             "source_url": source_url_for_row(row),
         }
