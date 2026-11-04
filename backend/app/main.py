@@ -257,6 +257,14 @@ def predict_mlr_price(
 
     predicted_log_multiplier = float(MLR_MODEL.predict(model_input)[0])
     multiplier = float(np.exp(predicted_log_multiplier))
+    
+    is_peak_month = check_in.month in {12, 1, 2, 4}
+    if is_peak_month:
+        multiplier *= 1.15
+        
+    inflation_baseline = 4.0
+    inflation_factor = max(0.0, (current_inflation_rate - inflation_baseline) * 0.01) # 1% price increase per 1% inflation over baseline
+    multiplier *= (1.0 + inflation_factor)
 
     final_price = round(base_price * multiplier, 2)
 
