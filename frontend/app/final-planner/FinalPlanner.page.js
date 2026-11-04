@@ -7,7 +7,7 @@ import ActivityTimePicker from "../../components/ActivityTimePicker";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
 import { useTravel } from "../TravelContext";
-import { clampActivityTime, getGuestWarning, getMinSelectableDate, isPastOrTodayDate, isValidActivityTime, toDateString } from "../tripUtils";
+import { clampActivityTime, getGuestWarning, getMinSelectableDate, isPastOrTodayDate, isValidActivityTime, toDateString, getPAGASABadgeColor } from "../tripUtils";
 
 const formatDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 const formatShortDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -31,7 +31,10 @@ const dayImage = (activity) => activity?.image || fallbackDayImage(activity);
 const describeWeather = (day) => {
   const forecast = day.weather_forecast || {};
   const historical = day.historical_weather || {};
-  const condition = String(day.expected_weather || forecast.condition || "unavailable").toLowerCase();
+  
+  // Natively use the PAGASA condition directly from the backend payload
+  const condition = String(forecast.condition || "unavailable").toLowerCase();
+  
   const tempRange = forecast.temperature_min_c != null && forecast.temperature_max_c != null
     ? `${forecast.temperature_min_c}°C to ${forecast.temperature_max_c}°C`
     : forecast.average_temperature != null ? `around ${forecast.average_temperature}°C` : "a comfortable temperature";
@@ -305,7 +308,9 @@ export default function FinalPlannerPage() {
 
             <section className="py-6">
               <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-black uppercase tracking-wider">Activities</h3><Link href="/destinations" className="planner-nav-link text-xs">Choose more Activities</Link></div>
-              <p className="mt-2 text-sm text-slate-600">Drag cards to reorder days, or use the day menu to swap.</p>
+              <p className="mt-2 text-sm text-slate-600">
+                Drag cards to reorder days, or use the day menu to swap. You can assign multiple activities to the same day. <span className="italic text-slate-500">Note: Please account for geographic distance and travel time between locations when grouping activities.</span>
+              </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {activities.map((activity, index) => (
                   <article
@@ -412,6 +417,11 @@ export default function FinalPlannerPage() {
                 return (
                   <section key={`${day.date || day.day}-${index}`} className="border-b border-slate-200 pb-4">
                     <div className="flex justify-between gap-3"><h3 className="font-black">{day.dayNumber} · {day.dateLabel}</h3></div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getPAGASABadgeColor(day.expected_weather)}`}>
+                        {day.expected_weather}
+                      </span>
+                    </div>
                     <p className="mt-2 text-xs leading-5 text-slate-600">{day.weatherDescription}</p>
                     {dayOutfits.length ? <div className="mt-3 space-y-2">{groupOutfits(dayOutfits).map((group) => <div key={group.key}>
                       <p className="text-xs font-bold text-slate-700">{group.name}</p>
@@ -485,6 +495,7 @@ export default function FinalPlannerPage() {
                         ) : null}
                         <div className="itinerary-weather-details">
                           <p className="itinerary-section-label">Weather details</p>
+                          <p className="font-bold text-slate-800 mb-1">{day.expected_weather}</p>
                           <p>{day.weatherDescription}</p>
                         </div>
                       </div>

@@ -1,3 +1,4 @@
+import csv
 import re
 from base64 import b64decode
 from binascii import Error as Base64Error
@@ -60,14 +61,30 @@ class ItineraryPayload(BaseModel):
     outfit: dict | None = None
 
 
-WEATHER_OPTIONS = ("Sunny", "Rainy", "Cloudy")
-OUTFIT_ADVICE = {"Sunny": "Wear light, breathable clothes and comfortable walking shoes, and bring sunscreen and a hat.", "Rainy": "Wear quick-dry layers and waterproof shoes, and bring an umbrella or rain jacket.", "Cloudy": "Wear comfortable layers and walking shoes, and bring a light jacket."}
-MONTHLY_WEATHER = {
-    1: (27.0, 8.5, "Cloudy"), 2: (27.5, 5.2, "Sunny"), 3: (28.5, 3.1, "Sunny"),
-    4: (29.5, 4.2, "Sunny"), 5: (30.0, 9.8, "Cloudy"), 6: (29.2, 18.4, "Rainy"),
-    7: (28.7, 24.1, "Rainy"), 8: (28.5, 26.5, "Rainy"), 9: (28.3, 25.2, "Rainy"),
-    10: (28.1, 20.6, "Rainy"), 11: (27.8, 14.1, "Cloudy"), 12: (27.2, 11.4, "Cloudy"),
+WEATHER_OPTIONS = ("Clear / Sunny", "Fair / Partly Cloudy", "Light Rain / Drizzle", "Heavy Rain / Rainy", "Windy / Stormy", "Extreme Heat / Danger")
+OUTFIT_ADVICE = {
+    "Clear / Sunny": "Wear light, breathable clothes and comfortable walking shoes, and bring sunscreen and a hat.",
+    "Fair / Partly Cloudy": "Wear comfortable layers and walking shoes, and bring a light jacket.",
+    "Light Rain / Drizzle": "Wear quick-dry layers and waterproof shoes, and bring an umbrella or rain jacket.",
+    "Heavy Rain / Rainy": "Wear waterproof layers, sturdy boots, and carry a heavy-duty umbrella.",
+    "Windy / Stormy": "Stay indoors if possible; wear warm, windproof layers if you must go out.",
+    "Extreme Heat / Danger": "Wear ultra-light, breathable clothing, stay hydrated, and strictly avoid prolonged sun exposure."
 }
+MONTHLY_WEATHER = {
+    1: (27.0, 8.5, "Light Rain / Drizzle"), 2: (27.5, 5.2, "Clear / Sunny"), 3: (28.5, 3.1, "Clear / Sunny"),
+    4: (29.5, 4.2, "Clear / Sunny"), 5: (30.0, 9.8, "Light Rain / Drizzle"), 6: (29.2, 18.4, "Heavy Rain / Rainy"),
+    7: (28.7, 24.1, "Heavy Rain / Rainy"), 8: (28.5, 26.5, "Heavy Rain / Rainy"), 9: (28.3, 25.2, "Heavy Rain / Rainy"),
+    10: (28.1, 20.6, "Heavy Rain / Rainy"), 11: (27.8, 14.1, "Light Rain / Drizzle"), 12: (27.2, 11.4, "Light Rain / Drizzle"),
+}
+
+def get_pagasa_condition(temp: float, rain: float, wind: float, heat_index: float) -> str:
+    if heat_index >= 42.0: return 'Extreme Heat / Danger'
+    if wind >= 45.0 or (rain > 40 and wind > 30): return 'Windy / Stormy'
+    if rain > 15.0: return 'Heavy Rain / Rainy'
+    if 2.0 < rain <= 15.0: return 'Light Rain / Drizzle'
+    if temp >= 31.0 and rain <= 2.0: return 'Fair / Partly Cloudy'
+    return 'Clear / Sunny'
+
 
 DEFAULT_BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
 
@@ -172,7 +189,12 @@ def predict_mlr_price(
     is_resort = float(hotel_type == "Resort Hotel")
     base_price, base_price_source = accommodation_base_price(destination, hotel_type)
 
-    avg_temp, avg_rain, _ = MONTHLY_WEATHER[check_in.month]
+    # Use the monthly weather map already defined in this file
+    avg_temp, avg_rain, _ = MONTHLY_WEATHER.get(
+        check_in.month,
+        (28.0, 10.0, "Clear / Sunny")
+    )
+
     pax = float(guests)
     lead_time = max(0, (check_in - datetime.now().date()).days)
     is_weekend = float(check_in.weekday() in {4, 5, 6})
@@ -273,7 +295,7 @@ def estimate_hotel_price(
 
 
 def weather_label_from_code(code: int) -> str:
-    return "Sunny" if code == 0 else "Cloudy" if code in {1, 2, 3, 45, 48} else "Rainy"
+    return "Clear / Sunny" if code == 0 else "Fair / Partly Cloudy" if code in {1, 2, 3, 45, 48} else "Heavy Rain / Rainy"
 
 
 def monthly_weather_for_date(target_date: date) -> dict[str, object]:
@@ -297,21 +319,21 @@ def slugify(text: str) -> str:
 
 
 CLOTHING_WEATHER_MAP = {
-    "kaos": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "kemeja": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "polo": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "celana pendek": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "gaun": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "rok": {"conditions": ["Sunny"], "phrase": "sunny, warm weather", "primary": "Sunny"},
-    "hoodie": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "sweater": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "jaket": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "jaket denim": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "jaket olahraga": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "mantel": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "blazer": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "celana panjang": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
-    "jeans": {"conditions": ["Cloudy", "Rainy"], "phrase": "cool, cloudy, or rainy weather", "primary": "Cloudy"},
+    "kaos": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
+    "kemeja": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
+    "polo": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
+    "celana pendek": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
+    "gaun": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
+    "rok": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
+    "hoodie": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
+    "sweater": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
+    "jaket": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
+    "jaket denim": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
+    "jaket olahraga": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
+    "mantel": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
+    "blazer": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
+    "celana panjang": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
+    "jeans": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
 }
 
 
@@ -338,7 +360,7 @@ def classify_clothing_weather(category: str) -> dict[str, object]:
         "celana panjang": CLOTHING_WEATHER_MAP["celana panjang"],
         "jeans": CLOTHING_WEATHER_MAP["jeans"],
     }
-    return fallbacks.get(normalized, {"conditions": ["Cloudy"], "phrase": "mild or unpredictable conditions", "primary": "Cloudy"})
+    return fallbacks.get(normalized, {"conditions": ["Fair / Partly Cloudy"], "phrase": "mild or unpredictable conditions", "primary": "Fair / Partly Cloudy"})
 
 DESTINATION_METADATA = {
     "Baguio": {"hotel_type": "City Hotel", "image": "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80", "description": "The Summer Capital of the Philippines known for cool pine-scented breezes."},
@@ -411,91 +433,64 @@ def source_url_for_row(row: pd.Series) -> str | None:
 
 
 def load_destinations() -> list[dict]:
-    coordinates_by_city = {}
-    coordinate_path = DATA_DIR / "destinations.csv"
-    if coordinate_path.is_file():
-        coordinates = pd.read_csv(coordinate_path, encoding="utf-8-sig")
-        for _, row in coordinates.iterrows():
-            city_key = normalize_city_name(str(row["destination"]))
-            coordinates_by_city[city_key] = row
-
-    grouped_rows = {}
-    display_names = {}
-    for _, row in PHILIPPINE_TOURISM_DATA.iterrows():
-        name = str(row.get("City_or_Municipality", "")).strip()
-        activity_name = str(row.get("Name", "")).strip()
-        if not name or name.casefold() == "nan" or not activity_name or activity_name.casefold() == "nan":
-            continue
-        if pd.notna(pd.to_numeric(row.get("Hotel_Rate_PHP_per_Night"), errors="coerce")):
-            continue
-
-        city_key = normalize_city_name(name)
-        display_names.setdefault(city_key, name)
-        grouped_rows.setdefault(city_key, []).append(row)
-
-    metadata_by_city = {
-        normalize_city_name(name): metadata
-        for name, metadata in DESTINATION_METADATA.items()
-    }
-    hotel_bookings_by_city = {}
-    for _, row in PHILIPPINE_TOURISM_DATA.iterrows():
-        if str(row.get("Record_Type", "")).strip().casefold() != "hotel room":
-            continue
-        city_key = normalize_city_name(str(row.get("City_or_Municipality", "")).strip())
-        name = str(row.get("Name", "")).strip()
-        booking_url = source_url_for_row(row)
-        if not city_key or not name or name.casefold() == "nan" or not booking_url:
-            continue
-        bookings = hotel_bookings_by_city.setdefault(city_key, [])
-        if not any(item["name"] == name and item["url"] == booking_url for item in bookings):
-            bookings.append({"name": name, "url": booking_url})
-
+    dest_path = DATA_DIR / "destinations.csv"
+    act_path = DATA_DIR / "activities.csv"
+    acts_by_dest: dict[str, list[dict]] = {}
+    if act_path.exists():
+        with act_path.open(encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                act_type = row["activity_type"].strip().lower()
+                dest_name = row["destination"]
+                existing = acts_by_dest.setdefault(dest_name, [])
+                if not any(a["type"] == act_type for a in existing):
+                    existing.append({
+                        "name": row["activity_name"],
+                        "type": act_type,
+                        "hotel_type": "Resort Hotel" if act_type == "outdoor" else "City Hotel",
+                        "duration_hours": int(row.get("duration_hours", 4 if act_type == "outdoor" else 3)),
+                    })
     destinations = []
-    for index, (city_key, activity_rows) in enumerate(grouped_rows.items()):
-        name = display_names[city_key]
-        metadata = metadata_by_city.get(city_key, {})
-        coordinate = coordinates_by_city.get(city_key)
-        hotel_type = metadata.get("hotel_type", "City Hotel")
-        local_price = PHILIPPINE_HOTEL_RATES.get(city_key)
-        is_cold = bool(re.search(r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada", name, re.I))
-        activities = []
+    if dest_path.exists():
+        with dest_path.open(encoding="utf-8") as f:
+            for idx, row in enumerate(csv.DictReader(f)):
+                name = row["destination"]
+                meta = DESTINATION_METADATA.get(name, {})
+                image = meta.get("image", CURATED_IMAGES[idx % len(CURATED_IMAGES)])
+                desc = meta.get("description", f"Discover scenic attractions, cultural landmarks, and local experiences in {name}.")
+                dest_acts = acts_by_dest.get(name, [])
+                
+                outdoor = next((a for a in dest_acts if a["type"] == "outdoor"), {
+                    "name": f"{name} scenic landmarks & nature park tour",
+                    "type": "outdoor",
+                    "hotel_type": "Resort Hotel",
+                    "duration_hours": 4,
+                })
+                indoor = next((a for a in dest_acts if a["type"] == "indoor"), {
+                    "name": f"{name} cultural heritage museum & culinary tasting",
+                    "type": "indoor",
+                    "hotel_type": "City Hotel",
+                    "duration_hours": 3,
+                })
 
-        for row in activity_rows:
-            activity_type = activity_type_for_record(row)
-            price_per_pax = activity_price_per_pax(row)
-            category = str(row.get("Activity_or_Room_Category", "")).strip()
-            address = str(row.get("Location_or_Address", "")).strip()
-            description_parts = [part for part in (category, address) if part and part.casefold() != "nan"]
-            activities.append({
-                "name": str(row["Name"]).strip(),
-                "type": activity_type,
-                "hotel_type": "Resort Hotel" if activity_type == "outdoor" else "City Hotel",
-                "weather_tag": "Cold" if is_cold else ("Sunny" if activity_type == "outdoor" else "Rainy"),
-                "duration_hours": activity_duration_hours(row.get("Activity_Duration")),
-                "description": " · ".join(description_parts),
-                "price_per_pax": price_per_pax,
-                "price_display": "" if pd.isna(row.get("Price_Display")) else str(row.get("Price_Display")).strip(),
-                "source_url": source_url_for_row(row),
-            })
+                is_cold = bool(re.search(r"baguio|tagaytay|malaybalay|canlaon|bontoc|sagada", name, re.I))
+                outdoor["weather_tag"] = "Cold" if is_cold else "Clear / Sunny"
+                indoor["weather_tag"] = "Cold" if is_cold else "Heavy Rain / Rainy"
 
-        destination = {
-            "id": slugify(name),
-            "name": name,
-            "location": name,
-            "country": "Philippines",
-            "hotel_type": hotel_type,
-            "base_price": local_price if local_price is not None else DEFAULT_BASE_PRICES[hotel_type],
-            "has_local_rate": local_price is not None,
-            "base_prices": DEFAULT_BASE_PRICES,
-            "latitude": float(coordinate["latitude"]) if coordinate is not None else None,
-            "longitude": float(coordinate["longitude"]) if coordinate is not None else None,
-            "main_weather": "Cold" if is_cold else (coordinate.get("main_weather", "Cloudy") if coordinate is not None else "Cloudy"),
-            "image": metadata.get("image", CURATED_IMAGES[index % len(CURATED_IMAGES)]),
-            "description": metadata.get("description", f"Explore attractions and activities in {name}."),
-            "hotel_bookings": hotel_bookings_by_city.get(city_key, []),
-            "activities": activities,
-        }
-        destinations.append(destination)
+                destinations.append({
+                    "id": slugify(name),
+                    "name": name,
+                    "location": name,
+                    "country": row.get("country", "Philippines"),
+                    "hotel_type": meta.get("hotel_type", "City Hotel"),
+                    "base_price": DEFAULT_BASE_PRICES[meta.get("hotel_type", "City Hotel")],
+                    "base_prices": DEFAULT_BASE_PRICES,
+                    "latitude": float(row["latitude"]),
+                    "longitude": float(row["longitude"]),
+                    "main_weather": "Cold" if is_cold else row.get("main_weather", "Fair / Partly Cloudy"),
+                    "image": image,
+                    "description": desc,
+                    "activities": [outdoor, indoor],
+                })
     return destinations
 
 
@@ -589,7 +584,7 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                         t_max = round(float(daily["temperature_2m_max"][i]), 1)
                         t_min = round(float(daily["temperature_2m_min"][i]), 1)
                         heat_idx = round(float(daily["apparent_temperature_max"][i]), 1) if daily.get("apparent_temperature_max") and daily["apparent_temperature_max"][i] is not None else t_max + 4.0
-                        p_prob = int(daily["precipitation_probability_max"][i]) if daily.get("precipitation_probability_max") and daily["precipitation_probability_max"][i] is not None else (90 if weather_label_from_code(w_code) == "Rainy" else 20)
+                        p_prob = int(daily["precipitation_probability_max"][i]) if daily.get("precipitation_probability_max") and daily["precipitation_probability_max"][i] is not None else (90 if weather_label_from_code(w_code) == "Heavy Rain / Rainy" else 20)
                         p_sum = round(float(daily["precipitation_sum"][i]), 1) if daily.get("precipitation_sum") and daily["precipitation_sum"][i] is not None else 0.0
                         w_speed = round(float(daily["windspeed_10m_max"][i]), 1) if daily.get("windspeed_10m_max") and daily["windspeed_10m_max"][i] is not None else 12.0
                         
@@ -639,7 +634,7 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                             "temperature_min_c": t_min,
                             "average_temperature": round((t_max + t_min) / 2, 1),
                             "apparent_temperature_max": heat_idx,
-                            "precipitation_probability": 85 if weather_label_from_code(w_code) == "Rainy" else 15,
+                            "precipitation_probability": 85 if weather_label_from_code(w_code) == "Heavy Rain / Rainy" else 15,
                             "precipitation_sum_mm": p_sum,
                             "wind_speed_kmh": w_speed,
                             "source": "Open-Meteo archive data",
@@ -678,7 +673,7 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
                         heat_idxs = [daily["apparent_temperature_max"][idx] for idx in matches if daily.get("apparent_temperature_max") and daily["apparent_temperature_max"][idx] is not None]
                         
                         cond_counts = {c: [weather_label_from_code(code) for code in codes].count(c) for c in WEATHER_OPTIONS}
-                        dom_cond = max(cond_counts, key=cond_counts.get) if codes else "Sunny"
+                        dom_cond = max(cond_counts, key=cond_counts.get) if codes else "Clear / Sunny"
                         avg_rain = round(sum(rains) / len(rains), 1) if rains else round(MONTHLY_WEATHER[target_date.month][1], 1)
                         avg_max = round(sum(t_maxs) / len(t_maxs), 1) if t_maxs else (MONTHLY_WEATHER[target_date.month][0] + 2)
                         avg_min = round(sum(t_mins) / len(t_mins), 1) if t_mins else (MONTHLY_WEATHER[target_date.month][0] - 2)
@@ -707,6 +702,14 @@ def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[
 
         WEATHER_CACHE[cache_key] = day_forecast
         results[day_str] = day_forecast
+
+    # STRICT PAGASA INTERCEPT BEFORE RETURNING TO FRONTEND
+    for day_str, fc in results.items():
+        t = float(fc.get("average_temperature", 28.0))
+        r = float(fc.get("precipitation_sum_mm", 0.0))
+        w = float(fc.get("wind_speed_kmh", 12.0))
+        h = float(fc.get("apparent_temperature_max", t + 4.0))
+        fc["condition"] = get_pagasa_condition(t, r, w, h)
 
     return results
 
@@ -752,7 +755,7 @@ def historical_weather(latitude: float, longitude: float, dates: list[str]) -> d
                 
                 conditions = [weather_label_from_code(int(code)) for code in codes]
                 counts = {cond: conditions.count(cond) for cond in WEATHER_OPTIONS}
-                dominant = max(counts, key=counts.get) if counts else "Cloudy"
+                dominant = max(counts, key=counts.get) if counts else "Fair / Partly Cloudy"
                 avg_rain = round(sum(rains) / len(rains), 1) if rains else round(MONTHLY_WEATHER[start.month][1], 1)
                 avg_temp = round((sum(t_maxs) + sum(t_mins)) / (len(t_maxs) + len(t_mins)), 1) if (t_maxs and t_mins) else MONTHLY_WEATHER[start.month][0]
                 
@@ -806,8 +809,10 @@ def build_weather_comparison(forecast: dict, historical: dict) -> dict:
 
 def preference(activity_type: str) -> tuple[str, ...]:
     normalized = activity_type.strip().lower()
-    if normalized == "outdoor": return ("Sunny", "Cloudy")
-    if normalized == "indoor": return ("Rainy",)
+    if normalized == "outdoor": 
+        return ("Clear / Sunny", "Fair / Partly Cloudy")
+    if normalized == "indoor": 
+        return ("Light Rain / Drizzle", "Heavy Rain / Rainy", "Windy / Stormy", "Extreme Heat / Danger")
     raise HTTPException(422, "Activity type must be either 'indoor' or 'outdoor'.")
 
 
@@ -965,7 +970,7 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
         # Model outputs: 1 = Safe / Suitable, 0 = Unsafe / Hazardous
         is_outdoor_friendly = (prediction == 1)
     else:
-        is_outdoor_friendly = fc["condition"] in {"Sunny", "Cloudy"}
+        is_outdoor_friendly = fc["condition"] in {"Clear / Sunny", "Fair / Partly Cloudy"}
 
     rec_type = "outdoor" if is_outdoor_friendly else "indoor"
     rec_reason = (
@@ -1055,7 +1060,7 @@ def predict_price(payload: PricePayload):
         prediction = int(WEATHER_DECISION_TREE.predict(features_df)[0])
         rec_type = "outdoor" if prediction == 1 else "indoor"
     else:
-        rec_type = "outdoor" if weather["condition"] in {"Sunny", "Cloudy"} else "indoor"
+        rec_type = "outdoor" if weather["condition"] in {"Clear / Sunny", "Fair / Partly Cloudy"} else "indoor"
 
     rec_reason = (
         f"Forecast is {weather['condition']} ({weather.get('average_temperature', 28)}°C) — recommended for outdoor activities."
@@ -1187,7 +1192,7 @@ def generate_itinerary(payload: ItineraryPayload):
                 f"Scheduled on {matched_fc['condition']} day in {destination}; no rainy date was available."
             )
 
-        # NEW MACHINE LEARNING ROUTING FOR HAZARD FLAGS:
+       # FIXED HAZARD FLAG: Only flag severe conditions, NOT Light Rain / Drizzle
         if WEATHER_DECISION_TREE:
             avg_temp = float(matched_fc.get('average_temperature', average_temperature))
             precip = float(rainfall)
@@ -1197,10 +1202,10 @@ def generate_itinerary(payload: ItineraryPayload):
             
             features_df = pd.DataFrame([[avg_temp, precip, wind, heat_idx, is_resort_val]], columns=['average_temperature_c', 'precipitation_mm', 'wind_speed_kmh', 'heat_index_c', 'hotel_is_resort'])
             prediction = int(WEATHER_DECISION_TREE.predict(features_df)[0])
-            # If prediction is 0 (Unsafe/Hazardous), trigger hazard flag for outdoor activities
-            hazard_flag = (act_type == "outdoor" and prediction == 0)
+            # Only trigger safety alert for true hazardous prediction OR heavy conditions
+            hazard_flag = (act_type == "outdoor" and (prediction == 0 or matched_fc["condition"] in {"Heavy Rain / Rainy", "Windy / Stormy", "Extreme Heat / Danger"}))
         else:
-            hazard_flag = act_type == "outdoor" and matched_fc["condition"] == "Rainy"
+            hazard_flag = act_type == "outdoor" and matched_fc["condition"] in {"Heavy Rain / Rainy", "Windy / Stormy", "Extreme Heat / Danger"}
 
         scheduled[day].append({
             "name": activity.name.strip(),
@@ -1259,7 +1264,7 @@ def generate_itinerary(payload: ItineraryPayload):
             "comparison": comp,
             "destination_forecasts": dest_forecasts,
             "scheduled_activities": activities,
-            "outfit_advice": f"At {destination}, {OUTFIT_ADVICE.get(forecast['condition'], OUTFIT_ADVICE['Cloudy'])}",
+            "outfit_advice": f"At {destination}, {OUTFIT_ADVICE.get(forecast['condition'], OUTFIT_ADVICE['Fair / Partly Cloudy'])}",
         })
 
     outfit_response = None
