@@ -54,6 +54,11 @@ class ActivityPayload(BaseModel):
     time: str | None = None
     hotel_type: str | None = None
     room_type: str = "Standard Room"
+    exact_latitude: float | None = None
+    exact_longitude: float | None = None
+    price_per_pax: float | str | None = None
+    price_display: str | None = None
+    real_price_php: float | None = None
 
 
 class ItineraryPayload(BaseModel):
@@ -314,11 +319,17 @@ def estimate_hotel_price(
         )
         multiplier = min(multiplier, 3.0)
         price_source = f"{model_source} × {base_price_source.replace('_', ' ')}"
-    except RuntimeError:
+    except (RuntimeError, TypeError, ValueError):
         seasonal = 1.15 if check_in.month in {12, 1, 2, 4} else 1.0
         multiplier = (1 + (guests - 1) * 0.12) * seasonal
         model_evaluation = {}
         price_source = f"Rule-based fallback × {base_price_source.replace('_', ' ')}; trained MLR unavailable"
+
+    if multiplier is None or not np.isfinite(multiplier):
+        seasonal = 1.15 if check_in.month in {12, 1, 2, 4} else 1.0
+        multiplier = (1 + (guests - 1) * 0.12) * seasonal
+        model_evaluation = {}
+        price_source = f"Rule-based fallback × {base_price_source.replace('_', ' ')}; invalid MLR output"
 
     daily_price = round(base_price * multiplier, 2)
     return {
@@ -1293,6 +1304,26 @@ def predict_price(payload: PricePayload):
     season = estimate["season"]
     price_source = estimate["source"]
 
+    if multiplier is None or base_price is None:
+        return {
+            "status": "success",
+            "price": None,
+            "daily_price": None,
+            "total_price": None,
+            "length_of_stay": length_of_stay,
+            "currency": "PHP",
+            "hotel_type": hotel_type,
+            "base_price": base_price,
+            "base_price_source": base_price_source,
+            "price_source_flag": "not_listed",
+            "multiplier": None,
+            "surge_multiplier": None,
+            "month": payload.check_in.strftime("%B"),
+            "season": season,
+            "model_evaluation": model_evaluation,
+            "source": price_source,
+        }
+
     try:
         lat, lon = destination_coordinates(destination_name)
         fc_map = fetch_forecast(lat, lon, [payload.check_in.isoformat()])
@@ -1462,9 +1493,13 @@ def generate_itinerary(payload: ItineraryPayload):
         else:
             hazard_flag = act_type == "outdoor" and matched_fc["condition"] in {"Heavy Rain / Rainy", "Windy / Stormy", "Extreme Heat / Danger"}
 
-        activity_coords = DESTINATION_COORDINATES.get(
-            activity.name.strip().lower(),
-            destination_coordinates(destination),
+        activity_coords = (
+            (activity.exact_latitude, activity.exact_longitude)
+            if activity.exact_latitude is not None and activity.exact_longitude is not None
+            else DESTINATION_COORDINATES.get(
+                activity.name.strip().lower(),
+                destination_coordinates(destination),
+            )
         )
         scheduled[day].append({
             "name": activity.name.strip(),
@@ -1475,6 +1510,9 @@ def generate_itinerary(payload: ItineraryPayload):
             "assigned_day": activity.assigned_day,
             "guests": activity.guests,
             "time": activity.time,
+            "price_per_pax": activity.price_per_pax,
+            "price_display": activity.price_display,
+            "real_price_php": activity.real_price_php,
             "estimated_price": estimated_price,
             "price_source": "local_activity_csv" if estimated_price is not None else "unavailable",
             "weather": matched_fc["condition"],
@@ -1551,7 +1589,7 @@ def generate_itinerary(payload: ItineraryPayload):
             "destination_forecasts": dest_forecasts,
             "scheduled_activities": day_activities,
             "route_segments": route_segments,
-            "outfit_advice": f"At {destination}, {OUTFIT_ADVICE.get(forecast['condition'], OUTFIT_ADVICE['Cloudy'])}",
+            "outfit_advice": f"At {destination}, {OUTFIT_ADVICE.get(forecast.get('condition'), OUTFIT_ADVICE['Clear / Sunny'])}",
         })
 
     outfit_response = None

@@ -33,19 +33,8 @@ export function TravelProvider({ children }) {
   const [guests, setGuestsState] = useState(1);
   const [currentActivities, setCurrentActivities] = useState([]);
   const [outfits, setOutfits] = useState([]);
-  const [savedItineraries, setSavedItinerariesState] = useState(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(SAVED_STORAGE_KEY) || "[]");
-      return Array.isArray(saved) ? saved.map((planner) => ({
-        ...planner,
-        name: typeof planner.name === "string" && planner.name.trim() ? planner.name : defaultPlannerName(planner),
-      })) : [];
-    } catch {
-      window.localStorage.removeItem(SAVED_STORAGE_KEY);
-      return [];
-    }
-  });
+  const [savedItineraries, setSavedItinerariesState] = useState([]);
+  const [savedItinerariesLoaded, setSavedItinerariesLoaded] = useState(false);
 
   // Working trip state (dates, guests, activities, outfits) is intentionally kept in memory only,
   // so it clears on every browser refresh. Only generated planners persist across refreshes.
@@ -55,9 +44,24 @@ export function TravelProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(SAVED_STORAGE_KEY) || "[]");
+      setSavedItinerariesState(Array.isArray(saved) ? saved.map((planner) => ({
+        ...planner,
+        name: typeof planner.name === "string" && planner.name.trim() ? planner.name : defaultPlannerName(planner),
+      })) : []);
+    } catch {
+      window.localStorage.removeItem(SAVED_STORAGE_KEY);
+      setSavedItinerariesState([]);
+    } finally {
+      setSavedItinerariesLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !savedItinerariesLoaded) return;
     window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedItineraries));
-  }, [savedItineraries]);
+  }, [savedItineraries, savedItinerariesLoaded]);
 
   // Single source of truth: any page that updates the date range updates it everywhere.
   const setDateRange = useCallback((nextRange) => {

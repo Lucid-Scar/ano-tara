@@ -8,7 +8,7 @@ import Footer from "../footer/Footer";
 import Header from "../header/Header";
 import { useTravel } from "../TravelContext";
 import DynamicMap from "../../components/DynamicMap";
-import { clampActivityTime, getGuestWarning, getMinSelectableDate, isPastOrTodayDate, isValidActivityTime, toDateString } from "../tripUtils";
+import { clampActivityTime, getGuestWarning, getMinSelectableDate, getPAGASABadgeColor, isPastOrTodayDate, isValidActivityTime, toDateString } from "../tripUtils";
 
 const formatDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 const formatShortDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -27,6 +27,27 @@ const valueFrom = (item, keys) => keys.map((key) => item?.[key]).find((value) =>
 const getTime = (activity) => { const start = valueFrom(activity, ["time", "schedule", "start_time"]); const end = valueFrom(activity, ["end_time"]); return start && end ? `${start} - ${end}` : start || "Time to be confirmed"; };
 const getStay = (activity) => { const checkIn = valueFrom(activity, ["check_in", "checkIn", "checkin"]); const checkOut = valueFrom(activity, ["check_out", "checkOut", "checkout"]); return checkIn || checkOut ? `Check-in ${checkIn || "-"} · Check-out ${checkOut || "-"}` : "No check-in details"; };
 const getAssignedDay = (activity) => activity?.assignedDay || activity?.assigned_day || "";
+const parsePriceToPhp = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text || /^(not listed|tba|n\/a|na|unknown)$/i.test(text)) return null;
+  const numeric = Number(text.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/)?.[0]);
+  if (!Number.isFinite(numeric)) return null;
+  return text.includes("$") ? numeric * 56 : numeric;
+};
+const formatActivityPrice = (activity) => {
+  const numeric = parsePriceToPhp(
+    activity?.price
+      ?? activity?.estimated_price
+      ?? activity?.price_per_pax
+      ?? activity?.real_price_php
+      ?? activity?.price_display,
+  );
+  if (numeric === 0) return "FREE";
+  if (numeric !== null) return `₱${numeric.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
+  return activity?.price_display || "Price not listed";
+};
 const fallbackDayImage = (activity) => {
   const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
   if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
@@ -203,17 +224,15 @@ export default function FinalPlannerPage() {
       const priceResponse = await fetch("/api/backend/predict-price", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          check_in: targetDates[0],
-          check_out: addDays(targetDates[targetDates.length - 1] || targetDates[0], 1),
-          guests: guestCount,
-          hotel_type: hotelType,
-          room_type: "Standard Room",
-          destination_name: primaryActivity.destination,
-        }),
         body: JSON.stringify({ check_in: targetDates[0], check_out: toDateString(checkOutDate), guests: guestCount, destination: primaryActivity.destination, hotel_type: hotelType, room_type: "Standard Room" }),
       });
-      const priceData = await priceResponse.json();
+      const priceText = await priceResponse.text();
+      let priceData;
+      try {
+        priceData = priceText ? JSON.parse(priceText) : {};
+      } catch {
+        throw new Error(`Price service returned an invalid response (${priceResponse.status}).`);
+      }
       if (!priceResponse.ok) throw new Error(priceData?.detail || "Could not fetch the MLR price.");
       const mlrPrice = Number(priceData.total_price ?? priceData.price);
       if (!Number.isFinite(mlrPrice)) throw new Error("The MLR price response was invalid.");
@@ -223,7 +242,13 @@ export default function FinalPlannerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ target_dates: targetDates, raw_activities: scheduledActivities.map((activity) => ({ ...activity, assigned_day: activity.assignedDay, room_type: activity.roomType || activity.room_type || "Standard Room" })), mlr_price: mlrPrice, guests: guestCount, outfit: outfits[0] || undefined }),
       });
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(`Planner service returned an invalid response (${response.status}).`);
+      }
       if (!response.ok) throw new Error(data?.detail?.[0]?.msg || data?.detail || "Could not generate the planner.");
       const filledDays = (data.itinerary || []).filter((day) => (day.scheduled_activities || []).length > 0);
       const newPlanner = {
@@ -257,9 +282,7 @@ export default function FinalPlannerPage() {
       activities: (Array.isArray(day.scheduled_activities) ? day.scheduled_activities : []).map((activity) => ({
         ...activity,
         location: activity.location || activity.destination,
-        price: activity.estimated_price == null
-          ? (activity.price == null ? null : Number(activity.price))
-          : Number(activity.estimated_price),
+        price: parsePriceToPhp(activity.estimated_price ?? activity.price ?? activity.price_per_pax ?? activity.price_display),
         guests: Number(activity.guests) || guests,
       })),
     }));
@@ -451,7 +474,7 @@ export default function FinalPlannerPage() {
                         <p className="mt-2 text-xs font-semibold">{activity.name} · {activity.location || activity.destination} · {activity.guests} guests</p>
                         <p className="mt-2 text-sm">
                           <span className="font-black text-emerald-700">
-                            {activity.real_price_php === 0 ? "FREE" : `₱${Number(activity.real_price_php).toFixed(2)}`}
+                            {formatActivityPrice(activity)}
                           </span>
                           <span className="ml-2 text-xs text-slate-500">
                             (Verified via {activity.source_url || "Official LGU"})
@@ -470,7 +493,7 @@ export default function FinalPlannerPage() {
                         ) : null}
                       </Fragment>
                     ))}
-                    {day.activities.map((activity) => <p key={activity.name} className="mt-2 text-xs font-semibold">{activity.name} · {activity.location || activity.destination} · {activity.guests} guests · Admission: {Number.isFinite(activity.price) ? `PHP ${activity.price.toLocaleString()}` : "not listed"}</p>)}
+                    {day.activities.map((activity) => <p key={activity.name} className="mt-2 text-xs font-semibold">{activity.name} · {activity.location || activity.destination} · {activity.guests} guests · Admission: {formatActivityPrice(activity)}</p>)}
                   </section>
                 );
               })}
@@ -531,13 +554,13 @@ export default function FinalPlannerPage() {
                               <p>Guests: {activity.guests}</p>
                               <p className="mt-2 text-sm">
                                 <span className="font-black text-emerald-700">
-                                  {activity.real_price_php === 0 ? "FREE" : `₱${Number(activity.real_price_php).toFixed(2)}`}
+                                  {formatActivityPrice(activity)}
                                 </span>
                                 <span className="ml-2 text-xs text-slate-500">
                                   (Verified via {activity.source_url || "Official LGU"})
                                 </span>
                               </p>
-                              <p>Admission: {Number.isFinite(activity.price) ? `PHP ${activity.price.toLocaleString()}` : "not listed"}</p>
+                              <p>Admission: {formatActivityPrice(activity)}</p>
                               <p>Time: {getTime(activity)}</p>
                               {day.route_segments?.[activityIndex]?.routing?.status === "success" ? (
                                 <div className="my-4 flex items-center gap-2 border-l-2 border-slate-300 pl-4 text-sm font-bold text-slate-500">

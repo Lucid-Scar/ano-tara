@@ -33,9 +33,22 @@ const activityFallbackImage = (activity, destination) => {
   if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
   if (/museum|gallery|art|heritage|cultural/.test(name)) return "https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=1200&q=80";
   if (/boat|island|beach|falls|nature|park|hiking|walking/.test(name)) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
-  return destination.image;
+  return destination?.image || mainImage;
 };
-const activityImage = (activity, destination) => activity?.image || activityFallbackImage(activity, destination);
+const activityImageSlug = (activity, destination) => {
+  const value = `${activity?.name || destination?.name || ""} ${destination?.name || ""}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x00-\x7F]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return value ? `/activity%20pics/${value}.jpg` : "";
+};
+const activityImage = (activity, destination) => (
+  activityImageSlug(activity, destination) || activity?.image || activityFallbackImage(activity, destination)
+);
 const richText = (value) => Array.isArray(value) ? value.filter(Boolean).join(" ") : (value || "").trim();
 const normalizeNearbyText = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 const timeToMinutes = (value) => {
@@ -129,7 +142,7 @@ function NearbyCard({ destination }) {
   const image = activityImage(activity, destination);
   const weatherTag = activity?.weather_tag || destination.main_weather || "Sunny";
   return (
-    <Link key={`${destination.id}-${activity?.name || ""}`} href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-32 overflow-hidden rounded-xl shadow-sm">
+    <Link key={`${destination.id}-${activity?.name || ""}`} href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-36 overflow-hidden rounded-xl shadow-sm">
       <img src={image} alt={title} onError={(event) => applyImageFallback(event, activityFallbackImage(activity, destination))} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
       <span className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase text-white">{weatherTag}</span>
@@ -137,7 +150,9 @@ function NearbyCard({ destination }) {
         <p className="line-clamp-2 text-xs font-bold leading-snug text-white">{title}</p>
         <p className="text-[10px] text-white/80">{destination.name}</p>
         {destination.proximityBasis ? (
-          <p className="mt-0.5 truncate text-[9px] font-semibold text-amber-200">{destination.proximityBasis}</p>
+          <p className="mt-0.5 truncate text-[9px] font-semibold text-amber-200" title={destination.proximityBasis}>
+            Basis: {destination.proximityBasis}
+          </p>
         ) : null}
       </div>
     </Link>
@@ -240,14 +255,14 @@ function SpecificDestinationsContent() {
   const [assignedDay, setAssignedDay] = useState("Day 1");
   const [pricingDate, setPricingDate] = useState(dateRange.startDate || minDate);
   const [toastMessage, setToastMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [weatherForecast, setWeatherForecast] = useState(null);
   const [recommendedType, setRecommendedType] = useState("outdoor");
   const [recommendationReason, setRecommendationReason] = useState("");
   const [weatherComparison, setWeatherComparison] = useState(null);
   const [destinationError, setDestinationError] = useState("");
   
-  const [destinationDetails, setDestinationDetails] = useState(FALLBACK_DESTINATION);
+  const [destinationDetails, setDestinationDetails] = useState(null);
   const [activityList, setActivityList] = useState([]);
   const [selectedActivity, setSelectedActivity] = useState("");
   const [nearbyDestinations, setNearbyDestinations] = useState([]);
@@ -276,7 +291,7 @@ function SpecificDestinationsContent() {
     : "Select dates";
 
   const selectedActivityData = activityList.find((activity) => activity.name === selectedActivity)
-    || destinationDetails.activities?.find((activity) => activity.name === selectedActivity);
+    || destinationDetails?.activities?.find((activity) => activity.name === selectedActivity);
   const roomOptions = selectedActivityData?.pricing_tiers?.length
     ? selectedActivityData.pricing_tiers
     : [{ room_type: "Standard Room" }, { room_type: "Premium Suite" }];
@@ -451,23 +466,11 @@ function SpecificDestinationsContent() {
         shuffleList([...prioritizedPool, ...pool.filter((item) => !prioritizedPool.includes(item))]).forEach((item) => {
           if (usedDestinations.has(item.id) || picked.length >= 3) return;
           usedDestinations.add(item.id);
-          picked.push({ ...item, proximityBasis: prioritizedPool.includes(item) ? selectedNearbyProximityBasis : "" });
+          picked.push({
+            ...item,
+            proximityBasis: selectedNearbyProximityBasis,
+          });
         });
-        let previousIds = [];
-        try {
-          const storedIds = JSON.parse(window.sessionStorage.getItem("anoTaraNearbyDestinations") || "[]");
-          previousIds = Array.isArray(storedIds) ? storedIds : [];
-        } catch {
-          previousIds = [];
-        }
-        const pickedIds = new Set(picked.map((item) => item.id));
-        if (picked.length === 3 && previousIds.length === 3 && previousIds.every((id) => pickedIds.has(id))) {
-          const alternative = shuffleList(pool.filter((item) => !pickedIds.has(item.id)))[0];
-          if (alternative) picked[Math.floor(Math.random() * picked.length)] = alternative;
-        }
-        try {
-          window.sessionStorage.setItem("anoTaraNearbyDestinations", JSON.stringify(picked.map((item) => item.id)));
-        } catch {}
         if (!cancelled) setNearbyDestinations(picked);
       } catch (error) {
         console.warn("Nearby tourism destinations are unavailable.", error);
@@ -485,6 +488,11 @@ function SpecificDestinationsContent() {
     const activityParam = currentQuery.get("activity");
     let isMounted = true;
     setIsLoading(true);
+    setDestinationDetails(null);
+    setActivityList([]);
+    setSelectedActivity("");
+    setHotelEstimate(null);
+    setIsEstimatingHotel(false);
 
     const loadDestinationAndWeather = async () => {
       setWeatherForecast(null);
@@ -559,7 +567,13 @@ function SpecificDestinationsContent() {
               room_type: roomType,
             }),
           });
-          const priceData = await priceResponse.json();
+          const priceText = await priceResponse.text();
+          let priceData;
+          try {
+            priceData = priceText ? JSON.parse(priceText) : {};
+          } catch {
+            throw new Error(`Price service returned an invalid response (${priceResponse.status}).`);
+          }
           if (priceResponse.ok && priceData.status === "success" && priceData.total_price) {
             setHotelEstimate(priceData);
           } else {
@@ -600,9 +614,13 @@ function SpecificDestinationsContent() {
     const activity = currentActivitiesList.find((item) => item.name === selectedActivity) || currentActivitiesList[0];
     
     // Multiple activities are now fully allowed on any day
+    const latitude = Number(activity?.exact_latitude ?? destinationDetails.latitude);
+    const longitude = Number(activity?.exact_longitude ?? destinationDetails.longitude);
     const selected = {
       ...activity,
       destination: destinationDetails.name,
+      exact_latitude: Number.isFinite(latitude) ? latitude : null,
+      exact_longitude: Number.isFinite(longitude) ? longitude : null,
       assignedDay,
       assigned_day: assignedDay,
       guests,
@@ -622,6 +640,14 @@ function SpecificDestinationsContent() {
     setToastMessage("Activity added to your itinerary.");
     window.setTimeout(() => setToastMessage(""), 3000);
   };
+
+  if (!destinationDetails) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#fcfcfd] text-sm font-bold text-slate-600">
+        Loading destination details…
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
@@ -847,21 +873,7 @@ function SpecificDestinationsContent() {
                   </div>
                 </div>
 
-                {selectedActivityData?.source_url ? (
-                  <div className="mt-6 border-t border-slate-100 pt-4 text-xs text-slate-500">
-                    <span className="font-bold uppercase tracking-wider text-slate-400">Source data: </span>
-                    <a
-                      href={selectedActivityData.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-[#4a8b8b] underline hover:text-[#76B3DD]"
-                    >
-                      {selectedActivityData.source_type || "External source"}
-                    </a>
-                  </div>
-                ) : null}
-
-              </div>
+                </div>
 
           </div>
           </div>
@@ -933,7 +945,10 @@ function SpecificDestinationsContent() {
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Estimated Accommodation</p>
                 {isEstimatingHotel ? (
-                  <p className="text-sm font-semibold text-slate-500">Calculating MLR surge...</p>
+                  <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500" role="status" aria-live="polite">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-[#4a8b8b]" aria-hidden="true" />
+                    Predicting…
+                  </p>
                 ) : accommodationNightlyTotal != null ? (
                   <div>
                     <h4 className="text-xl font-black text-[#0f172a]">PHP {(accommodationNightlyTotal * stayNights).toLocaleString()}</h4>

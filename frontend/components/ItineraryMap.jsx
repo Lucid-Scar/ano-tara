@@ -28,10 +28,16 @@ function MapViewport({ center }) {
 }
 
 export default function ItineraryMap({ activities = [], routeSegments = [] }) {
-  const firstActivity = activities.find((activity) => (
+  const validActivities = activities.filter((activity) => (
     Number.isFinite(Number(activity.exact_latitude))
     && Number.isFinite(Number(activity.exact_longitude))
   ));
+  const waypoints = validActivities.map((activity) => [
+    Number(activity.exact_latitude),
+    Number(activity.exact_longitude),
+  ]);
+  console.log("Itinerary map waypoints:", waypoints);
+  const firstActivity = validActivities[0];
   const center = firstActivity
     ? [Number(firstActivity.exact_latitude), Number(firstActivity.exact_longitude)]
     : [14.6042, 120.9822];
@@ -60,8 +66,7 @@ export default function ItineraryMap({ activities = [], routeSegments = [] }) {
         })}
 
         {/* Drop pins for each scheduled activity */}
-        {activities.map((activity, index) => {
-           if (!Number.isFinite(Number(activity.exact_latitude)) || !Number.isFinite(Number(activity.exact_longitude))) return null;
+        {validActivities.map((activity, index) => {
            return (
              <Marker 
                key={`marker-${index}`} 
