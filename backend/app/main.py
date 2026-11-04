@@ -185,46 +185,6 @@ def predict_mlr_price(
     destination: str,
     length_of_stay: int,
     room_type: str,
-) -> tuple[float, float, dict]:
-    """Predict a PHP price using the same features and log equation as training."""
-    # Use the stable training weather baseline, because live weather is not known at training time.
-    bundle = PRICE_MODEL_BUNDLE
-    if bundle is None:
-        raise RuntimeError("The trained price model bundle is unavailable.")
-    weather_table = bundle["monthly_weather"]
-    weather_row = weather_table.loc[weather_table["month"] == check_in.strftime("%B")]
-    if weather_row.empty:
-        raise RuntimeError("No monthly weather baseline exists for this date.")
-
-    # Recreate every engineered numeric feature used by mlr-price.py.
-    base_price = float(bundle["base_prices"][hotel_type])
-    pax = float(guests)
-    lead_time = max(0, (check_in - datetime.now().date()).days)
-    is_weekend = float(check_in.weekday() in {4, 5, 6})
-    
-    # THESE TWO LINES WERE MISSING:
-    avg_temp = float(weather_row["avg_monthly_temp"].iloc[0])
-    avg_rain = float(weather_row["avg_monthly_rain"].iloc[0])
-    
-    is_resort = float(hotel_type == "Resort Hotel")
-
-    model_input = pd.DataFrame({
-        "pax": [pax],
-        "lead_time": [float(lead_time)],
-        "length_of_stay": [float(length_of_stay)],
-        "is_premium_room": [float(room_type != "Standard Room")],
-        "is_weekend": [is_weekend],
-        "pax_squared": [pax ** 2],
-        "avg_monthly_temp": [avg_temp],
-        "avg_monthly_rain": [avg_rain],
-        "hotel_is_resort": [is_resort],
-        "hotel_temp": [is_resort * avg_temp],
-        "hotel_rain": [is_resort * avg_rain],
-        "hotel_pax": [is_resort * pax],
-    })
-
-    # Initialize absent one-hot month columns to zero, then activate this arrival month.
-    for feature in bundle["features"]:
     hotel_type: str,
 ) -> tuple[float, float, dict, str, float, str]:
     if MLR_MODEL is None:
