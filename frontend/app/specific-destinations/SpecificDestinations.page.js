@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
 import DynamicMap from "../../components/DynamicMap";
+import PageSkeleton from "../../components/PageSkeleton";
 import { useTravel } from "../TravelContext";
 import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString, getPAGASABadgeColor } from "../tripUtils";
 
@@ -256,6 +257,7 @@ function SpecificDestinationsContent() {
   const [pricingDate, setPricingDate] = useState(dateRange.startDate || minDate);
   const [toastMessage, setToastMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingWeather, setIsLoadingWeather] = useState(true);
   const [weatherForecast, setWeatherForecast] = useState(null);
   const [recommendedType, setRecommendedType] = useState("outdoor");
   const [recommendationReason, setRecommendationReason] = useState("");
@@ -493,6 +495,7 @@ function SpecificDestinationsContent() {
     setSelectedActivity("");
     setHotelEstimate(null);
     setIsEstimatingHotel(false);
+    setIsLoadingWeather(true);
 
     const loadDestinationAndWeather = async () => {
       setWeatherForecast(null);
@@ -508,6 +511,63 @@ function SpecificDestinationsContent() {
         if (!isMounted) return;
         setDestinationDetails(destination);
         setDestinationError("");
+
+        const fallbackActs = (destination.activities || []).map((activity) => {
+          const isRainy = (destination.main_weather || "").toLowerCase().includes("rain");
+          const isOutdoor = activity.type === "outdoor";
+          const recommended = isRainy ? !isOutdoor : isOutdoor;
+          return {
+            ...activity,
+            hotel_type: isOutdoor ? "Resort Hotel" : "City Hotel",
+            recommended,
+            locked: !recommended,
+            lock_reason: "Locked: Recommended for weather compatibility only.",
+          };
+        });
+        const initialActs = fallbackActs.length ? fallbackActs : destination.activities || [];
+        const initialTarget = activityParam || selectedActivity;
+        const initialMatch = initialActs.find((activity) => activity.name === initialTarget)
+          || initialActs.find((activity) => activity.recommended)
+          || initialActs[0];
+        setActivityList(initialActs);
+        if (initialMatch) setSelectedActivity(initialMatch.name);
+        setIsLoading(false);
+
+        const predictHotelPrice = async () => {
+          setIsEstimatingHotel(true);
+          try {
+            const priceResponse = await fetch("/api/backend/predict-price", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                check_in: pricingDate || startDate,
+                check_out: endDate || pricingDate || toDateString(new Date()),
+                guests: guests,
+                destination: destination.name,
+                hotel_type: initialMatch?.hotel_type || "City Hotel",
+                room_type: roomType,
+              }),
+            });
+            const priceText = await priceResponse.text();
+            let priceData;
+            try {
+              priceData = priceText ? JSON.parse(priceText) : {};
+            } catch {
+              throw new Error(`Price service returned an invalid response (${priceResponse.status}).`);
+            }
+            if (priceResponse.ok && priceData.status === "success" && priceData.total_price) {
+              setHotelEstimate(priceData);
+            } else {
+              setHotelEstimate(null);
+            }
+          } catch (error) {
+            console.warn("Hotel MLR prediction failed", error);
+            setHotelEstimate(null);
+          } finally {
+            setIsEstimatingHotel(false);
+          }
+        };
+        predictHotelPrice();
 
         let forecastResponse;
         let forecastData = {};
@@ -541,49 +601,13 @@ function SpecificDestinationsContent() {
           });
           setActivityList(acts);
         }
+        if (isMounted) setIsLoadingWeather(false);
 
-        let targetActName = activityParam || selectedActivity;
+        let targetActName = activityParam || initialMatch?.name || selectedActivity;
         const matchingAct = acts.find((a) => a.name === targetActName) || acts.find((a) => a.recommended) || acts[0];
         if (matchingAct) {
           targetActName = matchingAct.name;
           setSelectedActivity(targetActName);
-        }
-
-        if (isMounted) setIsLoading(false);
-
-        // Restore MLR Hotel Prediction Request
-        setIsEstimatingHotel(true);
-        try {
-          const chosenHotelType = matchingAct?.hotel_type || "City Hotel";
-          const priceResponse = await fetch("/api/backend/predict-price", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              check_in: pricingDate || startDate,
-              check_out: endDate || pricingDate || toDateString(new Date()),
-              guests: guests,
-              destination: destination.name,
-              hotel_type: chosenHotelType,
-              room_type: roomType,
-            }),
-          });
-          const priceText = await priceResponse.text();
-          let priceData;
-          try {
-            priceData = priceText ? JSON.parse(priceText) : {};
-          } catch {
-            throw new Error(`Price service returned an invalid response (${priceResponse.status}).`);
-          }
-          if (priceResponse.ok && priceData.status === "success" && priceData.total_price) {
-            setHotelEstimate(priceData);
-          } else {
-            setHotelEstimate(null); // Explicitly clear if no local rate exists
-          }
-        } catch (error) {
-          console.warn("Hotel MLR prediction failed", error);
-          setHotelEstimate(null);
-        } finally {
-          setIsEstimatingHotel(false);
         }
 
       } catch (error) {
@@ -591,6 +615,7 @@ function SpecificDestinationsContent() {
         if (isMounted) {
           setDestinationError(error.message || "Destination details are unavailable.");
           setIsLoading(false);
+          setIsLoadingWeather(false);
         }
       }
     };
@@ -940,7 +965,14 @@ function SpecificDestinationsContent() {
                       ) : null}
                     </div>
                   </div>
-                ) : isLoading ? <p role="status" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">Loading weather prediction for {formatDate(pricingDate)}...</p> : null}
+                ) : isLoadingWeather ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" role="status" aria-live="polite">
+                    <div className="h-3 w-40 animate-pulse rounded bg-slate-200" />
+                    <div className="mt-3 h-4 w-full animate-pulse rounded bg-slate-200" />
+                    <div className="mt-2 h-4 w-2/3 animate-pulse rounded bg-slate-200" />
+                    <span className="sr-only">Loading weather prediction for {formatDate(pricingDate)}...</span>
+                  </div>
+                ) : null}
               
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Estimated Accommodation</p>
@@ -1117,5 +1149,5 @@ function SpecificDestinationsContent() {
 }
 
 export default function SpecificDestinationsPage() {
-  return <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm font-bold text-slate-600">Loading destination details...</div>}><SpecificDestinationsContent /></Suspense>;
+  return <Suspense fallback={<PageSkeleton />}><SpecificDestinationsContent /></Suspense>;
 }

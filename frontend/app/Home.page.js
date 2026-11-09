@@ -6,12 +6,74 @@ import Footer from "./footer/Footer";
 import { useTravel } from "./TravelContext";
 import { getGuestWarning, getMinSelectableDate } from "./tripUtils";
 
+const activityFallbackImage = (activity, destination) => {
+  const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
+  if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
+  if (/museum|gallery|art|heritage|cultural/.test(name)) return "https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=1200&q=80";
+  if (/boat|island|beach|falls|nature|park|hiking|walking/.test(name)) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
+  return destination?.image || "/destination-placeholder.svg";
+};
+const activityImageSlug = (activity, destination) => {
+  const value = `${activity?.name || destination?.name || ""} ${destination?.name || ""}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x00-\x7F]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return value ? `/activity%20pics/${value}.jpg` : "";
+};
+const activityImage = (activity, destination) => (
+  activityImageSlug(activity, destination) || activity?.image || activityFallbackImage(activity, destination)
+);
+
+function ExperienceCard({ experience }) {
+  const [imageIndex, setImageIndex] = useState(0);
+  const image = experience.images[imageIndex % experience.images.length];
+
+  useEffect(() => {
+    if (experience.images.length < 2) return undefined;
+    const interval = window.setInterval(() => {
+      setImageIndex((current) => (current + 1) % experience.images.length);
+    }, 4500);
+    return () => window.clearInterval(interval);
+  }, [experience.images.length]);
+
+  return (
+    <Link
+      href={`/destinations?activityType=${encodeURIComponent(experience.type)}`}
+      className="group relative block h-64 overflow-hidden rounded-3xl shadow-md md:h-72"
+    >
+      <img
+        src={image}
+        alt={`${experience.type} experience`}
+        onError={(event) => {
+          if (event.currentTarget.src !== experience.fallbackImage) event.currentTarget.src = experience.fallbackImage;
+          else event.currentTarget.style.visibility = "hidden";
+        }}
+        className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e]/90 via-[#1a1a2e]/30 to-transparent" />
+      <div className="absolute bottom-5 left-5 right-5 flex items-center gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e4f7ed] text-sm font-black text-teal-800 shadow-lg">
+          {experience.type.slice(0, 2).toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-bold text-white">{experience.type}</h3>
+          <p className="text-sm text-slate-300">{experience.count} experiences</p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const { dateRange, setDateRange, guests, setGuests } = useTravel();
   const startDate = dateRange.startDate || "";
   const endDate = dateRange.endDate || "";
-  const [experienceCounts, setExperienceCounts] = useState({ outdoor: 0, indoor: 0 });
+  const [experiences, setExperiences] = useState([]);
   const minDate = getMinSelectableDate();
 
   useEffect(() => {
@@ -21,17 +83,30 @@ export default function Home() {
         const response = await fetch("/api/backend/destinations");
         const data = await response.json();
         if (!response.ok || !Array.isArray(data.destinations)) throw new Error();
-        const counts = data.destinations.reduce((result, destination) => {
+        const grouped = data.destinations.reduce((result, destination) => {
           (destination.activities || []).forEach((activity) => {
-            if (activity.type === "outdoor") result.outdoor += 1;
-            if (activity.type === "indoor") result.indoor += 1;
+            const types = activity.record_types || (activity.record_type ? [activity.record_type] : []);
+            types.filter(Boolean).forEach((type) => {
+              if (!result[type]) result[type] = [];
+              result[type].push({
+                activity,
+                destination,
+                image: activityImage(activity, destination),
+              });
+            });
           });
           return result;
-        }, { outdoor: 0, indoor: 0 });
-        if (active) setExperienceCounts(counts);
+        }, {});
+        const nextExperiences = Object.entries(grouped).map(([type, items]) => ({
+          type,
+          count: items.length,
+          images: [...new Set(items.map((item) => item.image))],
+          fallbackImage: activityFallbackImage(items[0]?.activity, items[0]?.destination),
+        })).slice(0, 6);
+        if (active) setExperiences(nextExperiences);
       } catch (error) {
         console.error("Could not load experience counts from the tourism dataset.", error);
-        if (active) setExperienceCounts({ outdoor: 0, indoor: 0 });
+        if (active) setExperiences([]);
       }
     };
     loadExperienceCounts();
@@ -174,36 +249,10 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Link href="/destinations?activityType=outdoor" className="relative h-[26rem] rounded-3xl overflow-hidden group cursor-pointer shadow-md block">
-            <img src="https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=800&q=80" alt="Beach" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e]/90 via-[#1a1a2e]/40 to-transparent" />
-            
-            <div className="absolute bottom-6 left-6 right-6 flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-[#e4f7ed] flex items-center justify-center text-teal-800 shadow-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12h20"/><path d="M12 2v20"/><path d="M4.93 4.93l14.14 14.14"/><path d="M19.07 4.93L4.93 19.07"/></svg>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">Beach</h3>
-                <p className="text-sm text-slate-300">{experienceCounts.outdoor} experiences</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/destinations?activityType=indoor" className="relative h-[26rem] rounded-3xl overflow-hidden group cursor-pointer shadow-md block">
-            <img src="https://images.unsplash.com/photo-1518398046578-8cca57782e17?auto=format&fit=crop&w=800&q=80" alt="City Tour" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e]/90 via-[#1a1a2e]/40 to-transparent" />
-            
-            <div className="absolute bottom-6 left-6 right-6 flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-[#e4f7ed] flex items-center justify-center text-teal-800 shadow-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">City Tour</h3>
-                <p className="text-sm text-slate-300">{experienceCounts.indoor} experiences</p>
-              </div>
-            </div>
-          </Link>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {experiences.map((experience) => (
+            <ExperienceCard key={experience.type} experience={experience} />
+          ))}
         </div>
         
         <div className="mt-16 flex justify-center">
