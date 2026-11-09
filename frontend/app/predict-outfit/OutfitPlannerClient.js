@@ -14,9 +14,12 @@ import { clampToSelectableDate, getMinSelectableDate, toDateString } from "../tr
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const categories = ["Top", "Bottom", "Dress", "Shoes", "Outerwear", "Accessory"];
 const adviceByWeather = {
-  Sunny: "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
-  Rainy: "Bring a rain jacket or umbrella, quick-dry clothes, and waterproof shoes.",
-  Cloudy: "Comfortable layers and a light jacket are the safest choice.",
+  "Clear / Sunny": "Choose light, breathable layers, sunscreen, a hat, and comfortable walking shoes.",
+  "Fair / Partly Cloudy": "Wear comfortable layers and walking shoes, and bring a light jacket.",
+  "Light Rain / Drizzle": "Bring quick-dry layers, waterproof shoes, and an umbrella or rain jacket.",
+  "Heavy Rain / Rainy": "Wear waterproof layers, sturdy boots, and carry a heavy-duty umbrella.",
+  "Windy / Stormy": "Stay indoors if possible; wear warm, windproof layers if you must go out.",
+  "Extreme Heat / Danger": "Wear ultra-light, breathable clothing, stay hydrated, and avoid prolonged sun exposure.",
 };
 const formatDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Select a date";
 const generateDateRange = (startDate, endDate) => {

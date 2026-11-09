@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
 import { useTravel } from "../TravelContext";
-import { clampToSelectableDate, getGuestWarning, getMinSelectableDate } from "../tripUtils";
+import { clampToSelectableDate, getGuestWarning, getMinSelectableDate, WeatherIcon } from "../tripUtils";
 
 const CARDS_PER_PAGE = 24;
 const isFreeActivity = (activity) => (
@@ -74,17 +74,11 @@ function ActivityDestinationCard({ item }) {
         
         {/* Top Badge: Weather Tag */}
         <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-end gap-2">
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold shadow-sm backdrop-blur-md ${
-              item.weatherTag === "Sunny"
-                ? "bg-amber-400/95 text-slate-900"
-                : item.weatherTag === "Rainy"
-                ? "bg-sky-500/95 text-white"
-                : "bg-teal-600/95 text-white"
-            }`}
-          >
-            <span>{item.weatherTag}</span>
-          </span>
+          <div className="flex max-w-[75%] flex-wrap justify-end gap-1">
+            <span className="rounded-full bg-teal-600/95 p-2 text-white shadow-sm backdrop-blur-md" title={item.weatherCondition}>
+              <WeatherIcon condition={item.weatherCondition} className="h-5 w-5" />
+            </span>
+          </div>
         </div>
 
         {/* Bottom City Name Badge (Swapped in place of Philippines) */}
@@ -193,7 +187,7 @@ export default function DestinationsPage() {
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState("");
-  const [weatherFilter, setWeatherFilter] = useState(null); // null | 'Sunny' | 'Rainy' | 'Cold'
+  const [weatherFilter, setWeatherFilter] = useState(null);
   const [activityTypeFilter, setActivityTypeFilter] = useState(null);
   const [visibleCardCount, setVisibleCardCount] = useState(CARDS_PER_PAGE);
 
@@ -222,7 +216,13 @@ export default function DestinationsPage() {
           room_type: "Standard Room",
         });
         const response = await fetch(`/api/backend/destinations?${params}`);
-        const data = await response.json();
+        const responseText = await response.text();
+        let data;
+        try {
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          throw new Error(`Destination service returned an invalid response (${response.status}).`);
+        }
         if (!response.ok || !Array.isArray(data.destinations) || !data.destinations.length) {
           throw new Error(data.detail || "The tourism dataset returned no destinations.");
         }
@@ -294,7 +294,7 @@ export default function DestinationsPage() {
           activityPrice: activity.price_per_pax ?? null,
           activityPriceDisplay: activity.price_display || "",
           isFreeActivity: isFreeActivity(activity),
-          weatherTag: activity.weather_tag || dest.main_weather || "Cloudy",
+          weatherCondition: activity.weather_condition || dest.weather_condition || dest.main_weather,
           image: activityImage(activity, dest),
           fallbackImage: activityFallbackImage(activity, dest),
           description: activity.description || dest.description,
@@ -309,6 +309,10 @@ export default function DestinationsPage() {
     () => [...new Set(allActivities.flatMap((item) => item.recordTypes).filter(Boolean))].sort(),
     [allActivities],
   );
+  const weatherTagOptions = useMemo(
+    () => [...new Set(allActivities.map((item) => item.weatherCondition).filter(Boolean))].sort(),
+    [allActivities],
+  );
 
   // Filter activities based on search bar, activity type filter, and weather tag filter
   const filteredActivities = useMemo(() => {
@@ -321,7 +325,7 @@ export default function DestinationsPage() {
       }
 
       if (weatherFilter !== null) {
-        if (item.weatherTag !== weatherFilter) return false;
+        if (item.weatherCondition !== weatherFilter) return false;
       }
 
       if (activityTypeFilter !== null && !item.recordTypes.includes(activityTypeFilter)) return false;
@@ -472,12 +476,10 @@ export default function DestinationsPage() {
             
             <div className="flex flex-wrap items-center gap-6">
 
-              {/* Weather Forecast Filter (Sunny, Rainy, Cold) */}
+              {/* Weather condition filter sourced from activity_suitability.csv */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">City Weather:</span>
-                <div className="flex items-center gap-2">
-                  
-                  {/* 1. Explicit "All" Option */}
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Weather condition:</span>
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setWeatherFilter(null)}
@@ -489,63 +491,22 @@ export default function DestinationsPage() {
                   >
                     All
                   </button>
-
-                  {/* 2.  Pill (Shows close icon when active) */}
-                  <button
-                    type="button"
-                    onClick={() => toggleWeather("Sunny")}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
-                      weatherFilter === "Sunny"
-                        ? "bg-amber-500 text-white shadow-sm scale-105"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
-                  >
-                    Sunny
-                    {weatherFilter === "Sunny" && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5 opacity-80 hover:opacity-100">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    )}
-                  </button>
-
-                  {/* 3. Rainy Pill (Shows close icon when active) */}
-                  <button
-                    type="button"
-                    onClick={() => toggleWeather("Rainy")}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
-                      weatherFilter === "Rainy"
-                        ? "bg-sky-600 text-white shadow-sm scale-105"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
-                  >
-                    Rainy
-                    {weatherFilter === "Rainy" && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5 opacity-80 hover:opacity-100">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    )}
-                  </button>
-
-                  {/* 4. Cold Pill (Shows close icon when active) */}
-                  <button
-                    type="button"
-                    onClick={() => toggleWeather("Cold")}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
-                      weatherFilter === "Cold"
-                        ? "bg-teal-700 text-white shadow-sm scale-105"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
-                  >
-                    Cold
-                    {weatherFilter === "Cold" && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5 opacity-80 hover:opacity-100">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    )}
-                  </button>
+                  {weatherTagOptions.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleWeather(tag)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
+                        weatherFilter === tag
+                          ? "bg-teal-700 text-white shadow-sm scale-105"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                    >
+                      <WeatherIcon condition={tag} className="h-5 w-5" />
+                      <span className="sr-only">{tag}</span>
+                      <span aria-hidden="true">{tag}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 

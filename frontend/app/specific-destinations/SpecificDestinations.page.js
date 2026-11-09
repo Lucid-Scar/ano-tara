@@ -7,7 +7,7 @@ import ActivityTimePicker from "../../components/ActivityTimePicker";
 import DynamicMap from "../../components/DynamicMap";
 import PageSkeleton from "../../components/PageSkeleton";
 import { useTravel } from "../TravelContext";
-import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString, getPAGASABadgeColor } from "../tripUtils";
+import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString, getPAGASABadgeColor, WeatherIcon } from "../tripUtils";
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
@@ -101,7 +101,7 @@ const FALLBACK_DESTINATION = {
   name: "Manila",
   location: "Manila, Philippines",
   country: "Philippines",
-  main_weather: "Sunny",
+  main_weather: "Clear / Sunny",
   image: mainImage,
   description: "Discover scenic attractions, cultural landmarks, and local experiences in Manila.",
   activities: [],
@@ -141,12 +141,14 @@ function NearbyCard({ destination }) {
   const activity = destination.highlightActivity || destination.activities?.[0];
   const title = activity?.name || destination.name;
   const image = activityImage(activity, destination);
-  const weatherTag = activity?.weather_tag || destination.main_weather || "Sunny";
+  const weatherCondition = destination.weather_condition || destination.main_weather || "Clear / Sunny";
   return (
     <Link key={`${destination.id}-${activity?.name || ""}`} href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-36 overflow-hidden rounded-xl shadow-sm">
       <img src={image} alt={title} onError={(event) => applyImageFallback(event, activityFallbackImage(activity, destination))} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-      <span className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase text-white">{weatherTag}</span>
+      <span className="absolute top-2 right-2 rounded-full bg-black/50 p-1.5 text-white" title={weatherCondition}>
+        <WeatherIcon condition={weatherCondition} className="h-4 w-4" />
+      </span>
       <div className="absolute bottom-2 left-2 right-2">
         <p className="line-clamp-2 text-xs font-bold leading-snug text-white">{title}</p>
         <p className="text-[10px] text-white/80">{destination.name}</p>
@@ -438,7 +440,7 @@ function SpecificDestinationsContent() {
     let cancelled = false;
     const loadNearbyDestinations = async () => {
       try {
-        const response = await fetch("/api/backend/destinations");
+        const response = await fetch(`/api/backend/destinations?check_in=${encodeURIComponent(pricingDate || startDate)}`);
         const data = await response.json();
         if (!response.ok || !Array.isArray(data.destinations)) {
           throw new Error(data.detail || "Destination data is unavailable.");
@@ -481,7 +483,7 @@ function SpecificDestinationsContent() {
     };
     loadNearbyDestinations();
     return () => { cancelled = true; };
-  }, [activityQuery, destinationQuery, selectedNearbyActivities, selectedNearbyProximityBasis]);
+  }, [activityQuery, destinationQuery, pricingDate, selectedNearbyActivities, selectedNearbyProximityBasis, startDate]);
 
   useEffect(() => {
     if (!tripReady) return;
@@ -513,7 +515,7 @@ function SpecificDestinationsContent() {
         setDestinationError("");
 
         const fallbackActs = (destination.activities || []).map((activity) => {
-          const isRainy = (destination.main_weather || "").toLowerCase().includes("rain");
+          const isRainy = /rain|storm/i.test(destination.main_weather || "");
           const isOutdoor = activity.type === "outdoor";
           const recommended = isRainy ? !isOutdoor : isOutdoor;
           return {
@@ -587,7 +589,7 @@ function SpecificDestinationsContent() {
           setRecommendationReason(forecastData.activity_recommendation_reason || "");
           setWeatherComparison(forecastData.comparison || null);
         } else {
-          const isRainy = (destination.main_weather || "").toLowerCase().includes("rain");
+          const isRainy = /rain|storm/i.test(destination.main_weather || "");
           acts = acts.map((a) => {
             const isOutdoor = a.type === "outdoor";
             const rec = isRainy ? !isOutdoor : isOutdoor;
@@ -656,7 +658,7 @@ function SpecificDestinationsContent() {
       real_price_php: selectedPricingTier?.price ?? activity.real_price_php,
       selected_pricing_tier: selectedPricingTier || null,
       image: selectedActivityImage,
-      weather: weatherForecast?.condition || destinationDetails.main_weather || "Sunny",
+      weather: weatherForecast?.condition || destinationDetails.main_weather || "Clear / Sunny",
       weather_forecast: weatherForecast,
     };
     
@@ -940,6 +942,7 @@ function SpecificDestinationsContent() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Destination Weather</span>
                       <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold border ${getPAGASABadgeColor(weatherForecast.condition)}`}>
+                        <WeatherIcon condition={weatherForecast.condition} className="h-4 w-4" />
                         {weatherForecast.condition}
                       </span>
                     </div>

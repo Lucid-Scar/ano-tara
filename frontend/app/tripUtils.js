@@ -83,6 +83,26 @@ export function getPAGASABadgeColor(condition) {
   if (condition === "Heavy Rain / Rainy") return "bg-indigo-100 text-indigo-800 border-indigo-200";
   if (condition === "Light Rain / Drizzle") return "bg-sky-100 text-sky-800 border-sky-200";
   if (condition === "Fair / Partly Cloudy") return "bg-orange-100 text-orange-800 border-orange-200";
-  if (condition === "Sunny") return "bg-amber-100 text-amber-800 border-amber-200";
+  if (condition === "Clear / Sunny") return "bg-amber-100 text-amber-800 border-amber-200";
   return "bg-slate-200 text-slate-800 border-slate-300";
+}
+
+export function WeatherIcon({ condition, className = "h-5 w-5" }) {
+  const value = String(condition || "").toLowerCase();
+  if (value.includes("extreme heat")) {
+    return <span className={`${className} inline-flex items-center justify-center font-black`} aria-hidden="true">!</span>;
+  }
+  if (value.includes("windy") || value.includes("stormy")) {
+    return <span className={`${className} inline-flex items-center justify-center text-lg`} aria-hidden="true">≋</span>;
+  }
+  if (value.includes("heavy rain") || value.includes("rainy")) {
+    return <span className={`${className} inline-flex items-center justify-center text-lg`} aria-hidden="true">⛈</span>;
+  }
+  if (value.includes("light rain") || value.includes("drizzle")) {
+    return <span className={`${className} inline-flex items-center justify-center text-lg`} aria-hidden="true">☂</span>;
+  }
+  if (value.includes("fair") || value.includes("cloudy")) {
+    return <span className={`${className} inline-flex items-center justify-center text-lg`} aria-hidden="true">☁</span>;
+  }
+  return <span className={`${className} inline-flex items-center justify-center text-lg`} aria-hidden="true">☀</span>;
 }

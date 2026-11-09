@@ -69,7 +69,7 @@ class ItineraryPayload(BaseModel):
     outfit: dict | None = None
 
 
-WEATHER_OPTIONS = ("Clear / Sunny", "Fair / Partly Cloudy", "Light Rain / Drizzle", "Heavy Rain / Rainy", "Windy / Stormy", "Extreme Heat / Danger")
+WEATHER_OPTIONS = ()
 OUTFIT_ADVICE = {
     "Clear / Sunny": "Wear light, breathable clothes and comfortable walking shoes, and bring sunscreen and a hat.",
     "Fair / Partly Cloudy": "Wear comfortable layers and walking shoes, and bring a light jacket.",
@@ -156,6 +156,17 @@ if not PHILIPPINE_TOURISM_PATH.is_file():
     raise FileNotFoundError(f"Tourism dataset not found at {PHILIPPINE_TOURISM_PATH}")
 
 PHILIPPINE_TOURISM_DATA = pd.read_csv(PHILIPPINE_TOURISM_PATH, encoding="utf-8-sig")
+ACTIVITY_SUITABILITY_PATH = DATA_DIR / "activity_suitability.csv"
+if not ACTIVITY_SUITABILITY_PATH.is_file():
+    raise FileNotFoundError(f"Activity suitability dataset not found at {ACTIVITY_SUITABILITY_PATH}")
+ACTIVITY_SUITABILITY_DATA = pd.read_csv(ACTIVITY_SUITABILITY_PATH, usecols=["destination", "weather_condition"])
+WEATHER_OPTIONS = tuple(sorted(
+    ACTIVITY_SUITABILITY_DATA["weather_condition"].dropna().astype(str).str.strip().unique()
+))
+SUITABILITY_WEATHER_BY_DESTINATION = {
+    str(destination).strip().casefold(): tuple(sorted(group["weather_condition"].dropna().astype(str).str.strip().unique()))
+    for destination, group in ACTIVITY_SUITABILITY_DATA.groupby("destination")
+}
 hotel_rows = PHILIPPINE_TOURISM_DATA[
     pd.to_numeric(PHILIPPINE_TOURISM_DATA["Hotel_Rate_PHP_per_Night"], errors="coerce").notna()
 ]
@@ -651,10 +662,10 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             re.IGNORECASE,
         ))
         for activity in activities:
-            activity["weather_tag"] = (
-                "Cold" if is_cold else
-                ("Sunny" if activity["type"] == "outdoor" else "Rainy")
-            )
+            activity["weather_tags"] = list(SUITABILITY_WEATHER_BY_DESTINATION.get(
+                city_name.casefold(),
+                WEATHER_OPTIONS,
+            ))
 
         destinations_list.append({
             "id": slugify(city_name),
@@ -669,7 +680,8 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             "has_local_rate": city_key in PHILIPPINE_HOTEL_RATES,
             "latitude": city_lat,
             "longitude": city_lon,
-            "main_weather": "Cold" if is_cold else "Cloudy",
+            "main_weather": list(SUITABILITY_WEATHER_BY_DESTINATION.get(city_name.casefold(), WEATHER_OPTIONS))[0],
+            "weather_tags": list(SUITABILITY_WEATHER_BY_DESTINATION.get(city_name.casefold(), WEATHER_OPTIONS)),
             "image": "https://images.unsplash.com/photo-1518544866330-95a85b8f8f6f?auto=format&fit=crop&w=1200&q=80",
             "description": f"Verified activities and historical landmarks in {city_name}.",
             "activities": activities,
@@ -789,6 +801,70 @@ def get_osrm_route(start_lat: float, start_lon: float, end_lat: float, end_lon: 
 
 WEATHER_CACHE: dict[str, dict] = {}
 FORECAST_WINDOW_CACHE: dict[str, dict] = {}
+DESTINATION_LIST_FORECAST_CACHE: dict[str, dict[str, dict]] = {}
+
+
+def fetch_destination_list_forecasts(target_date: date) -> dict[str, dict]:
+    """Fetch one forecast window for all destination coordinates used by the listing."""
+    cache_key = target_date.isoformat()
+    if cache_key in DESTINATION_LIST_FORECAST_CACHE:
+        return DESTINATION_LIST_FORECAST_CACHE[cache_key]
+
+    coordinates = [
+        destination for destination in DESTINATIONS
+        if destination.get("latitude") is not None and destination.get("longitude") is not None
+    ]
+    days_diff = (target_date - date.today()).days
+    forecasts: dict[str, dict] = {}
+    if coordinates and 0 <= days_diff <= 16:
+        try:
+            response = requests.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": ",".join(str(item["latitude"]) for item in coordinates),
+                    "longitude": ",".join(str(item["longitude"]) for item in coordinates),
+                    "forecast_days": 16,
+                    "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,windspeed_10m_max,apparent_temperature_max",
+                    "timezone": "Asia/Manila",
+                },
+                timeout=15,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            payloads = payload if isinstance(payload, list) else [payload]
+            for destination, forecast_payload in zip(coordinates, payloads):
+                daily = forecast_payload.get("daily", {})
+                if target_date.isoformat() not in daily.get("time", []):
+                    continue
+                index = daily["time"].index(target_date.isoformat())
+                weather_code = int(daily["weather_code"][index])
+                temperature_max = round(float(daily["temperature_2m_max"][index]), 1)
+                temperature_min = round(float(daily["temperature_2m_min"][index]), 1)
+                condition = weather_label_from_code(weather_code)
+                forecasts[destination["id"]] = {
+                    "condition": get_pagasa_condition(
+                        round((temperature_max + temperature_min) / 2, 1),
+                        float(daily["precipitation_sum"][index] or 0),
+                        float(daily["windspeed_10m_max"][index] or 12),
+                        float(daily["apparent_temperature_max"][index] or temperature_max + 4),
+                    ),
+                    "weather_code": weather_code,
+                    "temperature_max_c": temperature_max,
+                    "temperature_min_c": temperature_min,
+                    "average_temperature": round((temperature_max + temperature_min) / 2, 1),
+                    "precipitation_probability": daily["precipitation_probability_max"][index],
+                    "precipitation_sum_mm": daily["precipitation_sum"][index],
+                    "source": "Open-Meteo live forecast",
+                }
+        except (requests.RequestException, ValueError, TypeError, KeyError) as exc:
+            print(f"Open-Meteo destination list forecast error: {exc}")
+
+    if not forecasts:
+        fallback = monthly_weather_for_date(target_date)
+        forecasts = {destination["id"]: fallback for destination in coordinates}
+
+    DESTINATION_LIST_FORECAST_CACHE[cache_key] = forecasts
+    return forecasts
 
 # Helper: fetch and cache live, historical, or fallback weather data.
 def fetch_forecast(latitude: float, longitude: float, dates: list[str]) -> dict[str, dict[str, object]]:
@@ -1180,7 +1256,9 @@ def get_destinations(
     length_of_stay = max(1, (check_out - target_date).days) if check_out else 1
 
     destinations = []
+    list_forecasts = fetch_destination_list_forecasts(target_date)
     for destination in DESTINATIONS:
+        forecast = list_forecasts.get(destination["id"], {})
         estimated_prices = {}
         for hotel_type in ("City Hotel", "Resort Hotel"):
             estimate = estimate_hotel_price(
@@ -1192,7 +1270,12 @@ def get_destinations(
                 hotel_type,
             )
             estimated_prices[hotel_type] = estimate
-        destinations.append({**destination, "estimated_prices": estimated_prices})
+        destinations.append({
+            **destination,
+            "weather_condition": forecast.get("condition", destination["main_weather"]),
+            "weather_forecast": forecast,
+            "estimated_prices": estimated_prices,
+        })
     return {"destinations": destinations}
 
 
