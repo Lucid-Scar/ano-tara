@@ -264,9 +264,9 @@ function OutfitPlannerContent() {
       // 2. Map the array of detected items from YOLO
       const parsedItems = data.items.map(item => ({
         ...item,
-        matches: item.conditions.includes(weather.condition),
+        matches: Array.isArray(item.conditions) && item.conditions.includes(weather.condition),
         outfitPhrase: item.weather_suitability,
-        advice: adviceByWeather[weather.condition],
+        advice: `${adviceByWeather[weather.condition]} ${item.weather_suitability}.`,
         // Use the cropped image from YOLO instead of the full uploaded image
         image: item.cropped_image 
       }));
@@ -424,6 +424,7 @@ function OutfitPlannerContent() {
                         ? "This clothing is an excellent choice for these conditions." 
                         : "Try adjusting this clothing to feel more comfortable."}
                     </li>
+                    <li><strong>Garment guidance:</strong> {item.advice}</li>
                   </ul>
                   <div className="mt-4 flex gap-2">
                     <button type="button" onClick={() => acceptOutfit(index)} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white">Accept {item.category}</button>

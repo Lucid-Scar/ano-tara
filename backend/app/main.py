@@ -378,23 +378,73 @@ def slugify(text: str) -> str:
 
 
 CLOTHING_WEATHER_MAP = {
-    "kaos": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
-    "kemeja": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
-    "polo": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
-    "celana pendek": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
-    "gaun": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
-    "rok": {"conditions": ["Clear / Sunny"], "phrase": "sunny, warm weather", "primary": "Clear / Sunny"},
-    "hoodie": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
-    "sweater": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
-    "jaket": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
-    "jaket denim": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
-    "jaket olahraga": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
-    "mantel": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
-    "blazer": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
-    "celana panjang": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
-    "jeans": {"conditions": ["Fair / Partly Cloudy", "Heavy Rain / Rainy", "Light Rain / Drizzle"], "phrase": "cool, cloudy, or rainy weather", "primary": "Fair / Partly Cloudy"},
+    # These are the class names embedded in backend/app/model/best.pt.
+    "short sleeve top": {
+        "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
+        "phrase": "light, breathable coverage for sunny or hot weather",
+        "primary": "Clear / Sunny",
+    },
+    "short sleeve dress": {
+        "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
+        "phrase": "light, breathable coverage for sunny or hot weather",
+        "primary": "Clear / Sunny",
+    },
+    "short sleeve outwear": {
+        "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
+        "phrase": "light outer coverage for sunny or hot weather",
+        "primary": "Fair / Partly Cloudy",
+    },
+    "shorts": {
+        "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
+        "phrase": "short, breathable coverage for sunny or hot weather",
+        "primary": "Clear / Sunny",
+    },
+    "skirt": {
+        "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
+        "phrase": "lighter coverage for sunny or hot weather",
+        "primary": "Clear / Sunny",
+    },
+    "sling dress": {
+        "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
+        "phrase": "light, breathable coverage for sunny or hot weather",
+        "primary": "Clear / Sunny",
+    },
+    "sling": {
+        "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
+        "phrase": "minimal, breathable coverage for sunny or hot weather",
+        "primary": "Clear / Sunny",
+    },
+    "vest dress": {
+        "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
+        "phrase": "light, breathable coverage for sunny or hot weather",
+        "primary": "Clear / Sunny",
+    },
+    "vest": {
+        "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
+        "phrase": "light, breathable coverage for sunny or hot weather",
+        "primary": "Clear / Sunny",
+    },
+    "long sleeve top": {
+        "conditions": ["Fair / Partly Cloudy", "Light Rain / Drizzle", "Heavy Rain / Rainy", "Windy / Stormy"],
+        "phrase": "warmer coverage for cloudy, rainy, or windy weather",
+        "primary": "Fair / Partly Cloudy",
+    },
+    "long sleeve outwear": {
+        "conditions": ["Fair / Partly Cloudy", "Light Rain / Drizzle", "Heavy Rain / Rainy", "Windy / Stormy"],
+        "phrase": "more protective coverage for cool, rainy, or windy weather",
+        "primary": "Fair / Partly Cloudy",
+    },
+    "long sleeve dress": {
+        "conditions": ["Fair / Partly Cloudy", "Light Rain / Drizzle", "Heavy Rain / Rainy", "Windy / Stormy"],
+        "phrase": "more skin coverage for cloudy, rainy, or windy weather",
+        "primary": "Fair / Partly Cloudy",
+    },
+    "trousers": {
+        "conditions": ["Fair / Partly Cloudy", "Light Rain / Drizzle", "Heavy Rain / Rainy", "Windy / Stormy"],
+        "phrase": "more skin coverage for cool, rainy, or windy weather",
+        "primary": "Fair / Partly Cloudy",
+    },
 }
-
 
 # Helper: map a detected clothing category to suitable weather conditions.
 def classify_clothing_weather(category: str) -> dict[str, object]:
@@ -402,25 +452,7 @@ def classify_clothing_weather(category: str) -> dict[str, object]:
     mapping = CLOTHING_WEATHER_MAP.get(normalized)
     if mapping:
         return mapping
-        
-    fallbacks = {
-        "kaos": CLOTHING_WEATHER_MAP["kaos"],
-        "kemeja": CLOTHING_WEATHER_MAP["kemeja"],
-        "polo": CLOTHING_WEATHER_MAP["polo"],
-        "celana pendek": CLOTHING_WEATHER_MAP["celana pendek"],
-        "gaun": CLOTHING_WEATHER_MAP["gaun"],
-        "rok": CLOTHING_WEATHER_MAP["rok"],
-        "hoodie": CLOTHING_WEATHER_MAP["hoodie"],
-        "sweater": CLOTHING_WEATHER_MAP["sweater"],
-        "jaket": CLOTHING_WEATHER_MAP["jaket"],
-        "jaket denim": CLOTHING_WEATHER_MAP["jaket denim"],
-        "jaket olahraga": CLOTHING_WEATHER_MAP["jaket olahraga"],
-        "mantel": CLOTHING_WEATHER_MAP["mantel"],
-        "blazer": CLOTHING_WEATHER_MAP["blazer"],
-        "celana panjang": CLOTHING_WEATHER_MAP["celana panjang"],
-        "jeans": CLOTHING_WEATHER_MAP["jeans"],
-    }
-    return fallbacks.get(normalized, {"conditions": ["Fair / Partly Cloudy"], "phrase": "mild or unpredictable conditions", "primary": "Fair / Partly Cloudy"})
+    return {"conditions": ["Fair / Partly Cloudy"], "phrase": "mild or unpredictable conditions", "primary": "Fair / Partly Cloudy"}
 
 # Data helper: load the tourism dataset and build destination activity records.
 GOLDEN_CSV_PATH = DATA_DIR / "philippines_tourism_with_coordinates_final.csv"
@@ -1206,7 +1238,7 @@ def predict_outfit(payload: OutfitPayload):
             x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
             confidence = float(box.conf[0])
             class_index = int(box.cls[0])
-            category = result.names[class_index]
+            category = model.names[class_index]
             
             # Crop the bounding box from the original image
             cropped_img = img[y1:y2, x1:x2]
