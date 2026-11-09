@@ -137,10 +137,15 @@ function OutfitPlannerContent() {
     setWeather(null);
   }, [savedItineraries, selectedPlannerId, source]);
 
-  const selectedPlannerLocations = source === "saved" ? locationsForDate(selectedSavedPlanner, date) : [];
-  const savedPlannerLocations = source === "saved" ? [...new Set((selectedSavedPlanner?.itinerary || []).flatMap((day) => locationsForDate(selectedSavedPlanner, day.date || day.day)))] : [];
-  const currentDateLocations = source === "current" ? locationsForCurrentDate(date) : [];
-  const currentLocations = source === "current" ? [...new Set(currentActivities.map((activity) => activity.destination || activity.location).filter(Boolean))] : [];
+  const destinationNames = destinations.map((item) => item.name);
+  const destinationByKey = new Map(destinationNames.map((name) => [name.trim().toLowerCase(), name]));
+  const canonicalizeLocations = (locations) => [...new Set(
+    locations.map((location) => destinationByKey.get(String(location).trim().toLowerCase())).filter(Boolean),
+  )];
+  const selectedPlannerLocations = source === "saved" ? canonicalizeLocations(locationsForDate(selectedSavedPlanner, date)) : [];
+  const savedPlannerLocations = source === "saved" ? canonicalizeLocations([...new Set((selectedSavedPlanner?.itinerary || []).flatMap((day) => locationsForDate(selectedSavedPlanner, day.date || day.day)))]) : [];
+  const currentDateLocations = source === "current" ? canonicalizeLocations(locationsForCurrentDate(date)) : [];
+  const currentLocations = source === "current" ? canonicalizeLocations(currentActivities.map((activity) => activity.destination || activity.location).filter(Boolean)) : [];
   const locationOptions = source === "current" && currentDateLocations.length
     ? currentDateLocations
     : source === "current" && currentLocations.length
@@ -224,10 +229,15 @@ function OutfitPlannerContent() {
       const response = await fetch(`/api/backend/destinations/${id}/forecast?date_str=${date}`);
       const data = await response.json();
       if (!response.ok || !data.forecast) throw new Error();
-      setWeather({ condition: data.forecast.condition, temperature: data.forecast.average_temperature, rainfall: data.forecast.precipitation_sum_mm });
-    } catch {
-      setWeather({ condition: "Cloudy", temperature: 27, rainfall: 0 });
-      setMessage("Live weather was unavailable, so a neutral forecast was used.");
+      setWeather({
+        condition: data.forecast.condition,
+        temperature: data.forecast.average_temperature,
+        rainfall: data.forecast.precipitation_sum_mm,
+        source: data.forecast.source || "Weather service",
+      });
+    } catch (error) {
+      setWeather(null);
+      setMessage(error.message || "Weather forecast is unavailable. Please try again.");
     } finally { setLoadingWeather(false); }
   };
   const analyzeOutfit = async (dataUrl) => {
@@ -358,6 +368,7 @@ function OutfitPlannerContent() {
             {weather ? <div className="mt-4 border-t border-slate-200 pt-4">
               <p className="font-bold">{destination}: {weather.condition}</p>
               <p className="mt-1 text-sm">{weather.temperature}°C average · {weather.rainfall} mm rain</p>
+              <p className="mt-1 text-xs text-slate-500">Source: {weather.source}</p>
               <p className="mt-2 text-sm text-slate-600">Garment matching is based on {weather.condition.toLowerCase()} conditions for {formatDate(date)} (Day {dayNumberForDate(date, dayOptions)}).</p>
             </div> : null}
           </section>

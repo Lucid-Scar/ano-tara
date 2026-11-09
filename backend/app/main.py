@@ -1221,7 +1221,11 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
         hist = historical_weather(14.6042, 120.9822, [target_date])
     comparison = build_weather_comparison(fc, hist)
     
-    # NEW MACHINE LEARNING ROUTING (5-feature binary Decision Tree):
+    # Keep activity recommendations aligned with final-planner preference rules.
+    # The decision tree remains responsible for safety/hazard classification.
+    is_outdoor_friendly = fc["condition"] in preference("outdoor")
+
+    # Run the decision tree consistently for the forecast payload's hazard metadata.
     if WEATHER_DECISION_TREE:
         avg_temp = float(fc.get('average_temperature', 28.0))
         precip = float(fc.get('precipitation_sum_mm', 0.0))
@@ -1230,10 +1234,9 @@ def get_destination_forecast(destination_id: str, date_str: str | None = None):
         
         features_df = pd.DataFrame([[avg_temp, precip, wind, heat_idx, 1]], columns=['average_temperature_c', 'precipitation_mm', 'wind_speed_kmh', 'heat_index_c', 'hotel_is_resort'])
         prediction = int(WEATHER_DECISION_TREE.predict(features_df)[0])
-        # Model outputs: 1 = Safe / Suitable, 0 = Unsafe / Hazardous
-        is_outdoor_friendly = (prediction == 1)
+        fc["decision_tree_hazard"] = prediction == 0
     else:
-        is_outdoor_friendly = fc["condition"] in {"Clear / Sunny", "Fair / Partly Cloudy"}
+        fc["decision_tree_hazard"] = None
 
     rec_type = "outdoor" if is_outdoor_friendly else "indoor"
     rec_reason = (
@@ -1332,18 +1335,8 @@ def predict_price(payload: PricePayload):
         hist = historical_weather(14.6042, 120.9822, [payload.check_in.isoformat()])
         comparison = build_weather_comparison(weather, hist)
 
-    # Use Machine Learning logic here as well
-    if WEATHER_DECISION_TREE:
-        avg_temp = float(weather.get('average_temperature', 28.0))
-        precip = float(weather.get('precipitation_sum_mm', 0.0))
-        wind = float(weather.get('wind_speed_kmh', 12.0))
-        heat_idx = float(weather.get('apparent_temperature_max', avg_temp + 4.0))
-        
-        features_df = pd.DataFrame([[avg_temp, precip, wind, heat_idx, 1]], columns=['average_temperature_c', 'precipitation_mm', 'wind_speed_kmh', 'heat_index_c', 'hotel_is_resort'])
-        prediction = int(WEATHER_DECISION_TREE.predict(features_df)[0])
-        rec_type = "outdoor" if prediction == 1 else "indoor"
-    else:
-        rec_type = "outdoor" if weather["condition"] in {"Clear / Sunny", "Fair / Partly Cloudy"} else "indoor"
+    # Keep price recommendations aligned with final-planner preference rules.
+    rec_type = "outdoor" if weather["condition"] in preference("outdoor") else "indoor"
 
     rec_reason = (
         f"Forecast is {weather['condition']} ({weather.get('average_temperature', 28)}°C) — recommended for outdoor activities."
