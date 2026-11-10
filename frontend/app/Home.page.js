@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Footer from "./footer/Footer";
 import { useTravel } from "./TravelContext";
 import { getGuestWarning, getMinSelectableDate } from "./tripUtils";
+import { ChevronRight } from 'lucide-react';
 
 const activityFallbackImage = (activity, destination) => {
   const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
@@ -43,7 +44,7 @@ function ExperienceCard({ experience }) {
   return (
     <Link
       href={`/destinations?activityType=${encodeURIComponent(experience.type)}`}
-      className="group relative block h-64 overflow-hidden rounded-3xl shadow-md md:h-72"
+      className="group relative block h-64 overflow-hidden rounded-3xl shadow-md md:h-50 md:shadow-lg transition hover:shadow-xl"
     >
       <img
         src={image}
@@ -56,9 +57,9 @@ function ExperienceCard({ experience }) {
       />
       <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e]/90 via-[#1a1a2e]/30 to-transparent" />
       <div className="absolute bottom-5 left-5 right-5 flex items-center gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e4f7ed] text-sm font-black text-teal-800 shadow-lg">
+        {/* <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e4f7ed] text-sm font-black text-teal-800 shadow-lg">
           {experience.type.slice(0, 2).toUpperCase()}
-        </div>
+        </div> */}
         <div className="min-w-0">
           <h3 className="truncate text-lg font-bold text-white">{experience.type}</h3>
           <p className="text-sm text-slate-300">{experience.count} experiences</p>
@@ -143,43 +144,36 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#FAFAFA]">
-      
-      {/* --- HERO SECTION --- */}
+    <main className="min-h-screen bg-[#FFFDFB]">
       <section className="relative flex min-h-[500px] w-full flex-col bg-[url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')] bg-cover bg-center">
-        
         <div className="absolute inset-0 bg-black/40"></div>
-
-        {/* ORIGINAL TOP NAVIGATION (Transparent, shown at top of page) */}
-        <nav className="relative z-20 mx-auto flex w-full items-center justify-between px-6 py-4 sm:px-12">
+        <nav className="relative z-20 mx-auto flex w-full items-center justify-between px-6 py-6 sm:px-12">
           <div className="flex-1 hidden md:block"></div>
-
           <div className="flex flex-1 justify-center">
-            <img src="/LOGO-WHITE.svg" alt="Ano Tara Logo" className="h-20 w-20 drop-shadow-lg" />
           </div>
-
           <div className="flex flex-1 items-center justify-end gap-3">
-            <Link href="/predict-outfit" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
+            <Link href="/predict-outfit" 
+              className="rounded-xl border border-white/20 bg-slate-950/40 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-200 backdrop-blur-md transition-all hover:bg-slate-950/70 hover:border-white/40 hover:text-white hover:-translate-y-0.5 shadow-md" >
               Outfit Planner
             </Link>
-            <Link href="/final-planner" className="rounded-md border border-white/60 bg-black/20 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10">
-              Itinerary planner
+            <Link href="/final-planner" 
+              className="rounded-xl bg-slate-950 border border-white/20 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-[#FFFDF7] transition-all hover:bg-slate-800 hover:-translate-y-0.5 shadow-lg">
+              Itinerary Planner
             </Link>
           </div>
         </nav>
 
-        {/* HERO MAIN TEXT */}
-        <div className="relative z-10 mx-auto flex flex-1 w-full max-w-5xl flex-col items-center justify-center px-5 pb-20 text-center text-white uppercase">
-          <h1 className="text-6xl tracking-wide font-bold drop-shadow-lg sm:text-8xl mt-4">
-            Ano tara?
-          </h1>
-          <p className="mt-5 text-4xl font-medium drop-shadow-md sm:text-5xl">
-            kung saan maganda, mahal!
+        {/* CENTERED LOGO */}
+       <div className="relative z-10 mx-auto flex flex-1 w-full max-w-5xl flex-col items-center justify-center px-6 pb-20 text-center -mt-10">
+          <img src="/LOGO-WHITE.svg" alt="Ano Tara Logo" 
+            className="w-full max-w-[340px] sm:max-w-[480px] md:max-w-[620px] lg:max-w-[720px] h-auto object-contain drop-shadow-2xl transition-transform duration-300 hover:scale-105"/>
+          <p className="-mt-10 text-xs sm:text-sm md:text-base font-bold uppercase tracking-[0.25em] text-white/90 drop-shadow-md">
+            Smart Itinerary & Dynamic Travel Engine
           </p>
         </div>
       </section>
 
-      {/* --- ORIGINAL BIG SEARCH BAR (Floating in original position) --- */}
+      {/* --- INPUT CONTAINER --- */}
       <div className="relative z-30 mx-auto -mt-12 w-[92%] max-w-4xl rounded-full border border-gray-200 bg-white p-2 sm:p-3 text-slate-900 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
         <div className="flex flex-col sm:flex-row gap-2 items-center px-2">
           
@@ -229,23 +223,22 @@ export default function Home() {
 
           <div className="flex-none w-full sm:w-auto mt-2 sm:mt-0 pl-2">
             <button type="button" onClick={saveTripSearch} disabled={!startDate || !endDate || endDate < startDate} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b9f0c8] px-8 py-4 sm:py-5 shadow-sm transition hover:scale-105 active:scale-95 text-teal-950 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              <span className="font-bold text-lg hidden sm:block">Search</span>
+              <span className="font-bold text-md hidden sm:block uppercase">Plan now</span>
+              <ChevronRight className="w-5 h-5 text-gray-600" />
             </button>
           </div>
-
         </div>
         {guestWarning ? (
           <p className="px-6 pb-2 pt-1 text-xs font-semibold text-amber-600">{guestWarning}</p>
         ) : null}
       </div>
 
-      {/* --- SEARCH BY EXPERIENCE SECTION --- */}
-      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      {/* --- BY EXPERIENCE SECTION --- */}
+      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">Search by experience type</h2>
+          <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl italic">Looking for something specific?</h2>
           <p className="mt-4 text-slate-500 max-w-2xl mx-auto">
-            Looking for a relaxing beach side, or maybe just a city tour? Use the categories below to search for the experience that is right for you.
+            Check based on specific experience type like a relaxing beach side adventure, or perhaps just a city tour? Use the categories below to search for the experience that is right for you.
           </p>
         </div>
 
@@ -256,35 +249,37 @@ export default function Home() {
         </div>
         
         <div className="mt-16 flex justify-center">
-          <Link href="/destinations" className="rounded-lg border-2 border-red-400 px-8 py-3 font-semibold text-red-500 transition hover:bg-red-50">
+          <Link href="/destinations" 
+            className="rounded-xl bg-slate-950 px-8 py-3.5 text-sm font-bold text-[#FFFDF7] transition-all duration-200 hover:bg-slate-800 hover:-translate-y-0.5 shadow-md hover:shadow-lg">
             View All Experiences
           </Link>
         </div>
       </section>
 
-      {/* --- FULL-WIDTH PROMO BANNER SECTION --- */}
-      <section className="relative w-full overflow-hidden bg-slate-900 shadow-lg min-h-[500px] flex items-center">
-        <img src="https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=2400&q=80" alt="Clothing rack" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
-
+      {/* --- OUTFIT SELECTION --- */}
+      <section className="mt-5 relative flex min-h-[600px] w-full items-center overflow-hidden bg-slate-950 shadow-xl">
+        <img src="https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=2400&q=80" 
+          alt="Clothing rack" className="absolute inset-0 h-full w-full object-cover"/>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:px-12">
-          <div className="flex w-full flex-col items-start md:w-3/4 lg:w-1/2">
-            <h2 className="mb-3 font-serif text-4xl font-black tracking-wide text-white drop-shadow-md sm:text-5xl">
-              Ano Tara? Outfit matcher
+          <div className="flex w-full flex-col items-start text-left md:w-3/4 lg:w-3/5">
+            <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-white drop-shadow-md sm:text-4xl md:text-5xl uppercase leading-tight">
+              Outfit Matcher
             </h2>
-
-            <p className="pt-4 mb-10 text-base leading-relaxed text-gray-300 drop-shadow-sm sm:text-lg">
-              Check whether each garment fits the weather and destination before you pack.
+            <span className="mb-4 inline-flex items-center rounded-full border border-white/20 bg-black/40 px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-white/90 backdrop-blur-md">
+              Outfit Planner for Your Trip
+            </span>
+            <p className="mb-8 max-w-xl text-base leading-relaxed text-slate-200 drop-shadow-sm sm:text-lg">
+              Check whether each garment fits the weather forecast and destination activities before you pack.
             </p>
             <Link href="/predict-outfit">
-              <button className="rounded-full bg-[#b9f0c8] px-10 py-4 font-bold text-slate-900 shadow-[0_4px_14px_0_rgba(185,240,200,0.39)] transition hover:-translate-y-1 hover:shadow-[0_6px_20px_rgba(185,240,200,0.23)] active:translate-y-0">
-                Try outfit matcher
+              <button className="rounded-xl bg-slate-950 px-8 py-3.5 text-sm font-bold text-[#FFFDF7] border border-white/20 transition-all duration-200 hover:bg-slate-800 hover:-translate-y-0.5 shadow-md hover:shadow-lg active:translate-y-0">
+                Try Outfit Matcher
               </button>
             </Link>
           </div>
         </div>
       </section>
-
       <Footer />
     </main>
   );

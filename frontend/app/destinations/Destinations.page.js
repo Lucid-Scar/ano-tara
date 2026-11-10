@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Footer from "../footer/Footer";
+import Header from '../header/Header';
 import { useTravel } from "../TravelContext";
 import { clampToSelectableDate, getGuestWarning, getMinSelectableDate, WeatherIcon } from "../tripUtils";
 
@@ -159,7 +160,144 @@ function ActivityDestinationCard({ item }) {
   );
 }
 
+function TripDetailsSelector({
+  minDate,
+  checkIn,
+  setCheckIn,
+  endDate,
+  setEndDate,
+  guests,
+  setGuests,
+  displayRange
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative inline-block text-left mt-2">
+      <button type="button" onClick={() => setIsOpen((prev) => !prev)}
+        className="flex items-center gap-3 rounded-2xl border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition hover:border-slate-500 hover:shadow-md active:scale-98"
+      >
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+          <span>Trip Details</span>
+        </div>
+
+        <span className="font-light text-slate-300">|</span>
+
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <span>{displayRange || "Select dates"}</span>
+          <span className="text-slate-400">•</span>
+          <span>{guests} {guests === 1 ? "Guest" : "Guests"}</span>
+        </div>
+
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180 text-[#860001]" : ""}`}
+        >
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 z-30 mt-2 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-150 w-[310px]">
+          {/* DATE RANGE ROW (INLINE START & END) */}
+          <div className="flex items-center justify-between gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-1.5">
+            <div className="flex flex-1 items-center gap-1 min-w-0">
+              <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">In</span>
+              <input
+                type="date"
+                min={minDate}
+                value={checkIn}
+                onChange={(e) => {
+                  const nextStartDate = e.target.value;
+                  setCheckIn(nextStartDate);
+                  if (endDate < nextStartDate) setEndDate(nextStartDate);
+                }}
+                className="w-full cursor-pointer bg-transparent text-xs font-semibold text-slate-800 outline-none p-0"
+              />
+            </div>
+
+            <span className="text-slate-300 font-light text-xs shrink-0">/</span>
+
+            <div className="flex flex-1 items-center gap-1 min-w-0">
+              <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">Out</span>
+              <input
+                type="date"
+                min={checkIn || minDate}
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full cursor-pointer bg-transparent text-xs font-semibold text-slate-800 outline-none p-0"
+              />
+            </div>
+          </div>
+
+          {/* GUESTS & APPLY ROW */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-1 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="shrink-0 text-slate-400"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span className="text-xs font-bold text-slate-800">
+                  {guests} {guests === 1 ? "Guest" : "Guests"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Decrease guests"
+                  onClick={() => setGuests((prev) => Math.max(1, prev - 1))}
+                  className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-xs font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                >
+                  -
+                </button>
+                <button
+                  type="button"
+                  aria-label="Increase guests"
+                  onClick={() => setGuests((prev) => prev + 1)}
+                  className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-xs font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-[#FFFDF7] transition hover:bg-[#860001] shadow-sm shrink-0"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DestinationsPage() {
+
   // Fisher-Yates Shuffle helper to randomize activity card order
   const shuffleList = (items) => {
     const shuffled = [...items];
@@ -248,16 +386,6 @@ export default function DestinationsPage() {
     if (!tripReady) return;
     setDateRange({ startDate: checkIn, endDate: endDate || checkIn });
   }, [checkIn, endDate, tripReady]);
-
-  const handleMinus = (e) => {
-    e.preventDefault();
-    setGuests((prev) => (prev > 1 ? prev - 1 : 1));
-  };
-
-  const handlePlus = (e) => {
-    e.preventDefault();
-    setGuests((prev) => prev + 1);
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -353,88 +481,30 @@ export default function DestinationsPage() {
   const isAnyFilterActive = searchQuery.trim() !== "" || weatherFilter !== null || activityTypeFilter !== null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
-      
-      {/* HEADER WITH DYNAMIC DATE RANGE */}
-      <header className="legacy-destination-header sticky top-0 z-50 flex h-20 items-center justify-between bg-white px-6 lg:px-12 shadow-[0_2px_10px_rgba(0,0,0,0.03)] border-b border-gray-100">
-        <div className="flex flex-1 items-center">
-          <Link href="/">
-            <img src="/LOGO-BLACK.svg" alt="Ano Tara Logo" className="h-10 w-auto object-contain cursor-pointer" />
-          </Link>
-        </div>
-
-        <div className="hidden lg:flex items-center justify-center">
-          <div className="flex items-center rounded-full border border-gray-200 py-1.5 pl-6 pr-2 shadow-sm bg-white transition-shadow hover:shadow-md">
-            
-            <div className="flex cursor-pointer items-center gap-3 pr-4 text-sm font-medium text-slate-700 max-w-[200px] overflow-hidden whitespace-nowrap">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>
-              </svg>
-              <span className="text-ellipsis overflow-hidden">{displayRange}</span>
-            </div>
-
-            <div className="h-6 w-px bg-gray-200 mx-2"></div>
-
-            <div className="flex items-center gap-3 pl-4 pr-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                <span className="w-[64px]">{guests} Guests</span>
-              </div>
-              
-              <div className="flex items-center gap-1">
-                 <button onClick={handleMinus} className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">-</button>
-                 <button onClick={handlePlus} className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">+</button>
-              </div>
-            </div>
-
-            <Link href="/destinations" className="ml-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#fcedec] text-[#d96a6a] transition-colors hover:bg-[#fadbd8]">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </Link>
-          </div>
-        </div>
-
-        <div className="flex flex-1 items-center justify-end gap-3">
-          <Link href="/predict-outfit" className="planner-nav-link hidden sm:inline-flex">
-            Outfit Planner
-          </Link>
-          <Link href="/final-planner" className="planner-nav-link">
-            Itinerary Planner
-          </Link>
-        </div>
-      </header>
-
+    <div className="min-h-screen flex flex-col bg-[#FFFDFB] text-slate-900">
+      <Header />
       <main className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-12 pt-8 pb-16 flex-grow">
-        
-        {/* Title & Travel Date Controls */}
-        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-6">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-              Activities & Experiences
+        <div className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          {/* Title & Subtitle Context */}
+          <div className="space-y-1">
+            <h1 className="text-3xl font-extrabold uppercase tracking-tight text-slate-900 sm:text-4xl">
+              Activities &amp; Experiences
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Showing <span className="font-bold text-slate-800">{filteredActivities.length}</span> activities across {destinations.length} Philippine cities for <span className="font-bold text-[#4a8b8b]">{displayRange}</span> ({guests} {guests === 1 ? 'guest' : 'guests'})
+            <p className="text-sm font-medium text-slate-500">
+              Showing <span className="font-bold text-slate-900">{filteredActivities.length}</span> activities across {destinations.length} cities for{" "}
+              <span className="font-bold text-[#860001]">{displayRange}</span> ({guests} {guests === 1 ? "guest" : "guests"})
             </p>
           </div>
-          
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Dates:</span>
-            <input 
-              type="date" 
-              min={minDate}
-              value={checkIn}
-              onChange={(e) => { const nextStartDate = e.target.value; setCheckIn(nextStartDate); if (endDate < nextStartDate) setEndDate(nextStartDate); }}
-              className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] shadow-sm transition cursor-pointer"
-            />
-            <input
-              type="date"
-              min={checkIn || minDate}
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 outline-none hover:border-[#4a8b8b] focus:border-[#4a8b8b] shadow-sm transition cursor-pointer"
+          <div className="sm:ml-auto">
+            <TripDetailsSelector
+              minDate={minDate}
+              checkIn={checkIn}
+              setCheckIn={setCheckIn}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              guests={guests}
+              setGuests={setGuests}
+              displayRange={displayRange}
             />
           </div>
         </div>
@@ -442,124 +512,110 @@ export default function DestinationsPage() {
           <p className="-mt-2 mb-4 text-xs font-semibold text-amber-600">{guestWarning}</p>
         ) : null}
 
-        {/* SEARCH BAR & DUAL FILTERS SECTION */}
-        <div className="mb-8 rounded-3xl bg-white p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-slate-100 space-y-5">
+        {/* INLINE COMPACT SEARCH & FILTERS TOOLBAR */}
+        <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+
+          {/* 2. Sleek Filter Badges */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            
+            {/* Weather Filter Pill */}
+            <div className="relative">
+              <select
+                value={weatherFilter || ""}
+                onChange={(e) => setWeatherFilter(e.target.value || null)}
+                className={`appearance-none rounded-xl border py-2 pl-3 pr-8 text-xs font-bold outline-none transition-all cursor-pointer shadow-sm ${
+                  weatherFilter
+                    ? "border-slate-950 bg-slate-950 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300 hover:text-slate-900"
+                }`}
+              >
+                <option value="" className="bg-white text-slate-900 font-semibold">Weather Condition (All)</option>
+                {weatherTagOptions.map((tag) => (
+                  <option key={tag} value={tag} className="bg-white text-slate-900 font-semibold">
+                    {tag}
+                  </option>
+                ))}
+              </select>
+              <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 ${weatherFilter ? "text-white" : "text-slate-400"}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+
+            {/* Activity Type Filter Pill */}
+            <div className="relative">
+              <select
+                value={activityTypeFilter || ""}
+                onChange={(e) => setActivityTypeFilter(e.target.value || null)}
+                className={`appearance-none rounded-xl border py-2 pl-3 pr-8 text-xs font-bold outline-none transition-all cursor-pointer shadow-sm ${
+                  activityTypeFilter
+                    ? "border-slate-950 bg-slate-950 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300 hover:text-slate-900"
+                }`}
+              >
+                <option value="" className="bg-white text-slate-900 font-semibold">Activity Type (All)</option>
+                {recordTypeOptions.map((type) => (
+                  <option key={type} value={type} className="bg-white text-slate-900 font-semibold">
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 ${activityTypeFilter ? "text-white" : "text-slate-400"}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+
+            {/* Slate Reset Filters Button */}
+            {isAnyFilterActive && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-all hover:bg-slate-100 hover:border-slate-300 hover:text-slate-900 shadow-sm"
+                title="Reset all filters"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="15" y1="9" x2="9" y2="15"></line>
+                  <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+                <span>Reset</span>
+              </button>
+            )}
+
+          </div>
           
-          {/* 1. Search Bar */}
-          <div className="relative w-full">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          {/* 1. Compact Search Input */}
+          <div className="relative flex-1 min-w-[260px]">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
             </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by city (e.g. Alaminos, Baguio, Cebu) or activity (e.g. island hopping, museum)..."
-              className="w-full rounded-2xl border border-gray-200 bg-slate-50/50 py-3.5 pl-12 pr-10 text-sm font-medium text-slate-900 placeholder:text-gray-400 outline-none transition focus:border-[#4a8b8b] focus:bg-white focus:ring-4 focus:ring-[#4a8b8b]/10"
+              placeholder="Search city or activity..."
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-9 text-xs font-semibold text-slate-900 placeholder:text-slate-400 outline-none transition-all hover:border-slate-300 focus:border-slate-900 shadow-sm"
             />
-            {searchQuery ? (
+            {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-gray-600"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            ) : null}
-          </div>
-
-          {/* 2. Main Filters Grid */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2 border-t border-slate-100">
-            
-            <div className="flex flex-wrap items-center gap-6">
-
-              {/* Weather condition filter sourced from activity_suitability.csv */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Weather condition:</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setWeatherFilter(null)}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
-                      weatherFilter === null
-                        ? "bg-slate-900 text-white shadow-sm scale-105"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
-                  >
-                    All
-                  </button>
-                  {weatherTagOptions.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleWeather(tag)}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
-                        weatherFilter === tag
-                          ? "bg-teal-700 text-white shadow-sm scale-105"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      }`}
-                    >
-                      <WeatherIcon condition={tag} className="h-5 w-5" />
-                      <span className="sr-only">{tag}</span>
-                      <span aria-hidden="true">{tag}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Dataset Record Type Filter */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Activity Type:</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActivityTypeFilter(null)}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
-                      activityTypeFilter === null
-                        ? "bg-slate-900 text-white shadow-sm scale-105"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
-                  >
-                    All
-                  </button>
-                  {recordTypeOptions.map((recordType) => (
-                    <button
-                      key={recordType}
-                      type="button"
-                      onClick={() => setActivityTypeFilter((current) => current === recordType ? null : recordType)}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
-                        activityTypeFilter === recordType
-                          ? "bg-[#4a8b8b] text-white shadow-sm scale-105"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      }`}
-                    >
-                      {recordType}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-
-            {/* Clear Filters Button */}
-            {isAnyFilterActive ? (
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-800 transition"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-700 transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
-                Reset all filters
               </button>
-            ) : null}
-
+            )}
           </div>
 
+          
         </div>
 
         {/* ACTIVITIES GRID */}
@@ -597,11 +653,11 @@ export default function DestinationsPage() {
         )}
 
         {visibleActivities.length < filteredActivities.length ? (
-          <div className="mt-8 flex justify-center">
+          <div className="mt-12 flex justify-center">
             <button
               type="button"
               onClick={() => setVisibleCardCount((count) => count + CARDS_PER_PAGE)}
-              className="rounded-xl border border-[#4a8b8b] px-5 py-2.5 text-sm font-bold text-[#4a8b8b] transition hover:bg-teal-50"
+              className="rounded-xl bg-slate-950 px-8 py-3.5 text-sm font-bold text-[#FFFDF7] transition-all duration-200 hover:bg-slate-800 hover:-translate-y-0.5 shadow-md hover:shadow-lg active:translate-y-0"
             >
               Load more activities
             </button>

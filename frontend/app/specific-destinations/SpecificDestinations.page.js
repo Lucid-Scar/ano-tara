@@ -3,6 +3,7 @@ import React, { Suspense, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
+import Header from "../header/Header";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
 import DynamicMap from "../../components/DynamicMap";
 import PageSkeleton from "../../components/PageSkeleton";
@@ -240,6 +241,7 @@ const formatActivityPrice = (displayStr, rawPrice) => {
 function SpecificDestinationsContent() {
   const { dateRange, setDateRange, guests, setGuests, addActivity, currentActivities, hasActivityConflict } = useTravel();
   const searchParams = useSearchParams();
+  const [isOpen, setIsOpen] = useState(false);
   const [tripReady, setTripReady] = useState(false);
   const minDate = getMinSelectableDate();
 
@@ -670,72 +672,23 @@ function SpecificDestinationsContent() {
 
   if (!destinationDetails) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fcfcfd] text-sm font-bold text-slate-600">
+      <div className="flex min-h-screen items-center justify-center bg-[#FFFDF7] text-sm font-bold text-slate-600">
         Loading destination details…
       </div>
     );
   }
-
+  
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfcfd] text-slate-900">
       
-      {/* HEADER WITH DYNAMIC DATE RANGE */}
-      <header className="legacy-destination-header sticky top-0 z-50 flex h-20 items-center justify-between bg-white px-6 lg:px-12 shadow-[0_2px_10px_rgba(0,0,0,0.03)] border-b border-gray-100">
-        <div className="flex flex-1 items-center">
-          <Link href="/">
-            <img src="/LOGO-BLACK.svg" alt="Ano Tara Logo" className="h-10 w-auto object-contain cursor-pointer" />
-          </Link>
-        </div>
-
-        <div className="hidden lg:flex items-center justify-center">
-          <div className="flex items-center rounded-full border border-gray-200 py-1.5 pl-6 pr-2 shadow-sm bg-white transition-shadow hover:shadow-md">
-            <div className="flex cursor-pointer items-center gap-3 pr-4 text-sm font-medium text-slate-700 max-w-[200px] overflow-hidden whitespace-nowrap">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>
-              </svg>
-              <span className="text-ellipsis overflow-hidden">{displayRange}</span>
-            </div>
-
-            <div className="h-6 w-px bg-gray-200 mx-2"></div>
-
-            <div className="flex items-center gap-3 pl-4 pr-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                <span className="w-[64px]">{guests} Guests</span>
-              </div>
-              <div className="flex items-center gap-1">
-                 <button onClick={handleMinus} className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">-</button>
-                 <button onClick={handlePlus} className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">+</button>
-              </div>
-            </div>
-
-            <Link href="/destinations" className="ml-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#fcedec] text-[#d96a6a] transition-colors hover:bg-[#fadbd8]">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            </Link>
-          </div>
-        </div>
-
-        <div className="flex flex-1 items-center justify-end gap-3">
-          <Link href="/predict-outfit" className="planner-nav-link hidden sm:inline-flex">
-            Outfit Planner
-          </Link>
-          <Link href="/final-planner" className="planner-nav-link">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Itinerary Planner
-          </Link>
-        </div>
-      </header>
+      <Header />
 
       {/* Unified Action & Date Toolbar */}
-      <div className="border-b border-slate-200/80 bg-white px-6 py-3 lg:px-12">
+      <div className="px-6 py-3 lg:px-12 mt-3 -mb-5">
         <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4">
           
-          {/* Left: Sleek Ghost Back Button */}
-          <Link
-            href="/destinations"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+          <Link href="/destinations"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 active:scale-95"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -754,51 +707,140 @@ function SpecificDestinationsContent() {
             <span>Back to destinations</span>
           </Link>
 
-          {/* Right: Consolidated Date Segment Pill */}
-          <div className="flex items-center gap-2.5">
-            <span className="hidden sm:inline-block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Trip Dates
-            </span>
+          {/* Right: Compact Pop-Over Trip Details Pill */}
+          <div className="relative inline-block text-left">
+            <button
+              type="button"
+              onClick={() => setIsOpen((prev) => !prev)}
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-[#fffff] px-4 py-2 shadow-sm transition hover:border-slate-300 hover:shadow-md active:scale-98"
+            >
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Trip Details
+              </span>
 
-            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-1 shadow-inner">
-              {/* Start Date */}
-              <div className="flex items-center gap-1.5 px-2">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Start</span>
-                <input
-                  type="date"
-                  min={minDate}
-                  value={startDate}
-                  onChange={(event) => {
-                    const nextStartDate = event.target.value;
-                    const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate;
-                    setStartDate(nextStartDate);
-                    setEndDate(nextEndDate);
-                    setDateRange({ startDate: nextStartDate, endDate: nextEndDate });
-                  }}
-                  className="rounded-md border-0 bg-transparent py-1 text-xs font-semibold text-slate-800 outline-none cursor-pointer"
-                />
+              <span className="text-slate-300 font-light">|</span>
+
+              {/* Dynamic Display String */}
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <span>{displayRange || "Select dates"}</span>
+                <span className="text-slate-400">•</span>
+                <span>{guests} {guests === 1 ? 'Guest' : 'Guests'}</span>
               </div>
 
-              <span className="text-slate-300 font-light text-xs">/</span>
+              {/* Chevron Icon */}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-slate-900' : ''}`}
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
 
-              {/* End Date */}
-              <div className="flex items-center gap-1.5 px-2">
-                <span className="text-[10px] font-bold uppercase text-slate-400">End</span>
-                <input
-                  type="date"
-                  min={startDate || minDate}
-                  value={endDate}
-                  onChange={(event) => {
-                    const nextEndDate = event.target.value;
-                    setEndDate(nextEndDate);
-                    setDateRange({ startDate, endDate: nextEndDate });
-                  }}
-                  className="rounded-md border-0 bg-transparent py-1 text-xs font-semibold text-slate-800 outline-none cursor-pointer"
-                />
+            {/* Expandable Compact Pop-Over Dropdown */}
+            {isOpen && (
+              <div className="absolute right-0 z-30 mt-2 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-150 w-[310px]">
+                
+                {/* DATE RANGE ROW */}
+                <div className="flex items-center justify-between gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-1.5">
+                  <div className="flex flex-1 items-center gap-1 min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">In</span>
+                    <input
+                      type="date"
+                      min={minDate}
+                      value={startDate}
+                      onChange={(event) => {
+                        const nextStartDate = event.target.value;
+                        const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate;
+                        setStartDate(nextStartDate);
+                        setEndDate(nextEndDate);
+                        if (setDateRange) setDateRange({ startDate: nextStartDate, endDate: nextEndDate });
+                      }}
+                      className="w-full cursor-pointer bg-transparent text-xs font-semibold text-slate-800 outline-none p-0"
+                    />
+                  </div>
+
+                  <span className="text-slate-300 font-light text-xs shrink-0">/</span>
+
+                  <div className="flex flex-1 items-center gap-1 min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">Out</span>
+                    <input
+                      type="date"
+                      min={startDate || minDate}
+                      value={endDate}
+                      onChange={(event) => {
+                        const nextEndDate = event.target.value;
+                        setEndDate(nextEndDate);
+                        if (setDateRange) setDateRange({ startDate, endDate: nextEndDate });
+                      }}
+                      className="w-full cursor-pointer bg-transparent text-xs font-semibold text-slate-800 outline-none p-0"
+                    />
+                  </div>
+                </div>
+
+                {/* GUESTS & APPLY ROW */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-1 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="shrink-0 text-slate-400"
+                      >
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                      </svg>
+                      <span className="text-xs font-bold text-slate-800">
+                        {guests} {guests === 1 ? "Guest" : "Guests"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label="Decrease guests"
+                        onClick={() => setGuests((prev) => Math.max(1, prev - 1))}
+                        className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-xs font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                      >
+                        -
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Increase guests"
+                        onClick={() => setGuests((prev) => prev + 1)}
+                        className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-xs font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-[#FFFDF7] transition hover:bg-slate-700 shadow-sm shrink-0"
+                  >
+                    Apply
+                  </button>
+                </div>
+
               </div>
-            </div>
+            )}
           </div>
-
         </div>
       </div>
 
