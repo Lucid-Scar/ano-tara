@@ -5,6 +5,7 @@ import Footer from "../footer/Footer";
 import Header from '../header/Header';
 import { useTravel } from "../TravelContext";
 import { clampToSelectableDate, getGuestWarning, getMinSelectableDate, WeatherIcon } from "../tripUtils";
+import { getActivityImagePath } from "../activityImages";
 
 const CARDS_PER_PAGE = 24;
 const parseDisplayPriceAmount = (value) => {
@@ -28,19 +29,8 @@ const activityFallbackImage = (activity, destination) => {
   if (/boat|island|beach|falls|nature|park|hiking|walking/.test(name)) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
   return destination?.image || "/destination-placeholder.svg";
 };
-const activityImageSlug = (activity, destination) => {
-  const value = `${activity?.name || destination?.name || ""} ${destination?.name || ""}`
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\x00-\x7F]/g, "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return value ? `/activity%20pics/${value}.jpg` : "";
-};
 const activityImage = (activity, destination) => (
-  activityImageSlug(activity, destination) || activity?.image || activityFallbackImage(activity, destination)
+  getActivityImagePath(activity, destination) || activity?.image || activityFallbackImage(activity, destination)
 );
 
 const formatActivityPrice = (displayStr, rawPrice) => {
