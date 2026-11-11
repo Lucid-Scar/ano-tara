@@ -135,6 +135,12 @@ const generateDateRange = (startDate, endDate) => {
   return dates;
 };
 
+const getNextDate = (dateValue) => {
+  const nextDate = new Date(`${dateValue}T00:00:00`);
+  nextDate.setDate(nextDate.getDate() + 1);
+  return toDateString(nextDate);
+};
+
 const getNextAvailableDay = (dates, activities, afterDay = "") => {
   const occupiedDays = new Set(activities.map((activity) => activity.assignedDay || activity.assigned_day));
   const afterIndex = Number(afterDay.replace("Day ", "")) - 1;
@@ -263,12 +269,12 @@ function SpecificDestinationsContent() {
   const [hotelEstimate, setHotelEstimate] = useState(null);
   const [isEstimatingHotel, setIsEstimatingHotel] = useState(false);
 
-  const [startDate, setStartDate] = useState(dateRange.startDate || minDate);
+  const initialStartDate = dateRange.startDate || minDate;
+  const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(() => {
-    if (dateRange.endDate) return dateRange.endDate;
-    const nextDay = new Date(`${minDate}T00:00:00`);
-    nextDay.setDate(nextDay.getDate() + 1);
-    return toDateString(nextDay);
+    return dateRange.endDate > initialStartDate
+      ? dateRange.endDate
+      : getNextDate(initialStartDate);
   });
   const [roomType, setRoomType] = useState("Standard Room");
   const [selectedTime, setSelectedTime] = useState("10:00");
@@ -469,8 +475,12 @@ function SpecificDestinationsContent() {
   };
 
   useEffect(() => {
-    if (dateRange.startDate) setStartDate(dateRange.startDate);
-    if (dateRange.endDate) setEndDate(dateRange.endDate);
+    const nextStartDate = dateRange.startDate || minDate;
+    const nextEndDate = dateRange.endDate > nextStartDate
+      ? dateRange.endDate
+      : getNextDate(nextStartDate);
+    setStartDate(nextStartDate);
+    setEndDate(nextEndDate);
   }, [dateRange.endDate, dateRange.startDate]);
 
   useEffect(() => {
@@ -660,6 +670,7 @@ function SpecificDestinationsContent() {
 
     let isCurrentRequest = true;
     const predictHotelPrice = async () => {
+      if (!startDate || !endDate || endDate <= startDate) return;
       setIsEstimatingHotel(true);
       setHotelEstimate(null);
       try {
@@ -958,7 +969,7 @@ function SpecificDestinationsContent() {
                           value={startDate}
                           onChange={(event) => {
                             const nextStartDate = event.target.value;
-                            const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate;
+                            const nextEndDate = endDate > nextStartDate ? endDate : getNextDate(nextStartDate);
                             setStartDate(nextStartDate);
                             setEndDate(nextEndDate);
                             if (setDateRange) setDateRange({ startDate: nextStartDate, endDate: nextEndDate });
@@ -973,10 +984,12 @@ function SpecificDestinationsContent() {
                         <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">Out</span>
                         <input
                           type="date"
-                          min={startDate || minDate}
+                          min={startDate ? getNextDate(startDate) : getNextDate(minDate)}
                           value={endDate}
                           onChange={(event) => {
-                            const nextEndDate = event.target.value;
+                            const nextEndDate = event.target.value > startDate
+                              ? event.target.value
+                              : getNextDate(startDate);
                             setEndDate(nextEndDate);
                             if (setDateRange) setDateRange({ startDate, endDate: nextEndDate });
                           }}
