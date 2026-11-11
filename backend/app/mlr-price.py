@@ -18,7 +18,6 @@ BUNDLE_PATH = BASE_DIR / "model" / "price_model_bundle.joblib"
 REPORT_PATH = BASE_DIR / "model" / "mlr_evaluation_report.csv"
 PLOT_PATH = BASE_DIR / "model" / "mlr_evaluation_plot.png"
 
-# Using the empirical base prices calculated previously
 BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
 ADR_TO_PHP = 62.0
 RANDOM_STATE = 0
