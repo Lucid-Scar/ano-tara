@@ -821,12 +821,9 @@ function SpecificDestinationsContent() {
                 </span>
               </div>
               
-              <h1 className="text-4xl md:text-5xl font-black text-[#0f172a] mb-2 tracking-tight">
+              <h1 className="text-4xl md:text-5xl font-black text-[#0f172a] mb-2 tracking-tight mb-8">
                 {selectedActivity || destinationDetails.name}
               </h1>
-              <p className="mb-8 text-base leading-relaxed text-gray-700">
-                {selectedDataQualityNotes || destinationDetails.description}
-              </p>
               
               
 
