@@ -675,6 +675,9 @@ function SpecificDestinationsContent() {
             destination: destinationDetails.name,
             hotel_type: activityHotelType,
             room_type: roomType,
+            selected_base_rate: isAccommodation && Number.isFinite(hotelRatePerNight) && hotelRatePerNight > 0
+              ? hotelRatePerNight
+              : undefined,
           }),
         });
         const priceText = await priceResponse.text();
@@ -1120,8 +1123,8 @@ function SpecificDestinationsContent() {
                         <p className="text-xs font-medium text-slate-500 mb-2">Total for {hotelEstimate.length_of_stay} nights</p>
                         <div className="flex flex-col gap-1 text-[11px] text-slate-600">
                           <p className="flex justify-between"><span>Selected room:</span> <span className="text-right font-semibold text-slate-800">{roomType}</span></p>
-                          <p className="flex justify-between"><span>Base Rate:</span> <span className="font-semibold text-slate-800">PHP {hotelEstimate.base_price.toLocaleString()}</span></p>
-                          <p className="flex justify-between"><span>MLR Surge Multiplier:</span> <span className="font-bold text-[#860001]">{hotelEstimate.surge_multiplier}x</span></p>
+                          <p className="flex justify-between"><span>{hotelEstimate.base_price_source === "selected_csv_rate" ? "Selected CSV rate / night:" : "Destination CSV average / night:"}</span> <span className="font-semibold text-slate-800">PHP {hotelEstimate.base_price.toLocaleString()}</span></p>
+                          <p className="flex justify-between"><span>MLR Surge Multiplier:</span> <span className="font-bold text-[#860001]">{Number(hotelEstimate.applied_multiplier ?? hotelEstimate.multiplier ?? hotelEstimate.surge_multiplier).toFixed(6)}x</span></p>
                           <p className="text-[9px] text-[#4a8b8b] italic mt-1 text-right">{hotelEstimate.source}</p>
                         </div>
                       </div>

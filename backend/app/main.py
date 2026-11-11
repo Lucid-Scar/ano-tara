@@ -41,6 +41,7 @@ class PricePayload(BaseModel):
     destination: str | None = None
     hotel_type: str | None = "City Hotel"
     room_type: str = "Standard Room"
+    selected_base_rate: float | None = Field(default=None, gt=0)
     destination_id: str | None = None
     destination_name: str | None = None
 
@@ -328,8 +329,12 @@ def estimate_hotel_price(
     length_of_stay: int,
     room_type: str,
     hotel_type: str,
+    selected_base_rate: float | None = None,
 ) -> dict:
     base_price, base_price_source = accommodation_base_price(destination, hotel_type)
+    if selected_base_rate is not None:
+        base_price = selected_base_rate
+        base_price_source = "selected_csv_rate"
     season = "Peak season" if check_in.month in PHILIPPINE_PEAK_MONTHS else "Regular season"
 
     try:
@@ -362,6 +367,7 @@ def estimate_hotel_price(
         "length_of_stay": length_of_stay,
         "base_price": base_price,
         "base_price_source": base_price_source,
+        "applied_multiplier": multiplier,
         "multiplier": round(multiplier, 4),
         "season": season,
         "model_evaluation": model_evaluation,
@@ -1429,6 +1435,7 @@ def predict_price(payload: PricePayload):
         length_of_stay,
         payload.room_type,
         hotel_type,
+        payload.selected_base_rate,
     )
     base_price = estimate["base_price"]
     base_price_source = estimate["base_price_source"]
@@ -1490,7 +1497,8 @@ def predict_price(payload: PricePayload):
         "hotel_type": hotel_type,
         "base_price": base_price,
         "base_price_source": base_price_source,
-        "price_source_flag": "local_rate" if base_price_source == "local_csv_average" else "regional_baseline",
+        "price_source_flag": "local_rate" if base_price_source in {"local_csv_average", "selected_csv_rate"} else "regional_baseline",
+        "applied_multiplier": estimate["applied_multiplier"],
         "multiplier": round(multiplier, 4),
         "surge_multiplier": round(multiplier, 2),
         "month": payload.check_in.strftime("%B"),
