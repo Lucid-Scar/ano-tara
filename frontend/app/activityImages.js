@@ -26,6 +26,24 @@ export const getActivityImagePath = (activity, destination) => {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
 
+  const activityValue = `${activity?.name || ""}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x00-\x7F]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const recordTypes = [
+    ...(Array.isArray(activity?.record_types) ? activity.record_types : []),
+    activity?.record_type,
+  ].filter(Boolean).join(" ");
+  const isAccommodation = /hotel|room|accommodation|resort/i.test(recordTypes);
+
+  if (isAccommodation && activityValue) {
+    return `/activity%20pics/batch%202/${activityValue}.jpg`;
+  }
+
   const filename = activityImageOverrides[value] || `${value}.jpg`;
   return value ? `/activity%20pics/${filename}` : "";
 };
