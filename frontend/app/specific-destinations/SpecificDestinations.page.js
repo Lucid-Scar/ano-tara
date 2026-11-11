@@ -9,6 +9,7 @@ import DynamicMap from "../../components/DynamicMap";
 import PageSkeleton from "../../components/PageSkeleton";
 import { useTravel } from "../TravelContext";
 import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString, getPAGASABadgeColor, WeatherIcon } from "../tripUtils";
+import { ChevronLeft } from 'lucide-react';
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
@@ -52,6 +53,20 @@ const activityImage = (activity, destination) => (
   activityImageSlug(activity, destination) || activity?.image || activityFallbackImage(activity, destination)
 );
 const richText = (value) => Array.isArray(value) ? value.filter(Boolean).join(" ") : (value || "").trim();
+const formatDescriptionParagraphs = (rawNotes, fallbackDescription) => {
+  const text = Array.isArray(rawNotes) ? rawNotes.filter(Boolean).join("\n") : (rawNotes || fallbackDescription || "").trim();
+  if (!text) return null;
+  const paragraphs = text.split(/(?:;|\n)+/).map(p => p.trim()).filter(Boolean);
+  return (
+    <div className="mb-8 space-y-2.5">
+      {paragraphs.map((paragraph, idx) => (
+        <p key={idx} className="text-base leading-relaxed text-gray-700">
+          {paragraph}
+        </p>
+      ))}
+    </div>
+  );
+};
 const normalizeNearbyText = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 const timeToMinutes = (value) => {
   const match = String(value || "").trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
@@ -92,10 +107,20 @@ const isOpenOnDate = (openDays, dateValue) => {
   }
   return normalized.includes(day.toLowerCase()) || normalized.includes(day.slice(0, 3).toLowerCase());
 };
-const isFreeActivity = (activity) => (
-  (activity?.price_per_pax != null && Number(activity.price_per_pax) === 0)
-  || /^free(?:\s*\(|$)/i.test(activity?.price_display?.trim() || "")
-);
+const parseDisplayPriceAmount = (value) => {
+  const match = String(value || "").match(/(₱|PHP\s*|\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  if (!match) return null;
+  const amount = Number(match[2].replace(/,/g, ""));
+  return Number.isFinite(amount) ? (match[1].trim() === "$" ? amount * 56 : amount) : null;
+};
+const isFreeActivity = (activity) => {
+  const display = activity?.price_display?.trim() || "";
+  const displayAmount = parseDisplayPriceAmount(activity?.price_display);
+  if (displayAmount > 0) return false;
+  if (/not published|not listed|unlisted|not cited|unknown|n\/a|tba/i.test(display)) return false;
+  return (activity?.price_per_pax != null && Number(activity.price_per_pax) === 0)
+    || /^free(?:\s*\(|$)/i.test(display);
+};
 
 const FALLBACK_DESTINATION = {
   id: "manila",
@@ -308,44 +333,61 @@ function SpecificDestinationsContent() {
   const selectedActivityImage = activityImage(selectedActivityData, destinationDetails);
   const parsedGuests = Number(guests) || 1;
   const selectedRecordTypes = selectedActivityData?.record_types || [];
-  const isAccommodation = selectedRecordTypes.some((type) => /hotel|room|accommodation|resort/i.test(type))
-    || Boolean(selectedActivityData?.hotel_check_in || selectedActivityData?.hotel_check_out);
+  const isAccommodation = selectedRecordTypes.some((type) => /hotel|room|accommodation|resort/i.test(type));
   const hotelRatePerNight = Number(selectedPricingTier?.hotel_rate_per_night ?? selectedActivityData?.hotel_rate_per_night);
   const hotelOccupancyPax = Number(selectedPricingTier?.hotel_occupancy_pax ?? selectedActivityData?.hotel_occupancy_pax);
   const hotelRatePerPaxPerNight = Number(selectedPricingTier?.hotel_rate_per_pax_per_night ?? selectedActivityData?.hotel_rate_per_pax_per_night);
-  const hotelRoomsRequired = isAccommodation && Number.isFinite(hotelRatePerNight) && hotelRatePerNight > 0 && hotelOccupancyPax > 0
+  const hasExactAccommodationRate = isAccommodation
+    && Number.isFinite(hotelRatePerNight)
+    && hotelRatePerNight > 0
+    && Number.isFinite(hotelOccupancyPax)
+    && hotelOccupancyPax > 0;
+  const hotelRoomsRequired = hasExactAccommodationRate
     ? Math.ceil(parsedGuests / hotelOccupancyPax)
     : 0;
-  const accommodationNightlyTotal = hotelRoomsRequired ? hotelRoomsRequired * hotelRatePerNight : null;
-  const accommodationPerPaxPerNight = accommodationNightlyTotal != null
-    ? accommodationNightlyTotal / parsedGuests
-    : Number.isFinite(hotelRatePerPaxPerNight) ? hotelRatePerPaxPerNight : null;
+  const accommodationNightlyTotal = hasExactAccommodationRate
+    ? hotelRoomsRequired * hotelRatePerNight
+    : null;
   const stayNights = Math.max(1, Math.round((new Date(`${endDate}T00:00:00`) - new Date(`${startDate}T00:00:00`)) / 86400000));
 
+  const totalAccommodationCost = hasExactAccommodationRate
+    ? accommodationNightlyTotal * stayNights
+    : (hotelEstimate?.total_price ?? null);
+
+  const perPaxAccommodationCost = totalAccommodationCost != null
+    ? totalAccommodationCost / parsedGuests
+    : null;
+
+  const perPaxNightlyAccommodationCost = hasExactAccommodationRate
+    ? accommodationNightlyTotal / parsedGuests
+    : Number.isFinite(hotelRatePerPaxPerNight) ? hotelRatePerPaxPerNight : null;
+
   // 1. Extract static per-guest base price from dataset
-  const rawPricePerGuest =
-    (isAccommodation && accommodationPerPaxPerNight != null ? accommodationPerPaxPerNight : null) ??
+  const listedPricePerGuest = !isAccommodation ? (
     selectedPricingTier?.price_per_pax ??
     (selectedPricingTier?.price != null && selectedActivityData?.pricing_tiers?.length
       ? selectedPricingTier.price
       : null) ??
     selectedActivityData?.price_per_pax ??
     selectedActivityData?.Price_Per_Pax_PHP ?? 
-    null;
+    null
+  ) : null;
   const selectedPriceDisplay = selectedPricingTier?.price_display
     || selectedActivityData?.price_display
     || selectedActivityData?.Price_Display
     || "";
+  const displayedPricePerGuest = parseDisplayPriceAmount(selectedPriceDisplay);
+  const rawPricePerGuest = Number(listedPricePerGuest) === 0 && displayedPricePerGuest > 0
+    ? displayedPricePerGuest
+    : listedPricePerGuest ?? displayedPricePerGuest;
 
   const parsedPricePerGuest = rawPricePerGuest !== null && rawPricePerGuest !== undefined
     ? parseFloat(rawPricePerGuest)
     : NaN;
 
   // 2. Determine if activity is free
-  const selectedActivityIsFree = 
-    isFreeActivity({ ...selectedActivityData, price_display: selectedPriceDisplay, price_per_pax: rawPricePerGuest }) ||
-    rawPricePerGuest === 0 || 
-    rawPricePerGuest === "0";
+  const selectedActivityIsFree = !isAccommodation
+    && isFreeActivity({ ...selectedActivityData, price_display: selectedPriceDisplay, price_per_pax: rawPricePerGuest });
   const selectedDataQualityNotes = richText(selectedActivityData?.data_quality_notes);
   const selectedNearbyActivities = richText(selectedActivityData?.nearby_activities);
   const selectedNearbyProximityBasis = selectedActivityData?.nearby_proximity_basis || "";
@@ -388,6 +430,15 @@ function SpecificDestinationsContent() {
 
   // 3. Dynamic total price (Math takes priority)
   const activityTotalPrice = (!isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0) ? parsedPricePerGuest * parsedGuests : null;
+  const activityAdmissionTotal = isAccommodation
+    ? null
+    : selectedActivityIsFree ? 0 : activityTotalPrice;
+  const totalActivityAdmissionFees = isAccommodation ? 0 : activityAdmissionTotal;
+  const totalTripCost = totalAccommodationCost != null && totalActivityAdmissionFees != null
+    ? totalAccommodationCost + totalActivityAdmissionFees
+    : null;
+
+  const perPersonTripCost = totalTripCost != null ? totalTripCost / parsedGuests : null;
 
   // 4. Formatted Display Texts
   const activityTotalPriceText = selectedActivityIsFree
@@ -399,9 +450,18 @@ function SpecificDestinationsContent() {
   const staticBasePriceText = !isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0
     ? `PHP ${parsedPricePerGuest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
+  const exactAccommodationPerPersonText = perPaxAccommodationCost != null
+    ? `PHP ${perPaxAccommodationCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
   const selectedPriceText = activityTotalPriceText !== "Not listed"
     ? activityTotalPriceText
     : formatActivityPrice(selectedPriceDisplay, rawPricePerGuest) || activityTotalPriceText;
+  const tripTotalText = totalTripCost != null
+    ? `PHP ${totalTripCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
+  const perPersonTripText = perPersonTripCost != null
+    ? `PHP ${perPersonTripCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
 
   const guestWarning = getGuestWarning(guests);
   
@@ -432,9 +492,16 @@ function SpecificDestinationsContent() {
   }, [activityQuery, currentActivities, destinationQuery, endDate, startDate]);
 
   useEffect(() => {
-    const firstRoomType = selectedActivityData?.pricing_tiers?.[0]?.room_type;
-    if (firstRoomType) setRoomType(firstRoomType);
-  }, [selectedActivityData]);
+    const pricingTiers = selectedActivityData?.pricing_tiers || [];
+    if (!pricingTiers.length) {
+      if (roomType !== "Standard Room") setRoomType("Standard Room");
+      return;
+    }
+
+    if (!pricingTiers.some((tier) => tier.room_type === roomType)) {
+      setRoomType(pricingTiers[0].room_type);
+    }
+  }, [roomType, selectedActivityData]);
 
   useEffect(() => {
     setTripReady(true);
@@ -541,42 +608,6 @@ function SpecificDestinationsContent() {
         if (initialMatch) setSelectedActivity(initialMatch.name);
         setIsLoading(false);
 
-        const predictHotelPrice = async () => {
-          setIsEstimatingHotel(true);
-          try {
-            const priceResponse = await fetch("/api/backend/predict-price", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                check_in: pricingDate || startDate,
-                check_out: endDate || pricingDate || toDateString(new Date()),
-                guests: guests,
-                destination: destination.name,
-                hotel_type: initialMatch?.hotel_type || "City Hotel",
-                room_type: roomType,
-              }),
-            });
-            const priceText = await priceResponse.text();
-            let priceData;
-            try {
-              priceData = priceText ? JSON.parse(priceText) : {};
-            } catch {
-              throw new Error(`Price service returned an invalid response (${priceResponse.status}).`);
-            }
-            if (priceResponse.ok && priceData.status === "success" && priceData.total_price) {
-              setHotelEstimate(priceData);
-            } else {
-              setHotelEstimate(null);
-            }
-          } catch (error) {
-            console.warn("Hotel MLR prediction failed", error);
-            setHotelEstimate(null);
-          } finally {
-            setIsEstimatingHotel(false);
-          }
-        };
-        predictHotelPrice();
-
         let forecastResponse;
         let forecastData = {};
         try {
@@ -632,7 +663,67 @@ function SpecificDestinationsContent() {
     return () => {
       isMounted = false;
     };
-  }, [pricingDate, searchParams, startDate, endDate, guests, roomType, tripReady]);
+  }, [pricingDate, searchParams, startDate, endDate, guests, tripReady]);
+
+  useEffect(() => {
+    if (!tripReady || !destinationDetails || !selectedActivityData) return undefined;
+
+    let isCurrentRequest = true;
+    const predictHotelPrice = async () => {
+      setIsEstimatingHotel(true);
+      setHotelEstimate(null);
+      try {
+        const activityHotelType = selectedActivityData.hotel_type
+          || (selectedActivityData.type === "outdoor" ? "Resort Hotel" : "City Hotel");
+        const priceResponse = await fetch("/api/backend/predict-price", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            check_in: startDate,
+            check_out: endDate,
+            guests,
+            destination: destinationDetails.name,
+            hotel_type: activityHotelType,
+            room_type: roomType,
+          }),
+        });
+        const priceText = await priceResponse.text();
+        let priceData;
+        try {
+          priceData = priceText ? JSON.parse(priceText) : {};
+        } catch {
+          throw new Error(`Price service returned an invalid response (${priceResponse.status}).`);
+        }
+
+        if (!priceResponse.ok) {
+          throw new Error(priceData.detail || "Hotel price service is unavailable.");
+        }
+        if (priceData.status === "success" && priceData.total_price != null) {
+          if (isCurrentRequest) setHotelEstimate(priceData);
+        } else if (isCurrentRequest) {
+          setHotelEstimate(null);
+        }
+      } catch (error) {
+        console.warn("Hotel MLR prediction failed", error);
+        if (isCurrentRequest) setHotelEstimate(null);
+      } finally {
+        if (isCurrentRequest) setIsEstimatingHotel(false);
+      }
+    };
+
+    predictHotelPrice();
+    return () => {
+      isCurrentRequest = false;
+    };
+  }, [
+    destinationDetails,
+    endDate,
+    guests,
+    roomType,
+    selectedActivityData,
+    startDate,
+    tripReady,
+  ]);
 
   const addToPlanner = () => {
     if (!generateDateRange(startDate, endDate).includes(pricingDate)) {
@@ -687,167 +778,6 @@ function SpecificDestinationsContent() {
       
       <Header />
 
-      {/* Unified Action & Date Toolbar */}
-      <div className="px-6 py-3 lg:px-12 mt-3 -mb-5">
-        <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4">
-          
-          <Link href="/destinations"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 active:scale-95"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-            <span>Back to destinations</span>
-          </Link>
-
-          {/* Right: Compact Pop-Over Trip Details Pill */}
-          <div className="relative inline-block text-left">
-            <button
-              type="button"
-              onClick={() => setIsOpen((prev) => !prev)}
-              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-[#fffff] px-4 py-2 shadow-sm transition hover:border-slate-300 hover:shadow-md active:scale-98"
-            >
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Trip Details
-              </span>
-
-              <span className="text-slate-300 font-light">|</span>
-
-              {/* Dynamic Display String */}
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <span>{displayRange || "Select dates"}</span>
-                <span className="text-slate-400">•</span>
-                <span>{guests} {guests === 1 ? 'Guest' : 'Guests'}</span>
-              </div>
-
-              {/* Chevron Icon */}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-slate-900' : ''}`}
-              >
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
-            </button>
-
-            {/* Expandable Compact Pop-Over Dropdown */}
-            {isOpen && (
-              <div className="absolute right-0 z-30 mt-2 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-150 w-[310px]">
-                
-                {/* DATE RANGE ROW */}
-                <div className="flex items-center justify-between gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-1.5">
-                  <div className="flex flex-1 items-center gap-1 min-w-0">
-                    <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">In</span>
-                    <input
-                      type="date"
-                      min={minDate}
-                      value={startDate}
-                      onChange={(event) => {
-                        const nextStartDate = event.target.value;
-                        const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate;
-                        setStartDate(nextStartDate);
-                        setEndDate(nextEndDate);
-                        if (setDateRange) setDateRange({ startDate: nextStartDate, endDate: nextEndDate });
-                      }}
-                      className="w-full cursor-pointer bg-transparent text-xs font-semibold text-slate-800 outline-none p-0"
-                    />
-                  </div>
-
-                  <span className="text-slate-300 font-light text-xs shrink-0">/</span>
-
-                  <div className="flex flex-1 items-center gap-1 min-w-0">
-                    <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">Out</span>
-                    <input
-                      type="date"
-                      min={startDate || minDate}
-                      value={endDate}
-                      onChange={(event) => {
-                        const nextEndDate = event.target.value;
-                        setEndDate(nextEndDate);
-                        if (setDateRange) setDateRange({ startDate, endDate: nextEndDate });
-                      }}
-                      className="w-full cursor-pointer bg-transparent text-xs font-semibold text-slate-800 outline-none p-0"
-                    />
-                  </div>
-                </div>
-
-                {/* GUESTS & APPLY ROW */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex flex-1 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="15"
-                        height="15"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="shrink-0 text-slate-400"
-                      >
-                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                      </svg>
-                      <span className="text-xs font-bold text-slate-800">
-                        {guests} {guests === 1 ? "Guest" : "Guests"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        aria-label="Decrease guests"
-                        onClick={() => setGuests((prev) => Math.max(1, prev - 1))}
-                        className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-xs font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
-                      >
-                        -
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Increase guests"
-                        onClick={() => setGuests((prev) => prev + 1)}
-                        className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-xs font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsOpen(false)}
-                    className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-[#FFFDF7] transition hover:bg-slate-700 shadow-sm shrink-0"
-                  >
-                    Apply
-                  </button>
-                </div>
-
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       <main className="mx-auto w-full max-w-[1400px] px-6 lg:px-12 py-10 flex-grow">
         {destinationError ? (
           <div role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
@@ -858,9 +788,27 @@ function SpecificDestinationsContent() {
         
         <div className="flex flex-col lg:flex-row gap-12 items-start mb-16">
           
-          <div className="flex-1 flex flex-col w-full max-w-4xl">
-            <div className="w-full h-[300px] lg:h-[400px] overflow-hidden rounded-[2rem] shadow-sm mb-8 bg-gray-100">
-              <img key={`${destinationQuery}-${selectedActivity}-${selectedActivityImage}`} src={selectedActivityImage} alt={selectedActivity || destinationDetails.name} onError={(event) => applyImageFallback(event, activityFallbackImage(selectedActivityData, destinationDetails))} className="h-full w-full object-cover" />
+          
+          <div className="flex-1 flex flex-col w-full max-w-4xl relative">
+
+            <div className="relative w-full h-[300px] lg:h-[400px] overflow-hidden rounded-[2rem] shadow-sm mb-8 bg-gray-100">
+  
+              {/* Floating Glass Back Button */}
+              <Link 
+                href="/destinations"
+                className="absolute top-4 left-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/20 text-white backdrop-blur-md transition-all hover:bg-black/40 hover:scale-105 shadow-sm"
+                title="Back to destinations"
+              >
+                <ChevronLeft className="w-6 h-6 ml-[-2px]" />
+              </Link>
+
+              <img 
+                key={`${destinationQuery}-${selectedActivity}-${selectedActivityImage}`} 
+                src={selectedActivityImage} 
+                alt={selectedActivity || destinationDetails.name} 
+                onError={(event) => applyImageFallback(event, activityFallbackImage(selectedActivityData, destinationDetails))} 
+                className="h-full w-full object-cover" 
+              />
             </div>
             
             <div className="flex flex-col px-2 sm:px-4">
@@ -878,103 +826,232 @@ function SpecificDestinationsContent() {
               <p className="mb-8 text-base leading-relaxed text-gray-700">
                 {selectedDataQualityNotes || destinationDetails.description}
               </p>
-              {activityDurationLabel ? (
-                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Duration: <span className="text-slate-800">{activityDurationLabel}</span>
-                </p>
-              ) : null}
-              {amenities.length || promos.length ? (
-                <div className="mb-6 grid gap-3 sm:grid-cols-2">
-                  {amenities.length ? (
-                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-                      <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">Amenities / inclusions</p>
-                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-emerald-950">{amenities.map((item) => <li key={item}>{item}</li>)}</ul>
+              
+              
+
+              {/* UNIFIED ACTIVITY SUMMARY CARD */}
+              <div className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-6 text-sm">
+                  {/* Duration */}
+                  {activityDurationLabel ? (
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Duration</span>
+                      <span className="font-semibold text-slate-800">{activityDurationLabel}</span>
                     </div>
                   ) : null}
-                  {promos.length ? (
-                    <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
-                      <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-amber-700">Promos / discounts</p>
-                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-amber-950">{promos.map((item) => <li key={item}>{item}</li>)}</ul>
+
+                  {/* Base Price */}
+                  {!selectedActivityIsFree && staticBasePriceText ? (
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Base Price</span>
+                      <span className="font-semibold text-slate-800">{staticBasePriceText} / person</span>
                     </div>
                   ) : null}
-                </div>
-              ) : null}
-              <div className="h-px w-full bg-gray-200 mb-6"></div>
 
-              {/* Horizontal 2-Column Layout: Price | Next Destinations */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                
-                {/* Column 1: Total Activity Price */}
-                <div className="p-4 flex flex-col justify-between h-full">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                      {selectedActivityIsFree ? "Activity admission" : "Total Activity Price"}
-                    </p>
-                    <h3 className="mt-1 text-sm font-black text-[#860001] justify-normal">
-                      {selectedActivityIsFree
-                        ? "Free"
-                        : isLoading
-                        ? "Loading..."
-                        : selectedPriceText}
-                    </h3>
-                    {!selectedActivityIsFree && staticBasePriceText && selectedPriceText ? (
-                      <p className="mt-1 text-[11px] font-semibold text-slate-500">
-                        Base price: <span className="font-bold text-slate-800">{staticBasePriceText}</span> / person
-                      </p>
-                    ) : null}
-                  </div>
-
+                  {/* Source Data */}
                   {selectedActivityData?.source_url ? (
-                    <a
-                      href={selectedActivityData.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 text-xs font-medium text-[#4a8b8b] underline transition-colors hover:text-[#76B3DD]"
-                    >
-                      Source Data{selectedActivityData.source_type ? ` (${selectedActivityData.source_type})` : ""}
-                    </a>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Source Data</span>
+                      <a href={selectedActivityData.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#4a8b8b] hover:underline line-clamp-1">
+                        {selectedActivityData.source_type || "External Link"}
+                      </a>
+                    </div>
                   ) : null}
                 </div>
 
-                {/* Column 2: Next Destinations (Takes 3 of 5 columns) */}
-                <div className="md:col-span-3 p-4 h-full flex flex-col justify-between">
-                  <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Next destinations</h2>
-                  <div className="grid grid-cols-3 gap-1.5">
+                {/* Unified Amenities & Promos List */}
+                {(amenities.length > 0 || promos.length > 0) && (
+                  <div className="mt-5 pt-5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {amenities.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                          Amenities & Inclusions
+                        </p>
+                        <ul className="space-y-1.5">
+                          {amenities.map(item => (
+                            <li key={item} className="flex items-start gap-2 text-xs text-slate-700">
+                              <span className="text-slate-300 mt-0.5">•</span>
+                              <span className="leading-relaxed">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
+                    {promos.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-2">
+                          Promos & Discounts
+                        </p>
+                        <ul className="space-y-1.5">
+                          {promos.map(item => (
+                            <li key={item} className="flex items-start gap-2 text-xs text-slate-700">
+                              <span className="text-amber-300 mt-0.5">•</span>
+                              <span className="leading-relaxed">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+
+              {/* NEXT DESTINATIONS ROW */}
+              {nearbyDestinations.length > 0 && (
+                <div>
+                  <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-3">Nearby Destinations</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {nearbyDestinations.slice(0, 3).map((dest) => (
                       <NearbyCard key={dest.id} destination={dest} />
                     ))}
                   </div>
                 </div>
+              )}
 
-                </div>
+            </div>
+          </div>
 
-          </div>
-          </div>
+          
 
           <div className="w-full lg:w-[400px] xl:w-[440px] shrink-0 sticky top-28 pt-2">
+
+            {/* MOVED: Compact Pop-Over Trip Details Pill */}
+            <div className="mb-4 relative z-40 w-full">
+              <div className="relative w-full text-left">
+                <button
+                  type="button"
+                  onClick={() => setIsOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:border-[#860001] hover:shadow-md active:scale-98"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Trip Details
+                    </span>
+                    <span className="text-slate-300 font-light">|</span>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <span>{displayRange || "Select dates"}</span>
+                      <span className="text-slate-400">•</span>
+                      <span>{guests} {guests === 1 ? 'Guest' : 'Guests'}</span>
+                    </div>
+                  </div>
+
+                  {/* Chevron Icon */}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#860001]' : ''}`}
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+
+                {/* Expandable Compact Pop-Over Dropdown */}
+                {isOpen && (
+                  <div className="absolute right-0 z-50 mt-2 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-150 w-[310px]">
+                    
+                    {/* DATE RANGE ROW */}
+                    <div className="flex items-center justify-between gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-1.5">
+                      <div className="flex flex-1 items-center gap-1 min-w-0">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">In</span>
+                        <input
+                          type="date"
+                          min={minDate}
+                          value={startDate}
+                          onChange={(event) => {
+                            const nextStartDate = event.target.value;
+                            const nextEndDate = endDate < nextStartDate ? nextStartDate : endDate;
+                            setStartDate(nextStartDate);
+                            setEndDate(nextEndDate);
+                            if (setDateRange) setDateRange({ startDate: nextStartDate, endDate: nextEndDate });
+                          }}
+                          className="w-full cursor-pointer bg-transparent text-xs font-semibold text-slate-800 outline-none p-0"
+                        />
+                      </div>
+
+                      <span className="text-slate-300 font-light text-xs shrink-0">/</span>
+
+                      <div className="flex flex-1 items-center gap-1 min-w-0">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">Out</span>
+                        <input
+                          type="date"
+                          min={startDate || minDate}
+                          value={endDate}
+                          onChange={(event) => {
+                            const nextEndDate = event.target.value;
+                            setEndDate(nextEndDate);
+                            if (setDateRange) setDateRange({ startDate, endDate: nextEndDate });
+                          }}
+                          className="w-full cursor-pointer bg-transparent text-xs font-semibold text-slate-800 outline-none p-0"
+                        />
+                      </div>
+                    </div>
+
+                    {/* GUESTS & APPLY ROW */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-1 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400">
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                          </svg>
+                          <span className="text-xs font-bold text-slate-800">
+                            {guests} {guests === 1 ? "Guest" : "Guests"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button type="button" aria-label="Decrease guests" onClick={() => setGuests((prev) => Math.max(1, prev - 1))} className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-xs font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95">-</button>
+                          <button type="button" aria-label="Increase guests" onClick={() => setGuests((prev) => prev + 1)} className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-xs font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95">+</button>
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => setIsOpen(false)} className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-[#FFFDF7] transition hover:bg-[#860001] shadow-sm shrink-0">
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="rounded-[2rem] border border-gray-100 bg-white p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.06)] relative z-10">
               
               <div className="mb-6 pb-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
-                  {selectedActivityIsFree ? "Activity admission" : "Activity cost"}
+                  {tripTotalText
+                    ? "Estimated Total Trip Cost"
+                    : selectedActivityIsFree ? "Activity admission" : "Activity cost"}
                 </p>
                 <div className="flex flex-col">
                   <div className="flex items-baseline gap-2">
                     <h3 className="text-[2rem] font-black text-[#0f172a]">
-                      {selectedActivityIsFree
+                      {tripTotalText
+                        ? tripTotalText
+                        : selectedActivityIsFree
                         ? "Free"
                         : isLoading
                         ? "Loading..."
                         : selectedPriceText}
                     </h3>
-                    {!selectedActivityIsFree && activityTotalPrice != null && selectedPriceText ? (
+                    {tripTotalText && perPersonTripText ? (
+                      <span className="text-sm text-gray-500 font-medium">
+                        {perPersonTripText} / person
+                      </span>
+                    ) : !selectedActivityIsFree && activityTotalPrice != null && selectedPriceText ? (
                       <span className="text-sm text-gray-500 font-medium">
                         total for {guests} {guests === 1 ? 'guest' : 'guests'}
                       </span>
                     ) : null}
                   </div>
                   
-                  {!selectedActivityIsFree && staticBasePriceText && selectedPriceText ? (
+                  {!tripTotalText && !selectedActivityIsFree && staticBasePriceText && selectedPriceText ? (
                     <span className="mt-1 text-xs font-semibold text-slate-400">
                       Base price: {staticBasePriceText} / person
                     </span>
@@ -1022,39 +1099,48 @@ function SpecificDestinationsContent() {
                     <span className="sr-only">Loading weather prediction for {formatDate(pricingDate)}...</span>
                   </div>
                 ) : null}
-              
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Estimated Accommodation</p>
-                {isEstimatingHotel ? (
-                  <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500" role="status" aria-live="polite">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-[#4a8b8b]" aria-hidden="true" />
-                    Predicting…
-                  </p>
-                ) : accommodationNightlyTotal != null ? (
-                  <div>
-                    <h4 className="text-xl font-black text-[#0f172a]">PHP {(accommodationNightlyTotal * stayNights).toLocaleString()}</h4>
-                    <p className="text-xs font-medium text-slate-500 mb-2">Exact dataset rate for {stayNights} {stayNights === 1 ? "night" : "nights"}</p>
-                    <div className="flex flex-col gap-1 text-[11px] text-slate-600">
-                      <p className="flex justify-between"><span>Room rate:</span> <span className="font-semibold text-slate-800">PHP {hotelRatePerNight.toLocaleString()} / night</span></p>
-                      <p className="flex justify-between"><span>Occupancy:</span> <span className="font-semibold text-slate-800">{hotelOccupancyPax} pax / room</span></p>
-                      <p className="flex justify-between"><span>Rooms required:</span> <span className="font-semibold text-slate-800">{hotelRoomsRequired}</span></p>
-                      <p className="flex justify-between"><span>Per-pax nightly rate:</span> <span className="font-semibold text-slate-800">PHP {accommodationPerPaxPerNight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></p>
-                    </div>
+
+                {/* CONDITIONAL ESTIMATION CONTAINER */}
+                {(isEstimatingHotel || accommodationNightlyTotal != null || hotelEstimate) ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                      {accommodationNightlyTotal != null ? "Selected Accommodation Cost" : "MLR Accommodation Estimate"}
+                    </p>
+                    
+                    {isEstimatingHotel ? (
+                      <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500" role="status" aria-live="polite">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-[#4a8b8b]" aria-hidden="true" />
+                        Predicting…
+                      </p>
+                    ) : accommodationNightlyTotal != null ? (
+                      <div>
+                        <h4 className="text-xl font-black text-[#0f172a]">
+                          PHP {totalAccommodationCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </h4>
+                        <p className="text-xs font-medium text-slate-500 mb-2">Exact dataset rate for {stayNights} {stayNights === 1 ? "night" : "nights"}</p>
+                        <div className="flex flex-col gap-1 text-[11px] text-slate-600">
+                          <p className="flex justify-between"><span>Selected room:</span> <span className="text-right font-semibold text-slate-800">{selectedPricingTier?.room_type || roomType}</span></p>
+                          <p className="flex justify-between"><span>Room rate:</span> <span className="font-semibold text-slate-800">PHP {hotelRatePerNight.toLocaleString()} / night</span></p>
+                          <p className="flex justify-between"><span>Occupancy:</span> <span className="font-semibold text-slate-800">{hotelOccupancyPax} pax / room</span></p>
+                          <p className="flex justify-between"><span>Rooms required:</span> <span className="font-semibold text-slate-800">{hotelRoomsRequired}</span></p>
+                          <p className="flex justify-between"><span>Accommodation / person for stay:</span> <span className="font-semibold text-slate-800">{exactAccommodationPerPersonText}</span></p>
+                          <p className="flex justify-between"><span>Per-pax nightly rate:</span> <span className="font-semibold text-slate-800">PHP {perPaxNightlyAccommodationCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
+                        </div>
+                      </div>
+                    ) : hotelEstimate ? (
+                      <div>
+                        <h4 className="text-xl font-black text-[#0f172a]">PHP {hotelEstimate.total_price.toLocaleString()}</h4>
+                        <p className="text-xs font-medium text-slate-500 mb-2">Total for {hotelEstimate.length_of_stay} nights</p>
+                        <div className="flex flex-col gap-1 text-[11px] text-slate-600">
+                          <p className="flex justify-between"><span>Selected room:</span> <span className="text-right font-semibold text-slate-800">{roomType}</span></p>
+                          <p className="flex justify-between"><span>Base Rate:</span> <span className="font-semibold text-slate-800">PHP {hotelEstimate.base_price.toLocaleString()}</span></p>
+                          <p className="flex justify-between"><span>MLR Surge Multiplier:</span> <span className="font-bold text-[#860001]">{hotelEstimate.surge_multiplier}x</span></p>
+                          <p className="text-[9px] text-[#4a8b8b] italic mt-1 text-right">{hotelEstimate.source}</p>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                ) : hotelEstimate ? (
-                  <div>
-                    <h4 className="text-xl font-black text-[#0f172a]">PHP {hotelEstimate.total_price.toLocaleString()}</h4>
-                    <p className="text-xs font-medium text-slate-500 mb-2">Total for {hotelEstimate.length_of_stay} nights</p>
-                    <div className="flex flex-col gap-1 text-[11px] text-slate-600">
-                      <p className="flex justify-between"><span>Base Rate:</span> <span className="font-semibold text-slate-800">PHP {hotelEstimate.base_price.toLocaleString()}</span></p>
-                      <p className="flex justify-between"><span>MLR Surge Multiplier:</span> <span className="font-bold text-[#860001]">{hotelEstimate.surge_multiplier}x</span></p>
-                      <p className="text-[9px] text-[#4a8b8b] italic mt-1 text-right">{hotelEstimate.source}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm font-semibold text-slate-400 italic">No local hotel rate available for this destination.</p>
-                )}
-              </div>
+                ) : null}
               
               </div>
 

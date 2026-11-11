@@ -108,20 +108,17 @@ def normalize_city_name(value: str) -> str:
 
 def activity_price_per_pax(row: pd.Series) -> float | None:
     price = pd.to_numeric(row.get("Price_Per_Pax_PHP"), errors="coerce")
-    if pd.notna(price):
+    if pd.notna(price) and price > 0:
         return round(float(price), 2)
 
     basis = str(row.get("Price_Unit_or_Basis", "")).casefold()
-    if not re.search(r"\bper\s+(visitor|person|pax)\b", basis):
-        return None
-
     display = row.get("Price_Display")
-    if pd.isna(display):
-        return None
-    match = re.fullmatch(r"\s*(?:₱|PHP\s*)?([\d,]+(?:\.\d{1,2})?)\s*", str(display), re.IGNORECASE)
-    if not match:
-        return None
-    return round(float(match.group(1).replace(",", "")), 2)
+    if re.search(r"\bper\s+(visitor|person|pax)\b", basis) and not pd.isna(display):
+        display_amount = display_price_amount(display)
+        if display_amount is not None:
+            return display_amount
+
+    return round(float(price), 2) if pd.notna(price) else None
 
 
 def display_price_amount(value: object) -> float | None:
@@ -132,6 +129,28 @@ def display_price_amount(value: object) -> float | None:
     if not match:
         return None
     return round(float(match.group(1).replace(",", "")), 2)
+
+
+def resolved_activity_price_per_pax(
+    payload_price: object,
+    price_display: object,
+    dataset_price: float | None,
+) -> float | None:
+    numeric_price = pd.to_numeric(payload_price, errors="coerce")
+    display_text = str(price_display or "").strip()
+    display_amount = display_price_amount(display_text)
+
+    if pd.notna(numeric_price) and numeric_price > 0:
+        return round(float(numeric_price), 2)
+    if display_amount is not None:
+        return display_amount
+    if re.match(r"^free(?:\s*\(|$)", display_text, re.IGNORECASE):
+        return 0.0
+    if dataset_price is not None and dataset_price > 0:
+        return dataset_price
+    if pd.notna(numeric_price):
+        return round(float(numeric_price), 2)
+    return dataset_price
 
 
 # Load the newly trained MLR models
@@ -1553,7 +1572,12 @@ def generate_itinerary(payload: ItineraryPayload):
         hotel_type = activity.hotel_type if activity.hotel_type in DEFAULT_BASE_PRICES else ("Resort Hotel" if act_type == "outdoor" else "City Hotel")
         hotel_is_resort = int(hotel_type == "Resort Hotel")
         activity_key = (normalize_city_name(destination), activity.name.strip().casefold())
-        price_per_person = PHILIPPINE_ACTIVITY_PRICES.get(activity_key)
+        dataset_price = PHILIPPINE_ACTIVITY_PRICES.get(activity_key)
+        price_per_person = resolved_activity_price_per_pax(
+            activity.price_per_pax,
+            activity.price_display,
+            dataset_price,
+        )
         estimated_price = round(price_per_person * activity.guests, 2) if price_per_person is not None else None
         average_temperature = float(matched_fc.get("average_temperature", MONTHLY_WEATHER[date.fromisoformat(day).month][0]))
         rainfall = float(matched_fc.get("precipitation_sum_mm", 0.0) or 0.0)
