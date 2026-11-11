@@ -363,8 +363,12 @@ function SpecificDestinationsContent() {
   const operatingDayWarning = operatingDayStatus === false
     ? `This location may be closed on ${new Date(`${pricingDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" })} (${selectedActivityData.open_days}).`
     : "";
-  const operatingHoursPublished = selectedActivityData?.opening_time && selectedActivityData?.closing_time
-    && !/not published|unknown|n\/a/i.test(`${selectedActivityData.opening_time} ${selectedActivityData.closing_time}`);
+  const openingTime = String(selectedActivityData?.opening_time || "").trim();
+  const closingTime = String(selectedActivityData?.closing_time || "").trim();
+  const operatingHoursPublished = timeToMinutes(openingTime) != null && timeToMinutes(closingTime) != null;
+  const operatingHoursNote = [openingTime, closingTime].find(
+    (value) => value && timeToMinutes(value) == null,
+  );
   const activityDurationLabel = selectedActivityData?.activity_duration || (
     selectedActivityData?.duration_hours ? `${selectedActivityData.duration_hours} hrs` : ""
   );
@@ -1107,11 +1111,11 @@ function SpecificDestinationsContent() {
                     </div>
                     {operatingHoursPublished ? (
                       <p className="text-xs font-semibold text-slate-500">
-                        Operating hours: {selectedActivityData.opening_time}–{selectedActivityData.closing_time}
+                        Operating hours: {openingTime}–{closingTime}
                       </p>
                     ) : (
                       <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-                        Operating hours not published — please verify locally.
+                        Operating hours: {operatingHoursNote || "Not published — please verify locally."}
                       </p>
                     )}
                     {operatingDayWarning ? (

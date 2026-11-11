@@ -34,30 +34,35 @@ const activityImage = (activity, destination) => (
 );
 
 const formatActivityPrice = (displayStr, rawPrice) => {
-  if (!displayStr) return "";
-  let cleaned = displayStr.trim();
-  
-  if (
-    /not published|unlisted|tba|n\/a/i.test(cleaned) ||
-    cleaned === "Not published in cited source"
-  ) {
-    return ""; // Leaves the space blank as requested
+  const cleaned = typeof displayStr === "string" ? displayStr.trim() : "";
+  const numericPrice = Number(rawPrice);
+  let amount = rawPrice != null && rawPrice !== "" && Number.isFinite(numericPrice) && numericPrice > 0
+    ? numericPrice
+    : null;
+
+  if (amount == null) {
+    if (/not published|unlisted|tba|n\/a|not cited/i.test(cleaned)) return "";
+
+    const dollarAmount = cleaned.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/);
+    const pesoAmount = cleaned.match(/(?:₱|PHP\s*)\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const displayAmount = dollarAmount?.[1] || pesoAmount?.[1] || cleaned.match(/([\d,]+(?:\.\d{1,2})?)/)?.[1];
+    if (!displayAmount) return "";
+
+    amount = Number(displayAmount.replace(/,/g, ""));
+    if (dollarAmount) amount *= 56;
   }
 
-  if (cleaned.includes("$")) {
-    cleaned = cleaned.replace(/\$(\d+(?:\.\d+)?)/g, (match, usdVal) => {
-      const phpVal = (parseFloat(usdVal) * 56.0).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      return `₱${phpVal} ($${usdVal})`;
-    });
-  }
-
-  return cleaned;
+  return Number.isFinite(amount) && amount > 0
+    ? `₱${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+    : "";
 };
 
 function ActivityDestinationCard({ item }) {
+  const duration = item.activityDuration?.trim() || "";
+  const durationLabel = duration && !/not published|not cited|not in cited source|planning estimate|as stated in listing title|unknown|n\/a|tba/i.test(duration)
+    ? duration
+    : "";
+
   return (
     <Link
       href={`/specific-destinations?id=${item.destinationId}&activity=${encodeURIComponent(item.activityName)}`}
@@ -76,13 +81,13 @@ function ActivityDestinationCard({ item }) {
         {/* Top Badge: Weather Tag */}
         <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-end gap-2">
           <div className="flex max-w-[75%] flex-wrap justify-end gap-1">
-            <span className="rounded-full bg-teal-600/95 p-2 text-white shadow-sm backdrop-blur-md" title={item.weatherCondition}>
+            <span className="rounded-full p-2 text-white" title={item.weatherCondition}>
               <WeatherIcon condition={item.weatherCondition} className="h-5 w-5" />
             </span>
           </div>
         </div>
 
-        {/* Bottom City Name Badge (Swapped in place of Philippines) */}
+        {/* Bottom City Name Badge */}
         <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
           <div className="flex items-center gap-2 rounded-xl bg-black/40 backdrop-blur-md px-3 py-1.5 text-white border border-white/20">
             <svg
@@ -104,24 +109,22 @@ function ActivityDestinationCard({ item }) {
             </span>
           </div>
 
-          <span className="text-xs font-semibold text-white/90 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-lg">
-            {item.activityDuration || `${item.durationHours} hrs`}
-          </span>
+          {durationLabel && (
+            <span className="text-xs font-semibold text-white/90 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-lg">
+              {durationLabel}
+            </span>
+          )}
         </div>
       </div>
 
       <div className="flex flex-1 flex-col justify-between p-5">
         <div>
-          <h2 className="text-lg font-black text-slate-900 leading-snug group-hover:text-[#4a8b8b] transition-colors">
+          <h2 className="text-ms font-black text-slate-900 leading-snug group-hover:text-[#4a8b8b] transition-colors text-justify">
             {item.activityName}
           </h2>
-          
-          <p className="mt-2 text-xs text-slate-500 line-clamp-2 leading-relaxed">
-            {item.description}
-          </p>
         </div>
 
-        <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between">
+        <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between">
           <span className="text-xs font-semibold text-[#4a8b8b] flex items-center gap-1 group-hover:underline">
             View details & price
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -425,8 +428,6 @@ export default function DestinationsPage() {
           weatherCondition: activity.weather_condition || dest.weather_condition || dest.main_weather,
           image: activityImage(activity, dest),
           fallbackImage: activityFallbackImage(activity, dest),
-          description: activity.description || dest.description,
-          durationHours: activity.duration_hours || 3,
         });
       });
     });
@@ -487,9 +488,32 @@ export default function DestinationsPage() {
         <div className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           {/* Title & Subtitle Context */}
           <div className="space-y-1">
-            <h1 className="text-3xl font-extrabold uppercase tracking-tight text-slate-900 sm:text-4xl">
-              Activities &amp; Experiences
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-extrabold uppercase tracking-tight text-slate-900 sm:text-4xl">
+                Activities &amp; Experiences
+              </h1>
+              <span className="group relative inline-flex">
+                <button
+                  type="button"
+                  aria-label="About activity information"
+                  aria-describedby="activity-information-note"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition hover:text-[#4a8b8b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a8b8b]"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="11" x2="12" y2="16"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+                </button>
+                <span
+                  id="activity-information-note"
+                  role="tooltip"
+                  className="invisible absolute left-0 top-full z-30 mt-2 w-72 rounded-xl bg-slate-900 px-3 py-2 text-left text-xs font-medium normal-case leading-relaxed text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+                >
+                  Some details, including prices, may be left blank when they are not listed or cited in the source. Open an activity to see any additional available information.
+                </span>
+              </span>
+            </div>
             <p className="text-sm font-medium text-slate-500">
               Showing <span className="font-bold text-slate-900">{filteredActivities.length}</span> activities across {destinations.length} cities for{" "}
               <span className="font-bold text-[#860001]">{displayRange}</span> ({guests} {guests === 1 ? "guest" : "guests"})
