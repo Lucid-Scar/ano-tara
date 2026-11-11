@@ -8,9 +8,19 @@ import { clampToSelectableDate, getGuestWarning, getMinSelectableDate, WeatherIc
 import { getActivityImagePath } from "../activityImages";
 
 const CARDS_PER_PAGE = 24;
+const parseDisplayPriceAmount = (value) => {
+  const match = String(value || "").match(/(₱|PHP\s*|\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  if (!match) return null;
+  const amount = Number(match[2].replace(/,/g, ""));
+  return Number.isFinite(amount) ? (match[1].trim() === "$" ? amount * 56 : amount) : null;
+};
 const isFreeActivity = (activity) => (
-  (activity?.price_per_pax != null && Number(activity.price_per_pax) === 0)
-  || /^free(?:\s*\(|$)/i.test(activity?.price_display?.trim() || "")
+  (parseDisplayPriceAmount(activity?.price_display) || 0) <= 0
+  && !/not published|not listed|unlisted|not cited|unknown|n\/a|tba/i.test(activity?.price_display?.trim() || "")
+  && (
+    (activity?.price_per_pax != null && Number(activity.price_per_pax) === 0)
+    || /^free(?:\s*\(|$)/i.test(activity?.price_display?.trim() || "")
+  )
 );
 const activityFallbackImage = (activity, destination) => {
   const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
