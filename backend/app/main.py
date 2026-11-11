@@ -715,7 +715,6 @@ def load_destinations_from_golden_dataset() -> list[dict]:
             "main_weather": list(SUITABILITY_WEATHER_BY_DESTINATION.get(city_name.casefold(), WEATHER_OPTIONS))[0],
             "weather_tags": list(SUITABILITY_WEATHER_BY_DESTINATION.get(city_name.casefold(), WEATHER_OPTIONS)),
             "image": "https://images.unsplash.com/photo-1518544866330-95a85b8f8f6f?auto=format&fit=crop&w=1200&q=80",
-            "description": f"Verified activities and historical landmarks in {city_name}.",
             "activities": activities,
         })
 
