@@ -1,328 +1,161 @@
-# Ano Tara
+﻿# Ano Tara
 
-Ano Tara is a full-stack travel-planning application for Philippine destinations. It combines a Next.js web application, a FastAPI service, tourism and pricing data, live/historical weather, and three machine-learning decision points:
+Ano Tara is a travel-planning web app for Philippine destinations. It combines a Next.js frontend with a FastAPI backend for destination and activity data, weather, accommodation estimates, outfit detection, and itinerary generation.
 
-- **CNN-style computer vision workflow:** the production outfit model is a YOLOv8 convolutional object-detection model. It finds garments in an uploaded image and classifies each detected garment into a weather-suitability category.
-- **Multiple Linear Regression (MLR):** estimates accommodation prices from booking, party, stay, room, hotel, season, weather, holiday, and inflation features.
-- **Decision Tree:** classifies weather/activity safety from temperature, rainfall, wind, heat index, and hotel/activity context. The API also contains a deterministic fallback when the optional trained tree artifact is unavailable.
-
-The browser never loads Python models directly. It calls Next.js rewrite routes, which proxy requests to FastAPI. FastAPI loads the data and model artifacts, performs inference and planning, and returns JSON for the React pages to render.
+The browser calls the backend through a same-origin Next.js rewrite. The backend loads tourism and activity-suitability data at startup, queries Open-Meteo and OSRM when needed, and uses local model artifacts when available.
 
 ## Architecture
 
 ```text
 Browser
-  │
-  │ React state, forms, FileReader, localStorage
-  ▼
-Next.js frontend (:3000)
-  │ /api/backend/* rewrite
-  ▼
-FastAPI backend (:8000)
-  ├─ tourism CSV → destinations, activities, coordinates, local prices
-  ├─ Open-Meteo → live forecast, archive weather, climate fallback
-  ├─ YOLOv8 → clothing detection and cropped garment images
-  ├─ MLR/joblib → accommodation price multiplier
-  ├─ Decision Tree/joblib or rules → outdoor/indoor suitability and hazards
-  └─ OSRM → road routes between itinerary activities
+  └─ Next.js frontend (default: http://localhost:3000)
+       └─ /api/backend/* rewrite
+            └─ FastAPI backend (default: http://127.0.0.1:8000)
+                 ├─ tourism CSV → destinations, activities, coordinates, rates
+                 ├─ activity-suitability CSV → available weather labels
+                 ├─ Open-Meteo → forecasts and historical weather
+                 ├─ YOLO + OpenCV → garment detection and image crops
+                 ├─ scikit-learn/joblib → accommodation price estimates
+                 └─ OSRM → road routes between itinerary stops
 ```
 
-### Runtime responsibilities
+### State and persistence
 
-1. **Frontend input and state**
-   - Users select dates, guests, destinations, activities, and clothing images.
-   - `TravelContext` shares the current trip and outfit state across pages.
-   - Generated planners are saved in `localStorage` under `anoTaraSavedPlanners`.
-   - The active, unfinished trip is kept in React state and is cleared on refresh.
+- `TravelContext` keeps the working trip (dates, guests, activities, outfits) in React memory. It clears on refresh.
+- Saved/generated planners persist in browser `localStorage` under `anoTaraSavedPlanners`.
+- The legacy `anoTaraTrip` key is removed on app load.
+- Model inference runs in the Python backend; the browser does not load model files.
 
-2. **Next.js server proxy**
-   - `frontend/next.config.js` rewrites `/api/backend/:path*` to `BACKEND_API_URL`.
-   - The browser therefore uses same-origin URLs such as `/api/backend/destinations`; it does not need direct access to port 8000.
-
-3. **FastAPI inference and planning**
-   - `backend/app/main.py` loads the tourism CSV and available joblib artifacts at import time.
-   - Weather requests are cached in process memory.
-   - Each API response contains the data needed by the page, including forecast source, price source, model decisions, and route data.
-
-## Repository structure
+## Repository layout
 
 ```text
 .
-├── README.md                         This system and production guide
-├── MODEL_OVERVIEW.md                 Earlier model-focused notes
+├── README.md
+├── package.json                         Root metadata (no app scripts)
 ├── frontend/
-│   ├── app/
-│   │   ├── page.js                   Home page
-│   │   ├── layout.js                 Root layout and TravelProvider
-│   │   ├── TravelContext.js          Shared trip/outfit/saved-planner state
-│   │   ├── tripUtils.js              Date, guest, and trip utility functions
-│   │   ├── destinations/              Destination listing route
-│   │   ├── specific-destinations/     Destination detail, forecast, pricing
-│   │   ├── predict-outfit/             Outfit upload, weather lookup, inference UI
-│   │   ├── final-planner/              Trip submission and generated itinerary
-│   │   ├── itinerary-overview/         Saved/generated itinerary display
-│   │   ├── pricing.js                 Frontend pricing helpers
-│   │   ├── header/, footer/             Shared navigation components
-│   │   └── globals.css                Global Tailwind/CSS styles
-│   ├── components/
-│   │   ├── ImageUploader.js           File validation and base64 conversion
-│   │   ├── GarmentImage.js            Garment image rendering
-│   │   ├── OutfitImageCapture.js      Camera/image capture UI
-│   │   ├── DynamicMap.jsx              Map rendering
-│   │   ├── ItineraryMap.jsx            Itinerary route map
-│   │   ├── ActivityTimePicker.js       Activity time selection
-│   │   └── ItineraryOverview.js         Itinerary presentation
-│   ├── next.config.js                 Backend rewrite configuration
-│   ├── package.json                   Frontend scripts/dependencies
-│   └── public/                        Logos, backgrounds, and activity images
-├── backend/
-│   ├── app/
-│   │   ├── main.py                    FastAPI app, inference, data loading, planner
-│   │   ├── pricing_config.py          PHP conversion, base prices, monthly weather
-│   │   ├── mlr-model.py               Runtime MLR training/export script
-│   │   ├── mlr-price.py               Legacy/experimental MLR training script
-│   │   ├── mlr-stats.py               OLS statistical analysis script
-│   │   ├── price.py                   Earlier standalone pricing implementation
-│   │   ├── labels2.txt                Label file retained with the backend
-│   │   └── model/
-│   │       ├── price_model_bundle.joblib    Checked-in MLR bundle fallback
-│   │       └── mlr_evaluation_report.csv   MLR evaluation report
-│   ├── data/
-│   │   ├── philippines_tourism_with_coordinates_final.csv
-│   │   └── README.md                  Data preparation and decision-tree notes
-│   ├── requirements.txt               Python dependencies
-│   ├── start-backend.ps1              Windows backend launcher
-│   ├── decision_tree_matrix.png       Decision-tree-related visual
-│   └── cross_referencing_matrix.png   Cross-reference visual
-└── package.json                       Root package metadata
+│   ├── app/                              Next.js routes and shared state
+│   ├── components/                       Upload, camera, map, and itinerary UI
+│   ├── public/                            Logos and activity images
+│   ├── next.config.js                     Backend proxy rewrite
+│   └── package.json                       Frontend scripts and dependencies
+└── backend/
+    ├── app/
+    │   ├── main.py                        FastAPI routes and runtime logic
+    │   ├── pricing_config.py              Training constants and monthly weather data
+    │   ├── mlr-model.py                   MLR training/export script
+    │   ├── mlr-price.py                   Earlier bundle training script
+    │   ├── mlr-stats.py                   OLS analysis script
+    │   └── model/                          Tracked fallback model/report; local artifacts may be ignored
+    ├── data/
+    │   ├── philippines_tourism_with_coordinates_final.csv
+    │   └── activity_suitability.csv       Required at runtime; ignored by Git
+    ├── requirements.txt
+    └── start-backend.ps1                  Windows launcher using backend/venv
 ```
-
-The repository currently does **not** check in `backend/app/model/best.pt` or `backend/app/model/weather_decision_tree.joblib`. The corresponding runtime features are therefore optional until those artifacts are supplied. The MLR fallback bundle is present.
 
 ## Local development
 
 ### Backend
 
-```bash
+The backend requires **both** CSV files below at startup:
+
+- `backend/data/philippines_tourism_with_coordinates_final.csv` (tracked)
+- `backend/data/activity_suitability.csv` (ignored by Git and therefore must be supplied separately in a fresh clone)
+
+`activity_suitability.csv` must include `destination` and `weather_condition` columns. `backend/data/README.md` describes an intended preparation script, but that script is not present in this repository, so the CSV cannot currently be regenerated from the checked-in files using the documented command.
+
+From the repository root, create and activate a virtual environment, install the requirements, then start the API:
+
+```powershell
 cd backend
-python -m venv .venv
-source .venv/bin/activate              # Windows: .venv\Scripts\Activate.ps1
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-On Windows, `backend/start-backend.ps1` starts the service using `backend/venv`. The tourism CSV must remain at `backend/data/philippines_tourism_with_coordinates_final.csv`; the API raises an error during startup if it is missing.
+On Windows, `backend/start-backend.ps1` starts Uvicorn using `backend/venv`. The backend reads model files from `backend/app/model/`.
 
 ### Frontend
 
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. To use another backend:
+Open `http://localhost:3000`. The rewrite target defaults to `http://127.0.0.1:8000`; set `BACKEND_API_URL` before starting Next.js to use another backend. For example, in PowerShell:
 
-```bash
-BACKEND_API_URL=http://127.0.0.1:8000 npm run dev
+```powershell
+$env:BACKEND_API_URL = "http://127.0.0.1:8000"
+npm run dev
 ```
 
-Available frontend scripts are `npm run dev`, `npm run build`, `npm run start`, and `npm run lint`.
+Frontend scripts are `npm run dev`, `npm run build`, `npm run start`, and `npm run lint`.
 
-## Production request flows
+## Runtime behavior
 
-### 1. Browse destinations and activities
+### Destinations and weather
 
-1. A page such as `Destinations.page.js` requests `GET /api/backend/destinations`.
-2. Next.js rewrites it to `GET /destinations` on FastAPI.
-3. `main.py` has already converted the tourism CSV into `DESTINATIONS`.
-4. The response includes city metadata, coordinates, activities, pricing tiers, local hotel-rate averages, and estimated prices for both hotel types.
-5. A detail page requests `GET /destinations/{destination_id}` and then `GET /destinations/{destination_id}/forecast?date_str=YYYY-MM-DD`.
+`GET /destinations` returns destination data, weather, and hotel price estimates. `GET /destinations/{destination_id}` returns a destination record. `GET /destinations/{destination_id}/forecast?date_str=YYYY-MM-DD` returns weather, historical comparison, and activity recommendations.
 
-`load_destinations_from_golden_dataset()` normalizes city names, groups rows into destinations and activities, parses prices and coordinates, adds fallback indoor/outdoor activities when necessary, and assigns weather tags.
+Weather requests use Open-Meteo when reachable:
 
-### 2. Forecast and activity recommendation
+- Dates from today through 16 days ahead use the forecast API.
+- Past dates use the archive API.
+- Dates more than 16 days ahead use averages for matching calendar days across several historical years.
+- If those requests fail or return no usable data, the backend uses the monthly baseline in `main.py`.
 
-`fetch_forecast()` chooses a weather source by date:
+The final app labels weather using thresholds in `get_pagasa_condition()` (heat index, wind, rainfall, and temperature). These are application rules and should not be presented as official PAGASA forecasts. Weather results are cached in process memory.
 
-1. Up to 16 days ahead: Open-Meteo live forecast.
-2. Past dates: Open-Meteo archive data.
-3. Far-future dates: five-year same-date archive averages.
-4. If external weather is unavailable: `MONTHLY_WEATHER` offline baseline from `pricing_config.py`.
+Outdoor activities are recommended for `Clear / Sunny` and `Fair / Partly Cloudy`; indoor activities for the other labels. The optional decision-tree artifact adds hazard classification; it does not choose the activity recommendation. The weather tree is not tracked in this repository.
 
-The result is normalized through `get_pagasa_condition()` using heat index, wind, and rainfall:
+### Outfit detection
 
-| Condition | Main rule |
-|---|---|
-| Extreme Heat / Danger | Heat index ≥ 42°C |
-| Windy / Stormy | Wind ≥ 45 km/h, or heavy rain with strong wind |
-| Heavy Rain / Rainy | Rainfall > 15 mm |
-| Light Rain / Drizzle | Rainfall > 2 mm |
-| Fair / Partly Cloudy | Temperature ≥ 31°C with little rain |
-| Clear / Sunny | Remaining clear conditions |
+The outfit route is `POST /predict-outfit` (through the frontend rewrite: `POST /api/backend/predict-outfit`). The frontend accepts image files up to 20 MB, converts them to a base64 data URL, and sends `image_base64`. The backend also supports `image_url`.
 
-`GET /destinations/{id}/forecast` then predicts whether outdoor activity is safe. If `weather_decision_tree.joblib` exists, it uses the tree; otherwise it uses the clear/fair rule. Activities matching the recommendation are marked `recommended`; others are locked with a reason.
+The backend lazily loads `backend/app/model/best.pt` with Ultralytics YOLO, runs detection at confidence 0.25, crops detected boxes with OpenCV, and maps each class to weather guidance. If the weights are missing or fail to load, the route returns HTTP 503. `best.pt` is ignored by Git: it exists in some working environments but a fresh clone does not receive it.
 
-### 3. Outfit/CNN workflow
+The output includes detected categories, confidence, suitability guidance, matching conditions, and cropped garment images. The frontend compares the conditions with the selected forecast. When generating an itinerary, the frontend sends its first accepted outfit to the backend; it also retains the full outfit list in the saved planner data.
 
-The production image path is implemented in `backend/app/main.py` and `frontend/app/predict-outfit/OutfitPlannerClient.js`.
+### Accommodation price estimates
 
-1. `ImageUploader.js` accepts an image, rejects files over 20 MB, and converts the file to a `data:image/...;base64,...` string with `FileReader`.
-2. The page first requests destination weather.
-3. It posts `{ "image_base64": "..." }` to `POST /api/backend/predict-outfit`.
-4. `image_bytes()` decodes base64, or downloads `image_url` when provided.
-5. `load_outfit_model()` lazily loads `backend/app/model/best.pt` with Ultralytics YOLO.
-6. YOLO runs detection with `conf=0.25`.
-7. For every bounding box, the backend:
-   - extracts the class name and confidence;
-   - crops the garment with OpenCV;
-   - encodes the crop as a JPEG data URL;
-   - maps the garment name through `CLOTHING_WEATHER_MAP`.
-8. The response contains an item list with `category`, `confidence_score`, `weather_suitability`, `expected_condition`, `conditions`, and `cropped_image`.
-9. The frontend compares `conditions` with the selected forecast, adds accepted garments to the planner, and later sends the first outfit to the itinerary endpoint.
+`POST /predict-price` validates the stay dates and destination, chooses a local hotel-rate average when available (otherwise a configured regional baseline), then estimates the stay total.
 
-If `best.pt` is absent or cannot be loaded, the endpoint returns HTTP 503. The old Keras/CNN description in prior documentation is not the current implementation; the checked-in server imports `ultralytics`, `cv2`, and `YOLO`.
+At runtime, the backend first looks for `price_surge_mlr_model.joblib` and `model_features.joblib`; if unavailable, it loads the tracked `price_model_bundle.joblib`. These newer artifacts are ignored by Git. If neither trained artifact loads, the endpoint uses a rule-based estimate. The model predicts a log price multiplier; runtime applies configured seasonal and inflation adjustments and caps the multiplier at 3.0. Prices are estimates, not live booking quotes.
 
-### 4. MLR price estimation
+`mlr-model.py` and `mlr-price.py` are training scripts, not request handlers. They require hotel-booking and, depending on the script, weather/inflation input files that are not included in the repository. `mlr-stats.py` runs a statsmodels OLS analysis and also relies on external training inputs. The generated model/report files are written under `backend/app/model/`.
 
-`POST /predict-price` validates dates and destination, determines the hotel type, and calls `estimate_hotel_price()`.
+### Itinerary generation
 
-#### Training
+The frontend first calls `POST /predict-price`, then calls `POST /api/generate-itinerary` (proxied to backend `POST /api/generate-itinerary`). The request includes dates, selected activities, guest count, the price estimate, and optionally an outfit.
 
-`mlr-model.py`:
-
-1. Reads a hotel-bookings CSV.
-2. Removes invalid ADR values and zero-person/zero-night bookings.
-3. Creates `pax`, `length_of_stay`, weekend, holiday, room, and hotel-type features.
-4. Adds monthly temperature/rainfall and optional PSA inflation.
-5. Creates interaction terms (`hotel_temp`, `hotel_rain`, `hotel_pax`) and `pax_squared`.
-6. Defines the target as:
-
-   ```text
-   surge_multiplier = (ADR × ADR_TO_PHP) / synthetic_base_price
-   log_multiplier = log(surge_multiplier)
-   ```
-
-7. Fits `sklearn.linear_model.LinearRegression` on `log_multiplier`.
-8. Exports the model and feature list. It also writes evaluation reports and plots.
-
-`mlr-price.py` is an older bundle-producing workflow using one-hot month features and optional weather files. `mlr-stats.py` runs a statsmodels OLS significance report. These scripts are training/analysis tools, not request handlers.
-
-#### Runtime
-
-At startup, `main.py` first tries:
-
-```text
-model/price_surge_mlr_model.joblib + model/model_features.joblib
-```
-
-and then falls back to the checked-in:
-
-```text
-model/price_model_bundle.joblib
-```
-
-For a request, the API:
-
-1. Selects a destination-specific average hotel rate from the tourism CSV, or a configured regional baseline.
-2. Builds the same feature concepts as training: lead time, guests, stay length, weekend, holiday, room class, hotel type, monthly weather, inflation, interactions, and guest-count square.
-3. Predicts a log multiplier and converts it back with `exp()`.
-4. Adds a Philippine peak-month factor and inflation adjustment.
-5. Caps the multiplier at `3.0`.
-6. Multiplies the base rate by the multiplier and the number of nights.
-7. Returns price, daily price, total price, base-price source, model source, season, weather, and historical comparison.
-
-If the trained MLR model is unavailable, the endpoint remains usable with a rule-based multiplier based on guests, peak season, and inflation.
-
-These are estimates. The training scripts use a hotel-booking dataset and adapt it to Philippine peso baselines; they should not be interpreted as observed market quotes.
-
-### 5. Decision Tree workflow
-
-The intended weather Decision Tree is loaded from:
-
-```text
-backend/app/model/weather_decision_tree.joblib
-```
-
-When available, the API supplies five columns:
-
-```text
-average_temperature_c
-precipitation_mm
-wind_speed_kmh
-heat_index_c
-hotel_is_resort
-```
-
-The classifier returns:
-
-- `1`: safe/suitable conditions;
-- `0`: unsafe/hazardous conditions.
-
-It is used by destination forecast, price recommendations, and itinerary hazard flags. The itinerary additionally treats Heavy Rain, Windy/Stormy, and Extreme Heat as outdoor hazards even when the tree is unavailable. `backend/data/README.md` documents the prototype data process: historical weather is joined to indoor/outdoor activity labels, but the labels are rule-generated (`prototype_rule_label`) and are not independent ground truth.
-
-### 6. Generate the final itinerary
-
-`FinalPlanner.page.js` performs two sequential requests:
-
-1. `POST /predict-price` obtains the `mlrPrice`.
-2. `POST /api/generate-itinerary` sends:
-
-   ```json
-   {
-     "target_dates": ["YYYY-MM-DD"],
-     "raw_activities": [],
-     "mlr_price": 0,
-     "guests": 1,
-     "outfit": {}
-   }
-   ```
-
-`generate_itinerary()`:
-
-1. Validates dates and requires at least one activity.
-2. Fetches forecast, historical weather, and forecast-vs-history comparisons for each destination.
-3. Finds acceptable dates:
-   - outdoor → Clear / Sunny or Fair / Partly Cloudy;
-   - indoor → rain, storm, or extreme-heat conditions.
-4. Honors a valid explicit `assigned_day`; otherwise balances activities across acceptable dates.
-5. Looks up activity admission prices by normalized city and activity name.
-6. Adds decision features, weather reasoning, and a hazard flag to each scheduled activity.
-7. Calls OSRM for road geometry and travel duration between consecutive stops.
-8. Returns one itinerary record per requested day, destination totals, the frontend-provided MLR price, outfit data, and model/rule metadata.
-
-The frontend stores the generated planner in `TravelContext`, supports saved planners, and renders routes with the Leaflet map components.
+The backend validates dates and activities, fetches forecasts and historical weather, prefers weather-matching days for each activity, and honors valid explicit day assignments. If there are no preferred days for an activity, it schedules across the requested dates. It adds activity price estimates when local data matches, weather/hazard metadata, and OSRM road routes between consecutive activities on a day. If OSRM is unavailable, route geometry and distance/duration values are empty/zero fallbacks.
 
 ## API reference
 
-| Method | Route | Purpose |
+| Method | Backend route | Purpose |
 |---|---|---|
-| `GET` | `/` | API liveness response |
-| `GET` | `/destinations` | Destination list, activities, and price estimates |
-| `GET` | `/destinations/{destination_id}` | One destination and its activities |
-| `GET` | `/destinations/{destination_id}/forecast` | Forecast, historical comparison, and activity recommendations |
-| `POST` | `/predict-outfit` | YOLO clothing detection and weather suitability |
-| `POST` | `/predict-price` | MLR/rule-based accommodation estimate and weather summary |
-| `POST` | `/api/generate-itinerary` | Weather-aware schedule, costs, hazards, and routes |
+| `GET` | `/` | Liveness response |
+| `GET` | `/destinations` | Destinations, weather, and hotel estimates |
+| `GET` | `/destinations/{destination_id}` | Destination details and activities |
+| `GET` | `/destinations/{destination_id}/forecast` | Forecast, historical comparison, and activity recommendation |
+| `POST` | `/predict-outfit` | YOLO garment detection and weather guidance |
+| `POST` | `/predict-price` | Accommodation estimate and weather summary |
+| `POST` | `/api/generate-itinerary` | Weather-aware itinerary, activity costs, and route data |
 
-FastAPI also provides its standard interactive documentation at `http://127.0.0.1:8000/docs` while the server is running.
+FastAPI's interactive docs are available at `http://127.0.0.1:8000/docs` while the backend is running. Frontend calls use the `/api/backend/` rewrite prefix, including `/api/backend/api/generate-itinerary` for itinerary generation.
 
-## Data and model sources
+## Artifact and data availability
 
-- `backend/data/philippines_tourism_with_coordinates_final.csv` is the primary destination/activity/coordinate/rate source.
-- `backend/app/pricing_config.py` contains configured base prices and monthly weather values.
-- Open-Meteo supplies live forecasts and archive data when reachable.
-- OSRM supplies road routes between activity coordinates when reachable.
-- `price_model_bundle.joblib` and `mlr_evaluation_report.csv` are the checked-in MLR artifacts.
-- `best.pt` is expected for outfit detection but is not checked in.
-- `weather_decision_tree.joblib` is expected for trained weather classification but is not checked in.
+| Resource | Git status | Runtime note |
+|---|---|---|
+| Tourism CSV | Tracked | Required at backend startup |
+| `activity_suitability.csv` | Ignored | Required at backend startup; must be supplied separately |
+| `best.pt` YOLO weights | Ignored | Required for outfit detection |
+| `weather_decision_tree.joblib` | Not present/tracked | Optional; hazard classification is limited without it |
+| `price_model_bundle.joblib` | Tracked | Runtime fallback MLR bundle |
+| `price_surge_mlr_model.joblib`, `model_features.joblib` | Ignored | Preferred runtime MLR artifacts when present |
+| `mlr_evaluation_report.csv` | Tracked | Training evaluation report |
 
-Do not commit large model files or generated historical datasets without checking the repository's data policy. Keep model feature order synchronized with the training export and the inference feature construction in `main.py`.
-
-## Operational limitations
-
-- External Open-Meteo and OSRM calls can fail; the backend has weather and routing fallbacks, but fallback route geometry is empty.
-- Outfit inference is unavailable until `backend/app/model/best.pt` is supplied.
-- Decision-tree inference falls back to deterministic weather rules until `weather_decision_tree.joblib` is supplied.
-- MLR prices are model estimates, not live booking quotes.
-- The backend currently performs startup data loading and model loading in one FastAPI module; deploy it with a process manager and monitor model/data load errors.
+External Open-Meteo and OSRM services can be unavailable. The app has a monthly weather fallback and an empty route fallback, respectively. Keep runtime model feature order aligned with the feature artifact exported by the training script.

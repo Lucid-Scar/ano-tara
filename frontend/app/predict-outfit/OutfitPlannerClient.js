@@ -313,21 +313,21 @@ function OutfitPlannerContent() {
     ? [date]
     : [clampToSelectableDate(getMinSelectableDate())];
 
-  const sourceButtonClass = (value) => `rounded-lg px-3 py-2 text-sm font-bold ${source === value ? "bg-slate-900 text-white" : "border border-slate-300"}`;
+  const sourceButtonClass = (value) => `rounded-xl px-3 py-2 text-sm font-bold transition-colors ${source === value ? "bg-[#58a573] text-white hover:bg-[#4d9064]" : "border border-slate-300 bg-white text-slate-800 hover:bg-[#f5f7f2]"}`;
 
   return (
-    <main className="outfit-planner-shell min-h-screen bg-[#f5f7fa] text-slate-900">
+    <main className="outfit-planner-shell min-h-screen bg-[#fcfcfd] text-slate-900">
       <Header />
-      <div className="w-full px-4 py-8 sm:px-8">
+      <div className="mx-auto w-full max-w-[1400px] flex-grow px-6 py-10 lg:px-12">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Wardrobe workspace</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-6xl">Attach outfit</h1>
+            <p className="text-sm font-bold uppercase tracking-[0.16em] text-slate-500">Wardrobe workspace</p>
+            <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Attach outfit</h1>
           </div>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,4fr)] lg:items-start">
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">01 / Outfit source</p>
             <h2 className="mt-2 text-2xl font-black">Where is this outfit for?</h2>
             <div className={`mt-5 grid gap-2 ${fromPlanner || hasCurrentPlanner ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
@@ -367,7 +367,7 @@ function OutfitPlannerContent() {
                 }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3" />
               )}
             </label>
-            <button type="button" onClick={getWeather} disabled={loadingWeather} className="mt-4 w-full rounded-lg bg-slate-900 px-4 py-3 font-bold text-white disabled:opacity-50">{loadingWeather ? "Checking weather..." : "Check predicted weather"}</button>
+            <button type="button" onClick={getWeather} disabled={loadingWeather} className="mt-4 w-full rounded-xl bg-[#58a573] px-4 py-3 font-bold text-white transition-colors hover:bg-[#4d9064] disabled:opacity-50">{loadingWeather ? "Checking weather..." : "Check predicted weather"}</button>
             {weather ? <div className="mt-4 border-t border-slate-200 pt-4">
               <p className="font-bold">{destination}: {weather.condition}</p>
               <p className="mt-1 text-sm">{weather.temperature}°C average · {weather.rainfall} mm rain</p>
@@ -376,13 +376,13 @@ function OutfitPlannerContent() {
             </div> : null}
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">02 / Capture</p>
             <h2 className="mt-2 text-2xl font-black">Add one garment</h2>
             <p className="mt-2 text-sm text-slate-600">JPG and image files up to 20MB are supported.</p>
             <div className="mt-5 flex flex-wrap gap-3">
               <ImageUploader maxBytes={MAX_IMAGE_BYTES} onError={setMessage} onSelect={(dataUrl) => { setCaptureSource(dataUrl); setCaptureMode("image"); }} label="Upload garment" />
-              <button type="button" onClick={() => { setCaptureSource(""); setCaptureMode("camera"); }} className="rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white">Use camera</button>
+              <button type="button" onClick={() => { setCaptureSource(""); setCaptureMode("camera"); }} className="rounded-xl bg-[#58a573] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#4d9064]">Use camera</button>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <label className="block text-sm font-bold">Add this garment to
@@ -438,7 +438,7 @@ function OutfitPlannerContent() {
           </section>
         </div>
 
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-black uppercase tracking-wider text-slate-500">03 / Accepted garments</p>
           <h2 className="mt-2 text-2xl font-black">Outfits by itinerary day</h2>
           <p className="mt-2 text-sm text-slate-600">Group multiple garments into one outfit, then create another outfit for the same day.</p>
