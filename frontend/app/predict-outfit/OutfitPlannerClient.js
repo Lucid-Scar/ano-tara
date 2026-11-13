@@ -261,13 +261,11 @@ function OutfitPlannerContent() {
       const data = await response.json();
       if (!response.ok || data.status === "error") throw new Error(data.message || "Outfit prediction failed.");
 
-      // 2. Map the array of detected items from YOLO
       const parsedItems = data.items.map(item => ({
         ...item,
         matches: Array.isArray(item.conditions) && item.conditions.includes(weather.condition),
         outfitPhrase: item.weather_suitability,
         advice: `${adviceByWeather[weather.condition]} ${item.weather_suitability}.`,
-        // Use the cropped image from YOLO instead of the full uploaded image
         image: item.cropped_image 
       }));
 
@@ -284,7 +282,7 @@ function OutfitPlannerContent() {
     
     setOutfits((current) => [...current, {
       id: `outfit-${Date.now()}-${index}`,
-      image: item.image, // The cropped bounding box image
+      image: item.image,
       category: item.category,
       destination,
       weather: weather.condition,
@@ -297,7 +295,6 @@ function OutfitPlannerContent() {
       outfitSetName: outfitSet?.name || "Outfit 1",
     }]);
     
-    // Remove the accepted item from the result array
     const updatedResults = result.filter((_, i) => i !== index);
     setResult(updatedResults.length ? updatedResults : null);
     if (!updatedResults.length) setImage("");
@@ -313,29 +310,37 @@ function OutfitPlannerContent() {
     ? [date]
     : [clampToSelectableDate(getMinSelectableDate())];
 
-  const sourceButtonClass = (value) => `rounded-xl px-3 py-2 text-sm font-bold transition-colors ${source === value ? "bg-[#58a573] text-white hover:bg-[#4d9064]" : "border border-slate-300 bg-white text-slate-800 hover:bg-[#f5f7f2]"}`;
+  const sourceButtonClass = (value) => `rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-sm ${source === value ? "bg-slate-900 text-white border-transparent" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300"}`;
 
   return (
-    <main className="outfit-planner-shell min-h-screen bg-[#fcfcfd] text-slate-900">
+    <main className="outfit-planner-shell min-h-screen bg-[#f5f7fa] text-slate-900">
       <Header />
-      <div className="mx-auto w-full max-w-[1400px] flex-grow px-6 py-10 lg:px-12">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.16em] text-slate-500">Wardrobe workspace</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Attach outfit</h1>
-          </div>
+      
+      <div className="w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 mx-auto flex-grow">
+        
+        {/* Title and Review Link Header */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 pb-6">
+          <h1 className="text-3xl sm:text-4xl font-black uppercase text-slate-950 tracking-tight">
+            Attach Outfit
+          </h1>
+          <Link 
+            href="/final-planner" 
+            className="inline-flex items-center justify-center rounded-xl bg-[#D33F40]/100 px-5 py-3 text-xs font-black tracking-wide text-white shadow-md transition hover:bg-red-800"
+          >
+            Review Itinerary Planner →
+          </Link>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,4fr)] lg:items-start">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">01 / Outfit source</p>
             <h2 className="mt-2 text-2xl font-black">Where is this outfit for?</h2>
             <div className={`mt-5 grid gap-2 ${fromPlanner || hasCurrentPlanner ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
               <button type="button" onClick={useSavedPlanner} className={sourceButtonClass("saved")}>Use saved planner</button>
               {(fromPlanner || hasCurrentPlanner) ? (
-                <button type="button" onClick={useCurrentPlanner} className={sourceButtonClass("current")}>Current planner</button>
+                <button type="button" onClick={useCurrentPlanner} className={sourceButtonClass("current")}>Current Plan</button>
               ) : null}
-              <button type="button" onClick={useNewLocation} className={sourceButtonClass("new")}>New location</button>
+              <button type="button" onClick={useNewLocation} className={sourceButtonClass("new")}>New Destination</button>
             </div>
             {source === "saved" && savedItineraries.length ? <label className="mt-4 block text-sm font-bold">Saved planner
               <select value={selectedSavedPlanner?.createdAt || ""} onChange={(event) => { const planner = savedItineraries.find((item) => item.createdAt === event.target.value); setSelectedPlannerId(event.target.value); const saved = readFromItinerary(planner); setPlannerDates(saved.dates); setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate())); setDestination(saved.destination); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3">
@@ -367,7 +372,7 @@ function OutfitPlannerContent() {
                 }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3" />
               )}
             </label>
-            <button type="button" onClick={getWeather} disabled={loadingWeather} className="mt-4 w-full rounded-xl bg-[#58a573] px-4 py-3 font-bold text-white transition-colors hover:bg-[#4d9064] disabled:opacity-50">{loadingWeather ? "Checking weather..." : "Check predicted weather"}</button>
+            <button type="button" onClick={getWeather} disabled={loadingWeather} className="mt-4 w-full rounded-lg bg-slate-900 px-4 py-3 font-bold text-white disabled:opacity-50">{loadingWeather ? "Checking weather..." : "Check predicted weather"}</button>
             {weather ? <div className="mt-4 border-t border-slate-200 pt-4">
               <p className="font-bold">{destination}: {weather.condition}</p>
               <p className="mt-1 text-sm">{weather.temperature}°C average · {weather.rainfall} mm rain</p>
@@ -376,69 +381,92 @@ function OutfitPlannerContent() {
             </div> : null}
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">02 / Capture</p>
             <h2 className="mt-2 text-2xl font-black">Add one garment</h2>
             <p className="mt-2 text-sm text-slate-600">JPG and image files up to 20MB are supported.</p>
             <div className="mt-5 flex flex-wrap gap-3">
               <ImageUploader maxBytes={MAX_IMAGE_BYTES} onError={setMessage} onSelect={(dataUrl) => { setCaptureSource(dataUrl); setCaptureMode("image"); }} label="Upload garment" />
-              <button type="button" onClick={() => { setCaptureSource(""); setCaptureMode("camera"); }} className="rounded-xl bg-[#58a573] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#4d9064]">Use camera</button>
+              <button type="button" onClick={() => { setCaptureSource(""); setCaptureMode("camera"); }} className="rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white">Use camera</button>
             </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-              <label className="block text-sm font-bold">Add this garment to
-                <select value={activeOutfitSetId} onChange={(event) => setActiveOutfitSetId(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-                  {availableOutfitSets.map((set) => <option key={set.id} value={set.id}>{set.name}</option>)}
-                </select>
-              </label>
-              <div className="flex gap-2">
-                <button type="button" onClick={createOutfitSet} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold">Create outfit</button>
-                <button type="button" onClick={removeActiveOutfitSet} disabled={availableOutfitSets.length <= 1} title="Remove the selected outfit set and move its garments to another set" className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-40">Remove set</button>
+
+            <div className="mt-8 rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Assign to Outfit Set
+                  <select 
+                    value={activeOutfitSetId} 
+                    onChange={(event) => setActiveOutfitSetId(event.target.value)} 
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                  >
+                    {availableOutfitSets.map((set) => <option key={set.id} value={set.id}>{set.name}</option>)}
+                  </select>
+                </label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={createOutfitSet} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 shadow-sm">+ New Set</button>
+                  <button type="button" onClick={removeActiveOutfitSet} disabled={availableOutfitSets.length <= 1} title="Remove set" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm">Remove</button>
+                </div>
               </div>
             </div>
-            {image ? <GarmentImage src={image} alt="Garment preview" imageClassName="object-contain" className="mt-5 h-48 w-full rounded-lg bg-slate-50" /> : null}
-            {image ? <button type="button" onClick={() => analyzeOutfit(image)} disabled={!destination || !weather || loadingOutfit || loadingWeather} className="mt-3 rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Re-analyze garment</button> : null}
-            {loadingOutfit ? <p className="mt-4 text-sm font-semibold text-slate-600">Analyzing garment...</p> : null}
+
+            {image ? (
+              <div className="mt-6">
+                <GarmentImage src={image} alt="Garment preview" imageClassName="object-contain" className="h-56 w-full rounded-xl border border-slate-200 bg-slate-100" />
+                <button 
+                  type="button" 
+                  onClick={() => analyzeOutfit(image)} 
+                  disabled={!destination || !weather || loadingOutfit || loadingWeather} 
+                  className="mt-4 w-full rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black tracking-wide text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 shadow-md"
+                >
+                  {loadingOutfit ? "Scanning Garment..." : "Analyze Garment Compatibility"}
+                </button>
+              </div>
+            ) : null}
+
             {result && Array.isArray(result) ? (
-            <div className="mt-5 border-t border-slate-200 pt-4">
-              <p className="font-bold mb-4">Detected {result.length} item(s):</p>
-              {result.map((item, index) => (
-                <div key={index} className="mb-6 p-4 border border-slate-200 rounded-lg">
-                  <GarmentImage src={item.image} alt="Detected garment" className="h-32 w-32 object-contain bg-slate-50 mb-3" />
-                  <p className="font-bold mt-2">
-                    {item.matches 
-                      ? <span className="text-emerald-700">✓ Weather match</span> 
-                      : <span className="text-amber-600">⚠ Needs adjustment</span>}
-                  </p>
-                  <ul className="mt-2 list-disc pl-5 text-sm text-slate-600 space-y-1">
-                    <li>This is a <strong>{item.category}</strong>.</li>
-                    <li>
-                      The weather in <strong>{destination}</strong> at the selected date ({formatDate(date)}) is <strong>{weather.temperature}°C</strong> ({weather.condition.toLowerCase()}).
-                    </li>
-                    <li>
-                      It will feel <strong>
-                        {weather.temperature > 28 ? "hot" : weather.temperature < 24 ? "cold" : "comfortable"}
-                      </strong>.
-                    </li>
-                    <li>
-                      {item.matches 
-                        ? "This clothing is an excellent choice for these conditions." 
-                        : "Try adjusting this clothing to feel more comfortable."}
-                    </li>
-                    <li><strong>Garment guidance:</strong> {item.advice}</li>
-                  </ul>
-                  <div className="mt-4 flex gap-2">
-                    <button type="button" onClick={() => acceptOutfit(index)} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white">Accept {item.category}</button>
+              <div className="mt-8 border-t-2 border-slate-900 pt-6">
+                <p className="text-sm font-black uppercase tracking-wider text-slate-900 mb-6">AI Detection Results: {result.length} Item(s)</p>
+                {result.map((item, index) => (
+                  <div key={index} className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="flex items-center gap-4 border-b border-slate-100 bg-slate-50 p-4">
+                      <GarmentImage src={item.image} alt="Detected garment" className="h-16 w-16 shrink-0 rounded-lg border border-slate-200 bg-white object-contain p-1" />
+                      <div>
+                        <h4 className="font-black text-slate-900 text-lg capitalize">{item.category}</h4>
+                        <div className="mt-1">
+                          {item.matches 
+                            ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-800"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg> Weather Match</span> 
+                            : <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg> Adjustments Needed</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-xs font-semibold text-slate-600 leading-relaxed mb-4">
+                        Based on the {weather.condition.toLowerCase()} skies and {weather.temperature}°C {weather.temperature > 28 ? "heat" : weather.temperature < 24 ? "chill" : "breeze"} in {destination}, {item.matches ? "this is a solid choice." : "this might not be the most comfortable option."}
+                      </p>
+                      <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Styling Advice</p>
+                        <p className="text-xs text-slate-700 font-medium leading-relaxed">{item.advice}</p>
+                      </div>
+                      <div className="mt-5 flex items-center justify-end">
+                        <button type="button" onClick={() => acceptOutfit(index)} className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm">Save to Wardrobe</button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
-              <button type="button" onClick={() => { setResult(null); setImage(""); }} className="mt-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold">Reject All</button>
-            </div>
-          ) : null}
-            {message ? <p className="mt-4 bg-rose-50 p-3 text-sm text-rose-700">{message}</p> : null}
+                ))}
+                <button type="button" onClick={() => { setResult(null); setImage(""); }} className="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:border-slate-300">Clear & Try Another</button>
+              </div>
+            ) : null}
+            
+            {message ? (
+              <div className="mt-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+                <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <p className="text-sm font-semibold text-rose-800">{message}</p>
+              </div>
+            ) : null}
           </section>
         </div>
 
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-black uppercase tracking-wider text-slate-500">03 / Accepted garments</p>
           <h2 className="mt-2 text-2xl font-black">Outfits by itinerary day</h2>
           <p className="mt-2 text-sm text-slate-600">Group multiple garments into one outfit, then create another outfit for the same day.</p>
@@ -449,55 +477,101 @@ function OutfitPlannerContent() {
                   <h3 className="font-black">{group.name}</h3>
                   <p className="text-xs text-slate-500">Day {dayNumberForDate(group.date, dayOptions)} · {formatDate(group.date)}</p>
                 </div>
-                <div className="mt-3 grid gap-3">
-                  {group.items.map((outfit) => {
-                    const setId = outfit.outfitSetId || "outfit-set-1";
-                    const outfitDate = dayOptions.includes(outfit.date) ? outfit.date : dayOptions[0];
-                    return <div key={outfit.id} className="flex min-w-0 gap-3 border-t border-slate-100 pt-3">
-                      <GarmentImage src={outfit.image} alt={`${outfit.category} garment`} className="h-20 w-20 shrink-0 rounded object-cover" />
-                      <div className="min-w-0 flex-1">
-                        <h4 className="font-bold">{outfit.category}</h4>
-                        <p className="mt-1 text-xs text-slate-500">{outfit.destination} · {outfit.weather}</p>
-                        <p className="mt-1 text-xs text-slate-600">{outfit.matches ? "Matches the selected weather" : "Review for the selected weather"}</p>
-                        <label className="mt-2 block text-xs font-bold">Outfit set
-                          <select aria-label={`Group ${outfit.category} into an outfit`} value={setId} onChange={(event) => {
-                            const nextSet = availableOutfitSets.find((item) => item.id === event.target.value);
-                            updateOutfit(outfit.id, { outfitSetId: nextSet.id, outfitSetName: nextSet.name });
-                          }} className="ml-2 rounded border border-slate-300 bg-white px-2 py-1">
-                            {availableOutfitSets.map((set) => <option key={set.id} value={set.id}>{set.name}</option>)}
-                          </select>
-                        </label>
-                      </div>
-                      <div className="flex shrink-0 flex-col gap-2">
-                        <select aria-label={`Assign ${outfit.category} to a day`} value={outfitDate} onChange={(event) => {
-                          const nextDate = event.target.value;
-                          updateOutfit(outfit.id, { date: nextDate, day: `Day ${dayNumberForDate(nextDate, dayOptions)}` });
-                        }} className="max-w-36 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-bold">
-                          {dayOptions.map((day, index) => <option key={day} value={day}>Day {index + 1} · {formatDate(day)}</option>)}
-                        </select>
-                        <button type="button" onClick={() => deleteOutfit(outfit.id)} className="rounded border border-rose-200 px-2 py-1 text-xs font-bold text-rose-700">Delete</button>
-                      </div>
-                    </div>;
-                  })}
-                </div>
-              </article>
-            ))}
-            {!outfits.length ? <p className="border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600 md:col-span-2">Accepted garments will appear here.</p> : null}
-          </div>
-          <div className="mt-6 flex justify-end">
-            <Link href="/final-planner" className="planner-nav-link">Go to Itinerary</Link>
-          </div>
-        </section>
+                <p className="text-sm font-medium text-slate-500 pl-11">Review and organize your assigned garments by travel day.</p>
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {groupedOutfits.map((group) => (
+                <article key={group.key} className="flex flex-col rounded-2xl border border-slate-200 bg-[#FFFDFB] overflow-hidden shadow-xs">
+                  <div className="border-b border-slate-100 bg-slate-50 px-5 py-4 flex items-center justify-between">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">{group.name}</h3>
+                    <span className="rounded bg-slate-200/60 px-2 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                      Day {dayNumberForDate(group.date, dayOptions)}
+                    </span>
+                  </div>
+                  <div className="flex-1 p-5 grid gap-5">
+                    {group.items.map((outfit) => {
+                      const setId = outfit.outfitSetId || "outfit-set-1";
+                      const outfitDate = dayOptions.includes(outfit.date) ? outfit.date : dayOptions[0];
+                      return (
+                        <div key={outfit.id} className="group relative flex min-w-0 gap-4 border-b border-slate-100 pb-5 last:border-0 last:pb-0">
+                          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                            <GarmentImage src={outfit.image} alt={`${outfit.category} garment`} className="h-full w-full object-cover p-1" />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <div className="flex justify-between items-start mb-1">
+                              <h4 className="font-black text-slate-900 text-sm capitalize truncate">{outfit.category}</h4>
+                              {outfit.matches 
+                                ? <span title="Matches Weather" className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[10px] text-emerald-600">✓</span> 
+                                : <span title="Review Weather Match" className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-600">!</span>}
+                            </div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2 truncate">{outfit.destination}</p>
+                            
+                            <div className="mt-auto grid grid-cols-2 gap-2">
+                              <select 
+                                aria-label={`Group ${outfit.category} into an outfit`} 
+                                value={setId} 
+                                onChange={(event) => {
+                                  const nextSet = availableOutfitSets.find((item) => item.id === event.target.value);
+                                  updateOutfit(outfit.id, { outfitSetId: nextSet.id, outfitSetName: nextSet.name });
+                                }} 
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold text-slate-700 outline-none transition focus:border-slate-400"
+                              >
+                                {availableOutfitSets.map((set) => <option key={set.id} value={set.id}>{set.name}</option>)}
+                              </select>
+                              <select 
+                                aria-label={`Assign ${outfit.category} to a day`} 
+                                value={outfitDate} 
+                                onChange={(event) => {
+                                  const nextDate = event.target.value;
+                                  updateOutfit(outfit.id, { date: nextDate, day: `Day ${dayNumberForDate(nextDate, dayOptions)}` });
+                                }} 
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold text-slate-700 outline-none transition focus:border-slate-400"
+                              >
+                                {dayOptions.map((day, index) => <option key={day} value={day}>Day {index + 1}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => deleteOutfit(outfit.id)} 
+                            className="absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 border border-rose-200 text-xs font-bold text-rose-600 opacity-0 transition group-hover:opacity-100 hover:bg-rose-600 hover:text-white shadow-sm"
+                            aria-label="Remove item"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
       </div>
-      <div className="mt-8 w-full bg-white"><Footer /></div>
-      {captureMode ? <OutfitImageCapture source={captureSource} mode={captureMode} onCancel={() => setCaptureMode("")} onSelect={(croppedImage) => { setCaptureMode(""); analyzeOutfit(croppedImage); }} /> : null}
+      
+      <div className="mt-auto w-full">
+        <Footer />
+      </div>
+      
+      {captureMode ? (
+        <OutfitImageCapture 
+          source={captureSource} 
+          mode={captureMode} 
+          onCancel={() => setCaptureMode("")} 
+          onSelect={(croppedImage) => { setCaptureMode(""); analyzeOutfit(croppedImage); }} 
+        />
+      ) : null}
     </main>
   );
 }
 
 export default function OutfitPlannerClient() {
   return (
-    <Suspense fallback={<main className="flex min-h-screen items-center justify-center text-sm font-bold text-slate-600">Loading outfit planner...</main>}>
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center text-sm font-bold text-slate-600 bg-[#FFFDFB]">Loading Wardrobe Module...</main>}>
       <OutfitPlannerContent />
     </Suspense>
   );
