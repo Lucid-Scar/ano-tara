@@ -36,7 +36,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http
 
 class OutfitPayload(BaseModel):
     image_url: str | None = None
-    image_base64: str | None = Field(default=None, max_length=3 * 1024 * 1024)
+    image_base64: str | None = None
 
 
 class PricePayload(BaseModel):
@@ -91,16 +91,11 @@ MONTHLY_WEATHER = {
     10: (28.1, 20.6, "Heavy Rain / Rainy"), 11: (27.8, 14.1, "Light Rain / Drizzle"), 12: (27.2, 11.4, "Light Rain / Drizzle"),
 }
 
-HEAT_INDEX_HAZARD_THRESHOLD = 41.5
-WIND_SPEED_HAZARD_THRESHOLD = 42.0
-DAILY_PRECIPITATION_HAZARD_THRESHOLD = 12.5
-
-
 def get_pagasa_condition(temp: float, rain: float, wind: float, heat_index: float) -> str:
-    if heat_index >= HEAT_INDEX_HAZARD_THRESHOLD: return 'Extreme Heat / Danger'
-    if wind >= WIND_SPEED_HAZARD_THRESHOLD or (rain > 40 and wind > 30): return 'Windy / Stormy'
-    if rain > DAILY_PRECIPITATION_HAZARD_THRESHOLD: return 'Heavy Rain / Rainy'
-    if 2.0 < rain <= DAILY_PRECIPITATION_HAZARD_THRESHOLD: return 'Light Rain / Drizzle'
+    if heat_index >= 42.0: return 'Extreme Heat / Danger'
+    if wind >= 45.0 or (rain > 40 and wind > 30): return 'Windy / Stormy'
+    if rain > 15.0: return 'Heavy Rain / Rainy'
+    if 2.0 < rain <= 15.0: return 'Light Rain / Drizzle'
     if temp >= 31.0 and rain <= 2.0: return 'Fair / Partly Cloudy'
     return 'Clear / Sunny'
 
@@ -108,8 +103,8 @@ def get_pagasa_condition(temp: float, rain: float, wind: float, heat_index: floa
 DEFAULT_BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
 USD_TO_PHP = 63.78
 PHILIPPINE_PEAK_MONTHS = {12, 1, 2, 4}
-CURRENT_PSA_INFLATION_RATE = 7.2
-INFLATION_BASELINE_RATE = 4.0
+
+INFLATION_ADJUSTMENT_FACTOR = 1.0
 
 
 def normalize_city_name(value: str) -> str:
@@ -171,21 +166,20 @@ def resolved_activity_price_per_pax(
         return round(float(numeric_price), 2)
     return dataset_price
 
-
-# Load the newly trained MLR models
 try:
-    MLR_MODEL = joblib.load(BASE_DIR / "model" / "price_surge_mlr_model.joblib")
-    MLR_FEATURES = joblib.load(BASE_DIR / "model" / "model_features.joblib")
-except (FileNotFoundError, ImportError, ValueError):
-    try:
-        price_model_bundle = joblib.load(BASE_DIR / "model" / "price_model_bundle.joblib")
-        MLR_MODEL = price_model_bundle["model"]
-        MLR_FEATURES = price_model_bundle["features"]
-    except (FileNotFoundError, ImportError, KeyError, TypeError, ValueError):
-        MLR_MODEL = None
-        MLR_FEATURES = []
+    MLR_BUNDLE = joblib.load(BASE_DIR / "model" / "price_surge_model.joblib")
+    if not {"model", "features", "mode", "source_baselines"}.issubset(MLR_BUNDLE):
+        raise ValueError("MLR bundle is missing required training metadata")
+    if MLR_BUNDLE["mode"] not in {"calendar", "weather"}:
+        raise ValueError("Unexpected MLR model type")
+    if list(MLR_BUNDLE["model"].feature_names_in_) != list(MLR_BUNDLE["features"]):
+        raise ValueError("MLR feature names do not match the saved fitted model")
+    print("MLR loaded:", MLR_BUNDLE["mode"],
+          "features:", len(MLR_BUNDLE["features"]))
+except (FileNotFoundError, ValueError, KeyError, TypeError, AttributeError, ImportError) as exc:
+    MLR_BUNDLE = None
+    print("MLR unavailable - model-dependent price estimates will use a marked fallback:", exc)
 
-# Load local Philippine hotel and activity data.
 PHILIPPINE_HOTEL_RATES = {}
 PHILIPPINE_ACTIVITY_COSTS = {}
 PHILIPPINE_ACTIVITY_PRICES = {}
@@ -247,8 +241,56 @@ try:
 except (FileNotFoundError, ImportError, ValueError):
     WEATHER_DECISION_TREE = None
 
+_MLR_MONTHS = ["January", "February", "March", "April", "May", "June",
+               "July", "August", "September", "October", "November", "December"]
+_MLR_MONTH_REFERENCE = "April"
+_MLR_MONTH_OTHER = sorted(m for m in _MLR_MONTHS if m != _MLR_MONTH_REFERENCE)
 
-# Helper: predict a stay price using the trained MLR bundle.
+
+def _mlr_feature_row(check_in: date, guests: int, nights: int,
+                     hotel_type: str, room_type: str) -> pd.DataFrame:
+    if MLR_BUNDLE is None:
+        raise RuntimeError("MLR bundle unavailable")
+    from zoneinfo import ZoneInfo
+    today_ph = datetime.now(ZoneInfo("Asia/Manila")).date()
+    pax = max(1, int(guests))
+    resort = int(hotel_type == "Resort Hotel")
+    features = {
+        "lead_time": max(0, (check_in - today_ph).days),
+        "pax": pax,
+        "pax_squared": pax**2,
+        "length_of_stay": max(1, int(nights)),
+        "is_weekend": int(check_in.weekday() in (4, 5, 6)),
+        "is_non_reference_room": int(room_type != "Standard Room"),
+        "hotel_is_resort": resort,
+        "hotel_pax": resort * pax,
+    }
+
+    if "psa_inflation_deviation_pp" in MLR_BUNDLE["features"]:
+        features["psa_inflation_deviation_pp"] = 0.0
+    if MLR_BUNDLE["mode"] == "calendar":
+        month_name = check_in.strftime("%B")
+        for month in _MLR_MONTH_OTHER:
+            indicator = int(month == month_name)
+            features[f"month_{month}"] = indicator
+            features[f"resort_month_{month}"] = resort * indicator
+    elif MLR_BUNDLE["mode"] == "weather":
+        weather = MLR_BUNDLE.get("weather_profile", {}).get(check_in.month)
+        if weather is None:
+            raise RuntimeError(f"Missing measured PH monthly weather profile for {check_in.month}")
+        temp = float(weather["avg_monthly_temp"])
+        rain = float(weather["avg_monthly_rain"])
+        features.update(avg_monthly_temp=temp, avg_monthly_rain=rain,
+                        hotel_temp=resort * temp, hotel_rain=resort * rain)
+    else:
+        raise RuntimeError("Unknown MLR mode")
+    expected = list(MLR_BUNDLE["features"])
+    if set(features) != set(expected):
+        raise RuntimeError(f"MLR schema mismatch: missing={set(expected)-set(features)}, "
+                           f"unexpected={set(features)-set(expected)}")
+    return pd.DataFrame([features], columns=expected).astype(float)
+
+
 def predict_mlr_price(
     check_in: date,
     guests: int,
@@ -257,74 +299,36 @@ def predict_mlr_price(
     room_type: str,
     hotel_type: str,
 ) -> tuple[float, float, dict, str, float, str]:
-    if MLR_MODEL is None:
-        raise RuntimeError("The trained price model is unavailable.")
-
-    is_resort = float(hotel_type == "Resort Hotel")
-    base_price, base_price_source = accommodation_base_price(destination, hotel_type)
-
-    # Use the monthly weather map already defined in this file
-    avg_temp, avg_rain, _ = MONTHLY_WEATHER.get(
-        check_in.month,
-        (28.0, 10.0, "Clear / Sunny")
-    )
-
-    pax = float(guests)
-    lead_time = max(0, (check_in - datetime.now().date()).days)
-    is_weekend = float(check_in.weekday() in {4, 5, 6})
-
-    ph_holidays = holidays.PH(years=[check_in.year])
-    is_holiday = float(check_in in ph_holidays)
-    feature_dict = {
-        "lead_time": float(lead_time),
-        "pax": pax,
-        "length_of_stay": float(length_of_stay),
-        "is_weekend": is_weekend,
-        "is_premium_room": float(room_type != "Standard Room"),
-        "hotel_is_resort": is_resort,
-        "is_holiday": is_holiday,
-        "avg_monthly_temp": float(avg_temp),
-        "avg_monthly_rain": float(avg_rain),
-        "psa_inflation_rate": CURRENT_PSA_INFLATION_RATE,
-        "hotel_temp": is_resort * avg_temp,
-        "hotel_rain": is_resort * avg_rain,
-        "hotel_pax": is_resort * pax,
-        "pax_squared": pax ** 2,
+    if MLR_BUNDLE is None:
+        raise RuntimeError("MLR bundle unavailable")
+    x = _mlr_feature_row(check_in, guests, length_of_stay, hotel_type, room_type)
+    log_multiplier = float(MLR_BUNDLE["model"].predict(x)[0])
+    if not np.isfinite(log_multiplier):
+        raise RuntimeError("MLR produced an invalid numeric prediction")
+    raw_multiplier = float(np.exp(np.clip(log_multiplier, -15.0, 15.0)))
+    # Application guardrail (not a learned model result).
+    applied_multiplier = min(raw_multiplier, 3.0) * INFLATION_ADJUSTMENT_FACTOR
+    base_price, base_source = accommodation_base_price(destination, hotel_type)
+    metadata = {
+        "estimated_via": "MLR",
+        "model_mode": MLR_BUNDLE["mode"],
+        "raw_multiplier": round(raw_multiplier, 5),
+        "multiplier_cap_applied": raw_multiplier > 3.0,
+        "inflation_adjustment_factor": INFLATION_ADJUSTMENT_FACTOR,
+        "psa_cpi_training_reference_pct": MLR_BUNDLE.get("psa_inflation_reference_training_mean_pct"),
+        "psa_cpi_runtime_deviation_pp": 0.0,
+        "source_training_rows": MLR_BUNDLE.get("trained_rows"),
+        "source_domain": "Portuguese hotel bookings, 2015-2017",
+        "weather_proxy": "PH observed monthly climatology; NOT Portugal booking-day weather"
+            if MLR_BUNDLE["mode"] == "weather" else None,
     }
-
-    for feature in MLR_FEATURES:
-        if feature.startswith("arrival_date_month_"):
-            feature_dict[feature] = float(
-                feature.removeprefix("arrival_date_month_") == check_in.strftime("%B")
-            )
-    model_input = pd.DataFrame([feature_dict])
-    for feature in MLR_FEATURES:
-        if feature not in model_input:
-            model_input[feature] = 0.0
-    model_input = model_input[MLR_FEATURES].astype(float)
-
-    predicted_log_multiplier = float(MLR_MODEL.predict(model_input)[0])
-    multiplier = float(np.exp(predicted_log_multiplier))
-    
-    is_peak_month = check_in.month in PHILIPPINE_PEAK_MONTHS
-    if is_peak_month:
-        multiplier *= 1.15
-
-    inflation_factor = max(
-        0.0,
-        (CURRENT_PSA_INFLATION_RATE - INFLATION_BASELINE_RATE) * 0.01,
-    )
-    multiplier *= (1.0 + inflation_factor)
-
-    final_price = round(base_price * multiplier, 2)
-
     return (
-        final_price,
-        multiplier,
-        {},
-        "Unified MLR adapted for Philippine seasonality and inflation",
+        round(base_price * applied_multiplier, 2),
+        applied_multiplier,
+        metadata,
+        "Source-trained MLR multiplier (indicative PH budget, not live quote)",
         base_price,
-        base_price_source,
+        base_source,
     )
 
 
@@ -349,39 +353,31 @@ def estimate_hotel_price(
     hotel_type: str,
     selected_base_rate: float | None = None,
 ) -> dict:
+    if hotel_type not in DEFAULT_BASE_PRICES:
+        raise ValueError("Unknown hotel type")
     base_price, base_price_source = accommodation_base_price(destination, hotel_type)
     if selected_base_rate is not None:
-        base_price = selected_base_rate
+        base_price = float(selected_base_rate)
         base_price_source = "selected_csv_rate"
-    season = "Peak season" if check_in.month in PHILIPPINE_PEAK_MONTHS else "Regular season"
+    if base_price <= 0 or not np.isfinite(base_price):
+        raise ValueError("A valid positive Philippine accommodation reference rate is required")
 
+    season = "Peak season" if check_in.month in PHILIPPINE_PEAK_MONTHS else "Regular season"
     try:
         _, multiplier, model_evaluation, model_source, _, _ = predict_mlr_price(
-            check_in, guests, destination, length_of_stay, room_type, hotel_type,
+            check_in, guests, destination, length_of_stay, room_type, hotel_type
         )
-        multiplier = min(multiplier, 3.0)
         price_source = f"{model_source} × {base_price_source.replace('_', ' ')}"
-    except RuntimeError:
-        seasonal = 1.15 if check_in.month in PHILIPPINE_PEAK_MONTHS else 1.0
-        multiplier = (1 + (guests - 1) * 0.12) * seasonal
-        inflation_factor = max(
-            0.0,
-            (CURRENT_PSA_INFLATION_RATE - INFLATION_BASELINE_RATE) * 0.01,
-        )
-        multiplier = min(multiplier * (1.0 + inflation_factor), 3.0)
-        model_evaluation = {}
-        price_source = f"Rule-based fallback × {base_price_source.replace('_', ' ')}; trained MLR unavailable"
+    except (RuntimeError, ValueError) as exc:
+        # Keep the endpoint available, but NEVER label this as an MLR result.
+        multiplier = 1.0
+        model_evaluation = {"estimated_via": "BASE_RATE_FALLBACK", "reason": str(exc)}
+        price_source = f"Base-rate-only fallback (not MLR) × {base_price_source.replace('_', ' ')}"
 
-    if multiplier is None or not np.isfinite(multiplier):
-        seasonal = 1.15 if check_in.month in {12, 1, 2, 4} else 1.0
-        multiplier = (1 + (guests - 1) * 0.12) * seasonal
-        model_evaluation = {}
-        price_source = f"Rule-based fallback × {base_price_source.replace('_', ' ')}; invalid MLR output"
-
-    daily_price = round(base_price * multiplier, 2)
+    nightly = round(base_price * multiplier, 2)
     return {
-        "daily_price": daily_price,
-        "total_price": round(daily_price * length_of_stay, 2),
+        "daily_price": nightly,
+        "total_price": round(nightly * length_of_stay, 2),
         "length_of_stay": length_of_stay,
         "base_price": base_price,
         "base_price_source": base_price_source,
@@ -392,13 +388,10 @@ def estimate_hotel_price(
         "source": price_source,
     }
 
-
-# Helper: translate Open-Meteo weather codes into the app's weather labels.
 def weather_label_from_code(code: int) -> str:
     return "Clear / Sunny" if code == 0 else "Fair / Partly Cloudy" if code in {1, 2, 3, 45, 48} else "Heavy Rain / Rainy"
 
 
-# Helper: provide the offline monthly weather fallback.
 def monthly_weather_for_date(target_date: date) -> dict[str, object]:
     temperature, rainfall, condition = MONTHLY_WEATHER[target_date.month]
     return {
@@ -413,7 +406,6 @@ def monthly_weather_for_date(target_date: date) -> dict[str, object]:
     }
 
 
-# Helper: convert destination names into stable URL-safe IDs.
 def slugify(text: str) -> str:
     text = text.lower().strip()
     text = re.sub(r"[^a-z0-9]+", "-", text)
@@ -421,7 +413,6 @@ def slugify(text: str) -> str:
 
 
 CLOTHING_WEATHER_MAP = {
-    # These are the class names embedded in backend/app/model/best.pt.
     "short sleeve top": {
         "conditions": ["Clear / Sunny", "Fair / Partly Cloudy", "Extreme Heat / Danger"],
         "phrase": "light, breathable coverage for sunny or hot weather",
@@ -1245,70 +1236,38 @@ def image_bytes(payload: OutfitPayload) -> bytes:
         try: return b64decode(payload.image_base64.split(",", 1)[-1], validate=True)
         except Base64Error as exc: raise ValueError("Invalid base64 image data") from exc
     if payload.image_url:
-        raise ValueError("Upload image data instead of a remote URL")
+        response = requests.get(payload.image_url, timeout=20); response.raise_for_status(); return response.content
     raise ValueError("Provide either image_url or image_base64")
 
 model = None
-model_state = "not_initialized"
-model_lock = Lock()
-inference_lock = Lock()
 
 # Helper: lazily load the YOLO clothing model on first use.
 def load_outfit_model() -> bool:
-    with model_lock:
-        return _initialize_outfit_model()
-
-def _initialize_outfit_model() -> bool:
-    global model, model_state
+    global model
     if model is not None:
         return True
     if not MODEL_PATH.is_file():
-        model_state = "missing"
-        return False
-    if model_state == "failed":
         return False
     try:
         print("Loading YOLOv8 Model... this might take a few seconds...")
         model = YOLO(str(MODEL_PATH))
-        model_state = "ready"
         return True
     except Exception as error:
-        model_state = "failed"
         print(f"YOLOv8 model unavailable; outfit prediction is disabled: {error}")
         return False
 
-@app.get("/health/outfit")
-def outfit_health():
-    # Initialization is cached; failed initialization is retried after restart.
-    available = load_outfit_model()
-    return {"weights_present": MODEL_PATH.is_file(), "model_status": model_state, "inference_available": available}
-
 @app.post("/predict-outfit")
 def predict_outfit(payload: OutfitPayload):
-    try:
-        raw_image = image_bytes(payload)
-        if len(raw_image) > 2 * 1024 * 1024:
-            raise HTTPException(413, "Image is too large.")
-        with Image.open(io.BytesIO(raw_image)) as probe:
-            if probe.format not in {"JPEG", "PNG", "WEBP"}:
-                raise ValueError("Unsupported image format")
-            if max(probe.size) > 8192 or probe.width * probe.height > 16000000:
-                raise ValueError("Image dimensions are too large")
-            probe.verify()
-        img = cv2.imdecode(np.frombuffer(raw_image, np.uint8), cv2.IMREAD_COLOR)
-        if img is None:
-            raise ValueError("Image cannot be decoded")
-    except (ValueError, UnidentifiedImageError, OSError, Image.DecompressionBombError):
-        raise HTTPException(422, "Upload a valid JPEG, PNG, or WebP image with reasonable dimensions.")
     if not load_outfit_model():
         raise HTTPException(status_code=503, detail="Outfit prediction is unavailable because the YOLO model could not be loaded.")
     
     try:
         # Load image bytes into an OpenCV numpy array
+        image_data = np.frombuffer(image_bytes(payload), np.uint8)
+        img = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
 
         # Run YOLO inference
-        with inference_lock:
-            results = model.predict(img, conf=0.25, verbose=False)
+        results = model.predict(img, conf=0.25, verbose=False)
         result = results[0] # Get the first (and only) image result
 
         if len(result.boxes) == 0:
@@ -1325,13 +1284,6 @@ def predict_outfit(payload: OutfitPayload):
             confidence = float(box.conf[0])
             class_index = int(box.cls[0])
             category = model.names[class_index]
-            normalized_category = category.strip().lower().replace("-", " ").replace("_", " ")
-            if normalized_category not in CLOTHING_WEATHER_MAP:
-                continue
-            x1, x2 = max(0, x1), min(img.shape[1], x2)
-            y1, y2 = max(0, y1), min(img.shape[0], y2)
-            if x2 <= x1 or y2 <= y1:
-                continue
             
             # Crop the bounding box from the original image
             cropped_img = img[y1:y2, x1:x2]
@@ -1352,8 +1304,6 @@ def predict_outfit(payload: OutfitPayload):
                 "cropped_image": cropped_base64
             })
 
-        if not detected_items:
-            return {"status": "error", "message": "No recognized clothing detected."}
         return {
             "status": "success",
             "message": f"Successfully detected {len(detected_items)} items of clothing.",
@@ -1361,8 +1311,7 @@ def predict_outfit(payload: OutfitPayload):
         }
 
     except Exception as exc: 
-        logging.exception("Outfit inference failed")
-        raise HTTPException(500, "Garment detection failed. Please try again.") from exc
+        return {"status": "error", "message": str(exc)}
 
 @app.get("/")
 def read_root(): return {"status": "Ano Tara API is live!"}
