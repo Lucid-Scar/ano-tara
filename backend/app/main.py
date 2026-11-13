@@ -86,11 +86,16 @@ MONTHLY_WEATHER = {
     10: (28.1, 20.6, "Heavy Rain / Rainy"), 11: (27.8, 14.1, "Light Rain / Drizzle"), 12: (27.2, 11.4, "Light Rain / Drizzle"),
 }
 
+HEAT_INDEX_HAZARD_THRESHOLD = 41.5
+WIND_SPEED_HAZARD_THRESHOLD = 42.0
+DAILY_PRECIPITATION_HAZARD_THRESHOLD = 12.5
+
+
 def get_pagasa_condition(temp: float, rain: float, wind: float, heat_index: float) -> str:
-    if heat_index >= 42.0: return 'Extreme Heat / Danger'
-    if wind >= 45.0 or (rain > 40 and wind > 30): return 'Windy / Stormy'
-    if rain > 15.0: return 'Heavy Rain / Rainy'
-    if 2.0 < rain <= 15.0: return 'Light Rain / Drizzle'
+    if heat_index >= HEAT_INDEX_HAZARD_THRESHOLD: return 'Extreme Heat / Danger'
+    if wind >= WIND_SPEED_HAZARD_THRESHOLD or (rain > 40 and wind > 30): return 'Windy / Stormy'
+    if rain > DAILY_PRECIPITATION_HAZARD_THRESHOLD: return 'Heavy Rain / Rainy'
+    if 2.0 < rain <= DAILY_PRECIPITATION_HAZARD_THRESHOLD: return 'Light Rain / Drizzle'
     if temp >= 31.0 and rain <= 2.0: return 'Fair / Partly Cloudy'
     return 'Clear / Sunny'
 

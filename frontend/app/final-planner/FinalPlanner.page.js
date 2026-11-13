@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import GarmentImage from "../../components/GarmentImage";
+import { HazardBanner, WeatherCategoryBadge } from "../../components/WeatherSafety";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
@@ -763,6 +764,14 @@ export default function FinalPlannerPage() {
                 </Link>
               </div>
 
+              {itineraryDays.map((day) => (
+                <div key={day.dayNumber}>
+                  <p className="text-sm font-bold text-slate-950">{day.dayNumber} — {day.dateLabel}</p>
+                  <WeatherCategoryBadge item={day} />
+                  <HazardBanner item={day} />
+                </div>
+              ))}
+
               <div className="relative ml-2">
                 {activities.length ? (
                   <div className="border-l-2 border-slate-200 pl-5 space-y-4 pb-6">
@@ -810,7 +819,9 @@ export default function FinalPlannerPage() {
                                   <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-600 tracking-wider">
                                     {dayLabel}
                                   </span>
-
+                                  {matchedDay ? (
+                                    <WeatherCategoryBadge item={matchedActivity || matchedDay} />
+                                  ) : null}
                                 </div>
                                 <h3 className="break-words text-sm font-bold leading-relaxed text-slate-900">{activity.name}</h3>
                                 <p className="mt-1 text-xs text-slate-500">{activity.destination || activity.location || "Location not listed"}</p>
@@ -1125,14 +1136,92 @@ export default function FinalPlannerPage() {
             </button>
           </div>
 
-          {archiveError && <div role="alert" className="mx-auto mt-4 w-full max-w-[794px] whitespace-pre-line border border-slate-500 bg-white p-4 text-sm text-slate-900 print:hidden">{archiveError}<p className="mt-2 font-semibold">Go back to the planner to correct these fields, then create the updated itinerary.</p></div>}
-          <div className="brochure-sheet portrait-document modern-itinerary relative mx-auto w-full max-w-[794px] bg-white p-5 text-slate-900 sm:p-10">
-            <header className="document-header">
-              <p className="document-eyebrow">ANO TARA? / {documentView === "overview" ? "Trip overview" : "Detailed itinerary"}</p>
-              <h1>{itineraryDays[0]?.activities[0]?.destination || "Your travel itinerary"}</h1>
-              <div className="document-date-line">
-                <p>{plannerStart && plannerEnd ? `${formatShortDate(plannerStart)} — ${formatShortDate(plannerEnd)}` : "Dates to be confirmed"}</p>
-                <span className="document-format print:hidden">A4 · Portrait</span>
+          {/* The Actual Printed Document Canvas */}
+          <div className="planner-landscape mx-auto w-full max-w-[850px] p-8 sm:p-12 text-slate-900 relative bg-[#FFFDFB] shadow-2xl print:shadow-none min-h-[1100px]">
+            
+            {/* Header Area */}
+            <div className="mb-4 border-b-2 border-slate-900 pb-3 flex justify-between items-end">
+              <span className="text-xs font-black uppercase tracking-widest text-slate-500">Travel Itinerary</span>
+              <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+                {plannerStart && plannerEnd ? `${formatShortDate(plannerStart)} TO ${formatShortDate(plannerEnd)}` : "DATES TBC"}
+              </span>
+            </div>
+            
+            <h1 className="text-5xl md:text-6xl font-black text-slate-950 uppercase mb-10 text-center tracking-tight">
+              ANO TARA?
+            </h1>
+
+            {/* Dynamic Column Grid Area (Adapted for Portrait Layout) */}
+            <div className="relative">
+              <div 
+                className={`grid border-t-2 border-l-2 border-slate-200 bg-[#FFFDFB] ${
+                  itineraryDays.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                }`}
+              >
+                {itineraryDays.map((day, index) => (
+                  <div key={day.dayNumber} className="border-b-2 border-r-2 border-slate-200 p-6 min-h-[260px] relative">
+                    {/* Day Header Row */}
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-lg font-black uppercase tracking-wider text-slate-900">Day {index + 1}</span>
+                      <WeatherCategoryBadge item={day} />
+                    </div>
+                    <HazardBanner item={day} />
+                    
+                    {/* Full Weather Description */}
+                    {day.weatherDescription && (
+                      <p className="text-[11px] text-slate-500 italic leading-relaxed mb-6 border-b border-slate-100 pb-4">
+                        {day.weatherDescription}
+                      </p>
+                    )}
+                    
+                    {/* Activities List */}
+                    <ul className="space-y-6">
+                      {day.activities.map((activity, actIdx) => (
+                        <li key={actIdx} className="flex flex-col gap-3 border-b border-slate-100 pb-6 last:border-0 last:pb-0">
+                          {/* Image & Destination Header */}
+                          <div className="flex gap-4 items-start">
+                            <img
+                              src={dayImage(activity)}
+                              alt={activity.name}
+                              className="w-16 h-16 object-cover rounded-lg shadow-sm border border-slate-200 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0 mt-0.5">
+                              <span className="font-black text-slate-900 text-base block leading-tight mb-1">{activity.name}</span>
+                              <span className="font-bold text-slate-500 text-xs uppercase tracking-wider block mb-1.5">
+                                {clampActivityTime(activity.time) || "10:00 AM"}
+                              </span>
+                              {activity.location && (
+                                <span className="flex items-start gap-1 text-[11px] font-semibold text-slate-600 leading-tight">
+                                  <svg className="w-3 h-3 shrink-0 mt-0.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                  {activity.location}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Details below image */}
+                          <div className="mt-1 pl-[80px]">
+                            {activity.description && (
+                              <p className="text-[13px] text-slate-700 block mb-3 leading-relaxed">
+                                {activity.description}
+                              </p>
+                            )}
+                            <span className="inline-flex items-center gap-2 rounded bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 border border-slate-200 shadow-xs">
+                              <span>{activity.guests || 1} Pax</span>
+                              <span className="text-slate-300">|</span>
+                              <span className="text-emerald-700">{formatActivityPrice(activity)}</span>
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                
+                {/* Optional Filler Cell for Odd Number of Days in a 2-Column Grid */}
+                {(itineraryDays.length > 1 && itineraryDays.length % 2 !== 0) && (
+                   <div className="border-b-2 border-r-2 border-slate-200 p-5 min-h-[260px] bg-slate-50/50"></div>
+                )}
               </div>
               <p className="document-trip-name">{planner.name || "Your next adventure"}</p>
             </header>

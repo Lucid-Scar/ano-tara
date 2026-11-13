@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { HazardBanner, WeatherCategoryBadge } from "./WeatherSafety";
 import Image from "next/image";
 import { MapPin, Sun, CloudRain, CloudSun, Shirt, DollarSign, TrendingUp, Sparkles, Clock } from "lucide-react";
 
@@ -188,22 +189,14 @@ export default function ItineraryOverview({
                   </span>
                 </div>
 
+                <div className="mt-3">
+                  <WeatherCategoryBadge item={activity} />
+                  <HazardBanner item={activity} />
+                </div>
+
                 {/* System Insights Grid: Weather, Apparel, Price */}
                 {activity.insights && (
                   <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* 🌤️ Weather Prediction (Decision Tree) */}
-                    {activity.insights.weather && (
-                      <div className={`rounded-xl border p-2 flex flex-col justify-between ${activity.insights.weather.accent || "bg-amber-50/90 border-amber-200 text-amber-950"}`}>
-                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-900/70">
-                          <span>Weather (DT)</span>
-                          <span className="text-sm">{activity.insights.weather.icon || "🌤️"}</span>
-                        </div>
-                        <p className="mt-0.5 text-xs font-bold leading-tight">
-                          {activity.insights.weather.status}
-                        </p>
-                      </div>
-                    )}
-
                     {/* 👕 Apparel Recommendation (CNN) */}
                     {activity.insights.apparel && (
                       <div className={`rounded-xl border p-2 flex flex-col justify-between ${activity.insights.apparel.accent || "bg-emerald-50/90 border-emerald-200 text-emerald-950"}`}>
