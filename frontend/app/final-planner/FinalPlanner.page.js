@@ -10,7 +10,7 @@ import ActivityTimePicker from "../../components/ActivityTimePicker";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
 import { useTravel, isCalendarDate, validateActivitySchedules, archivePlanKey } from "../TravelContext";
-import DynamicMap from "../../components/DynamicMap";
+import ItineraryBrochure from "../../components/ItineraryBrochure";
 import {
   getGuestWarning,
   getMinSelectableDate,
@@ -150,72 +150,6 @@ const extractActivitiesFromPlanner = (item) => {
   );
 };
 
-const assignDaysInOrder = (list) =>
-  list.map((activity, index) => {
-    const day = `Day ${index + 1}`;
-    return { ...activity, assignedDay: day, assigned_day: day };
-  });
-
-// Print layouts are kept with their owning planner page.
-function PlannerOverview({ days, formatPrice, getWeather, guests }) {
-  return (
-    <div className="overview-day-list">
-      {days.map((day) => {
-        return (
-          <section key={day.dayNumber} className="overview-day-card">
-            <header className="overview-day-heading"><h2>{day.dayNumber}</h2><p>{day.dateLabel}</p></header>
-              <ol className="overview-stops">{day.activities.map((activity, index) => (
-                <li key={index}>
-                  <div className="overview-location"><h3>{activity.name}</h3>
-                  <p>{activity.location || activity.destination || "Location not listed"}</p></div>
-                  <dl className="overview-facts">
-                    <div><dt>Price</dt><dd>{formatPrice(activity)}</dd></div>
-                    <div><dt>Weather</dt><dd>{getWeather(activity) || day.weather_forecast?.condition || day.expected_weather || "Unavailable"}</dd></div>
-                    <div><dt>Pax</dt><dd>{activity.guests || guests}</dd></div>
-                  </dl>
-                </li>
-              ))}</ol>
-          </section>
-        );
-      })}
-    </div>
-  );
-}
-
-
-const hasCoordinates = (activity) =>
-  activity.exact_latitude != null && activity.exact_latitude !== "" &&
-  activity.exact_longitude != null && activity.exact_longitude !== "" &&
-  Number.isFinite(Number(activity.exact_latitude)) && Math.abs(Number(activity.exact_latitude)) <= 90 &&
-  Number.isFinite(Number(activity.exact_longitude)) && Math.abs(Number(activity.exact_longitude)) <= 180;
-
-function PlannerDetails({ days, formatPrice, getWeather, guests, outfitsForDay }) {
-  return <div className="detailed-days">{days.map((day, index) => {
-    const outfits = outfitsForDay(day.date || day.day, Number(day.dayNumber.replace("Day ", "")) - 1);
-    const mappedActivities = day.activities.filter(hasCoordinates);
-    return (
-      <section key={day.dayNumber} className="print-day detailed-day">
-        <header className="print-day-heading"><h2>{day.dayNumber}</h2><p>{day.dateLabel}</p></header>
-        <div className="document-weather"><h3>Weather &amp; what to expect</h3><p>{day.weatherDescription}</p></div>
-        <ol className="document-stops">{day.activities.map((activity, activityIndex) => (
-          <li key={activityIndex}>
-            <div className="document-stop-heading"><span className="stop-number">{String(activityIndex + 1).padStart(2, "0")}</span><div><h3>{activity.name}</h3><p>{activity.location || activity.destination || "Location not listed"}</p></div><strong>{formatPrice(activity)}</strong></div>
-            <p className="document-meta">{activity.time || activity.schedule || activity.start_time || "Time to be confirmed"} · {activity.guests || guests} pax · {getWeather(activity) || day.weather_forecast?.condition || day.expected_weather || "Weather unavailable"}</p>
-            {activity.description && <p>{activity.description}</p>}
-          </li>
-        ))}</ol>
-        <section className="document-outfits"><h3>What to wear</h3>
-          {outfits.length ? <div className="document-outfit-grid">{outfits.map((outfit) => <figure key={outfit.id}><GarmentImage src={outfit.image} alt={outfit.category} className="document-garment" /><figcaption><strong>{outfit.category}</strong><span>{outfit.outfitSetName || "Your outfit"}</span></figcaption></figure>)}</div> : <p>No outfit assigned to this day.</p>}
-        </section>
-        <section className="document-map"><h3>Destination map</h3>
-          {mappedActivities.length ? <DynamicMap activities={mappedActivities} routeSegments={day.route_segments} /> : <p>Map coordinates are unavailable for this day.</p>}
-          <div className="document-map-links">{day.activities.map((activity, activityIndex) => <a key={activityIndex} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hasCoordinates(activity) ? `${activity.exact_latitude},${activity.exact_longitude}` : `${activity.name} ${activity.location || activity.destination || ""}`)}` } target="_blank" rel="noreferrer">{activityIndex + 1}. {activity.name}</a>)}</div>
-        </section>
-      </section>
-    );
-  })}</div>;
-}
-
 export default function FinalPlannerPage() {
   const {
     dateRange,
@@ -327,7 +261,9 @@ export default function FinalPlannerPage() {
     const next = [...activities];
     const [moved] = next.splice(fromIndex, 1);
     next.splice(toIndex, 0, moved);
-    commitActivities(assignDaysInOrder(next));
+    // Dragging changes display order only. Each activity keeps the day it was
+    // assigned to so the itinerary cannot spill into dates outside the trip.
+    commitActivities(next);
   };
 
   const changeActivityGuests = (index, amount) => {
@@ -520,15 +456,6 @@ export default function FinalPlannerPage() {
     if (result.ok) setArchiveSource(archivedPlanner || planner);
   };
 
-  const printPlanner = () => {
-    if (!planner) return;
-    const previousTitle = document.title;
-    document.title = `${planner.name || "Travel itinerary"} - ${documentView}`;
-    const restoreTitle = () => { document.title = previousTitle; };
-    window.addEventListener("afterprint", restoreTitle, { once: true });
-    window.print();
-  };
-
   const itineraryDays = (planner?.itinerary || [])
     .filter((day) => (day.scheduled_activities || []).length > 0)
     .map((day, index) => ({
@@ -541,7 +468,7 @@ export default function FinalPlannerPage() {
       activities: (Array.isArray(day.scheduled_activities) ? day.scheduled_activities : []).map((activity) => ({
         ...activity,
         location: activity.location || activity.destination,
-        price: getActivityTotalPricePhp(activity),
+        brochurePrice: getActivityTotalPricePhp(activity),
         guests: Number(activity.guests) || guests,
       })),
     }));
@@ -1124,141 +1051,13 @@ export default function FinalPlannerPage() {
         </div>
       ) : null}
 
-      {/* PRINT-FRIENDLY DOWNLOADABLE BROCHURE TEMPLATE */}
-      {planner ? (
-        <div className="planner-document fixed inset-0 z-[60] flex flex-col bg-slate-100 overflow-y-auto animate-in slide-in-from-bottom-8 fade-in duration-500 print:relative print:w-full print:inset-auto print:block">
-          
-          {/* Brochure print styles are defined with the preview in globals.css. */}
-          <div className="brochure-toolbar sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-8 print:hidden">
-            <button
-              onClick={() => setPlanner(null)}
-              className="group flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-slate-900 transition"
-            >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 group-hover:bg-slate-200 transition"><ChevronLeft aria-hidden="true" className="h-5 w-5" /></span>
-              Back to planner
-            </button>
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Document version">
-              {["overview", "details"].map((view) => (
-                <button key={view} type="button" aria-pressed={documentView === view} onClick={() => setDocumentView(view)} className={`rounded-lg px-4 py-2 text-sm font-bold ${documentView === view ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
-                  {view === "overview" ? "01 Overview" : "02 Detailed"}
-                </button>
-              ))}
-            </div>
-            <button type="button" onClick={savePlannerToArchive} disabled={Boolean(archivedPlanner)} className="rounded-lg border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-900 transition hover:bg-slate-100 disabled:cursor-default disabled:opacity-50">
-              {archivedPlanner ? "Saved to archive" : savedItineraries.some((saved) => saved.createdAt === planner.createdAt) ? "Update saved trip" : "Save to archive"}
-            </button>
-            <button
-              onClick={printPlanner}
-              className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black tracking-wide text-white shadow-md transition hover:bg-slate-800"
-            >
-              Print / Save {documentView === "overview" ? "overview" : "details"} PDF
-            </button>
-          </div>
-
-          {/* The Actual Printed Document Canvas */}
-          <div className="planner-landscape mx-auto w-full max-w-[850px] p-8 sm:p-12 text-slate-900 relative bg-[#FFFDFB] shadow-2xl print:shadow-none min-h-[1100px]">
-            
-            {/* Header Area */}
-            <div className="mb-4 border-b-2 border-slate-900 pb-3 flex justify-between items-end">
-              <span className="text-xs font-black uppercase tracking-widest text-slate-500">Travel Itinerary</span>
-              <span className="text-xs font-black uppercase tracking-widest text-slate-500">
-                {plannerStart && plannerEnd ? `${formatShortDate(plannerStart)} TO ${formatShortDate(plannerEnd)}` : "DATES TBC"}
-              </span>
-            </div>
-            
-            <h1 className="text-5xl md:text-6xl font-black text-slate-950 uppercase mb-10 text-center tracking-tight">
-              ANO TARA?
-            </h1>
-
-            {/* Dynamic Column Grid Area (Adapted for Portrait Layout) */}
-            <div className="relative">
-              <div 
-                className={`grid border-t-2 border-l-2 border-slate-200 bg-[#FFFDFB] ${
-                  itineraryDays.length === 1 ? "grid-cols-1" : "grid-cols-2"
-                }`}
-              >
-                {itineraryDays.map((day, index) => (
-                  <div key={day.dayNumber} className="border-b-2 border-r-2 border-slate-200 p-6 min-h-[260px] relative">
-                    {/* Day Header Row */}
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-lg font-black uppercase tracking-wider text-slate-900">Day {index + 1}</span>
-                      <WeatherCategoryBadge item={day} />
-                    </div>
-                    <HazardBanner item={day} />
-                    
-                    {/* Full Weather Description */}
-                    {day.weatherDescription && (
-                      <p className="text-[11px] text-slate-500 italic leading-relaxed mb-6 border-b border-slate-100 pb-4">
-                        {day.weatherDescription}
-                      </p>
-                    )}
-                    
-                    {/* Activities List */}
-                    <ul className="space-y-6">
-                      {day.activities.map((activity, actIdx) => (
-                        <li key={actIdx} className="flex flex-col gap-3 border-b border-slate-100 pb-6 last:border-0 last:pb-0">
-                          {/* Image & Destination Header */}
-                          <div className="flex gap-4 items-start">
-                            <img
-                              src={getActivityImagePath(activity, activity.destination || activity.location || day.destination)}
-                              alt={activity.name}
-                              onError={(event) => {
-                                if (event.currentTarget.getAttribute("src") !== DESTINATION_PLACEHOLDER) {
-                                  event.currentTarget.src = DESTINATION_PLACEHOLDER;
-                                }
-                              }}
-                              className="w-16 h-16 object-cover rounded-lg shadow-sm border border-slate-200 shrink-0"
-                            />
-                            <div className="flex-1 min-w-0 mt-0.5">
-                              <span className="font-black text-slate-900 text-base block leading-tight mb-1">{activity.name}</span>
-                              <span className="font-bold text-slate-500 text-xs uppercase tracking-wider block mb-1.5">
-                                {isValidActivityTime(activity.time) ? activity.time : "Time to be confirmed"}
-                              </span>
-                              {activity.location && (
-                                <span className="flex items-start gap-1 text-[11px] font-semibold text-slate-600 leading-tight">
-                                  <svg className="w-3 h-3 shrink-0 mt-0.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                  {activity.location}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Details below image */}
-                          <div className="mt-1 pl-[80px]">
-                            {activity.description && (
-                              <p className="text-[13px] text-slate-700 block mb-3 leading-relaxed">
-                                {activity.description}
-                              </p>
-                            )}
-                            <span className="inline-flex items-center gap-2 rounded bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 border border-slate-200 shadow-xs">
-                              <span>{activity.guests || 1} Pax</span>
-                              <span className="text-slate-300">|</span>
-                              <span className="text-emerald-700">{formatActivityPrice(activity)}</span>
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-                
-                {/* Optional Filler Cell for Odd Number of Days in a 2-Column Grid */}
-                {(itineraryDays.length > 1 && itineraryDays.length % 2 !== 0) && (
-                   <div className="border-b-2 border-r-2 border-slate-200 p-5 min-h-[260px] bg-slate-50/50"></div>
-                )}
-              </div>
-              <p className="document-trip-name">{planner.name || "Your next adventure"}</p>
-            <Header/>
-            {documentView === "overview" ? (
-              <PlannerOverview days={itineraryDays} formatPrice={formatActivityPrice} getWeather={getActivityWeather} guests={initialGuestCount} />
-            ) : (
-              <PlannerDetails days={itineraryDays} formatPrice={formatActivityPrice} getWeather={getActivityWeather} guests={initialGuestCount} outfitsForDay={outfitsForDay} />
-            )}
-            <footer className="document-footer">ANO TARA? <span>{documentView === "overview" ? "Your journey at a glance" : "Your daily travel companion"} · Prices and weather may change</span></footer>
-          </div>
-        </div>
-        </div>
-      ) : null}
+      {planner ? <ItineraryBrochure
+        planner={planner} days={itineraryDays} mode={documentView}
+        start={plannerStart} end={plannerEnd} guests={initialGuestCount}
+        outfitsForDay={outfitsForDay} formatPrice={formatActivityPrice}
+        onClose={() => setPlanner(null)} onMode={setDocumentView}
+        onSave={savePlannerToArchive} saved={Boolean(archivedPlanner)} archiveError={archiveError}
+      /> : null}
 
       <div className="print:hidden mt-4">
         <Footer />

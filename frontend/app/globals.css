@@ -213,3 +213,55 @@ body { margin: 0; min-height: 100vh; background: #fcfbf8; }
   .modern-itinerary .detailed-day { border-radius: 3mm; }
 
 }
+/* Measured A4 brochure: preview and PDF share the same content and dimensions. */
+.brochure-viewer { position: fixed; inset: 0; z-index: 70; overflow: auto; background: #e9edf1; color: #0f172a; }
+.brochure-controls { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; background: white; border-bottom: 1px solid #cbd5e1; }
+.brochure-controls button { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 700; }
+.brochure-controls button[aria-pressed="true"] { background: #0f172a; color: white; }
+.brochure-controls button:disabled { opacity: .45; }
+.brochure-controls button:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+.brochure-pagination { justify-content: center; font-size: 12px; }
+.brochure-pagination p { width: 100%; text-align: center; }
+.brochure-pagination [role="alert"] { color: #991b1b; }
+.brochure-pages { display: flex; align-items: flex-start; justify-content: center; gap: 24px; padding: 24px; }
+.brochure-page-frame { position: absolute; left: -20000px; width: 210mm; }
+.brochure-page-frame.is-visible { position: relative; left: auto; zoom: var(--preview-scale); }
+.brochure-paper { width: 210mm; min-height: 297mm; padding: 10mm 9mm 12mm; background: white; color: #0f172a; font: 13px/1.45 Arial, sans-serif; overflow-wrap: anywhere; box-shadow: 0 3px 18px #0f172a22; position: relative; }
+.brochure-measure { position: absolute; left: -20000px; top: 0; width: 192mm; padding: 0; min-height: 0; visibility: hidden; }
+.brochure-running { height: 7mm; font-size: 10px; color: #64748b; }
+.brochure-block { padding-bottom: 10px; break-inside: avoid; page-break-inside: avoid; display: flow-root; }
+.brochure-block h2 { font-size: 17px; font-weight: 800; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px; }
+.brochure-block h3 { font-size: 14px; font-weight: 700; }
+.brochure-title { border-bottom: 2px solid #0f172a; padding-bottom: 12px; }
+.brochure-title > div { font-size: 10px; font-weight: 700; letter-spacing: .14em; }
+.brochure-title span { float: right; }
+.brochure-title h1 { text-align: center; font-size: 38px; font-weight: 900; letter-spacing: -.04em; margin: 8px 0; }
+.brochure-title h2 { border: 0; font-size: 16px; }
+.brochure-stop { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+.brochure-stop > img { width: 58px; height: 58px; object-fit: cover; border-radius: 5px; background: #f1f5f9; }
+.brochure-stop > strong { max-width: 115px; font-size: 12px; }
+.brochure-muted { font-size: 11px; color: #475569; }
+.brochure-weather, .brochure-budget { padding: 12px; background: #f1f5f9; border-radius: 6px; }
+.brochure-weather p, .brochure-budget p + p { margin-top: 6px; }
+.brochure-map, .brochure-map > div { height: 68mm !important; width: 100%; }
+.brochure-legend { font-size: 11px; }
+.brochure-garments { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.brochure-garments figure { border: 1px solid #e2e8f0; padding: 8px; border-radius: 5px; font-size: 11px; }
+.brochure-garments img { width: 100%; height: 90px; object-fit: contain; }
+.brochure-paper footer { position: absolute; bottom: 5mm; left: 9mm; right: 9mm; border-top: 1px solid #cbd5e1; padding-top: 4px; font-size: 9px; color: #64748b; }
+.brochure-paper footer span { float: right; }
+.numbered-map-marker span { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 2px solid white; border-radius: 50%; background: #0f172a; color: white; font: bold 12px Arial, sans-serif; box-shadow: 0 1px 5px #0006; }
+@media print {
+  @page { size: A4 portrait; margin: 10mm 9mm; }
+  body:has(#itinerary-print-root) > :not(#itinerary-print-root) { display: none !important; }
+  #itinerary-print-root { position: static !important; overflow: visible !important; background: white; }
+  #itinerary-print-root .brochure-controls, #itinerary-print-root .brochure-measure { display: none !important; }
+  #itinerary-print-root .brochure-pages { display: block; padding: 0; }
+  #itinerary-print-root .brochure-page-frame { position: static; width: 192mm; zoom: 1; break-after: page; }
+  #itinerary-print-root .brochure-page-frame:last-child { break-after: auto; }
+  #itinerary-print-root .brochure-paper { width: 192mm; min-height: 276mm; padding: 0 0 5mm; box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #itinerary-print-root .brochure-paper footer { bottom: 0; left: 0; right: 0; }
+  #itinerary-print-root .leaflet-control-zoom { display: none; }
+  #itinerary-print-root h2, #itinerary-print-root h3 { break-after: avoid; }
+}
+.brochure-legend-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
