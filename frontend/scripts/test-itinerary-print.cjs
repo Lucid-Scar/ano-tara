@@ -32,6 +32,9 @@ function fixture(count) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await context.newPage();
     const errors = []; page.on('pageerror', e => errors.push(e.message));
+    page.on('console', message => {
+      if (message.type() === 'error' && /hydration|descendant|nested|cannot contain/i.test(message.text())) errors.push(message.text());
+    });
     const plan = fixture(count);
     if (coordinates) {
       plan.outfits = [];
@@ -45,12 +48,15 @@ function fixture(count) {
       });
     }
     await context.addInitScript(plan => localStorage.setItem('anoTaraSavedPlanners', JSON.stringify([plan])), plan);
-    await page.goto('http://localhost:3100/final-planner');
+    await page.goto(`${process.env.TEST_BASE_URL || 'http://localhost:3100'}/final-planner`);
     await page.getByTitle('Saved plans').click();
     await page.getByRole('button', { name: 'Open', exact: true }).click();
-    for (const mode of ['Overview','Detailed']) {
+    for (const mode of ['Overview','Detailed','Overview','Detailed','Overview']) {
       await page.getByRole('button', { name: mode, exact: true }).click();
       await page.waitForFunction(() => document.querySelectorAll('.brochure-page-frame').length > 0);
+      assert.equal(await page.locator('.brochure-page-frame .brochure-title span').first().textContent(), mode.toUpperCase());
+      assert.deepEqual(errors, []);
+      if (process.env.INTERACTION_ONLY) continue;
       await page.waitForTimeout(1200);
       await page.evaluate(() => { window.print = () => { window.__printed = true; }; window.__printed = false; });
       await page.getByRole('button', { name: 'Print / Save PDF', exact: true }).click();
@@ -80,6 +86,19 @@ function fixture(count) {
     await page.setViewportSize({width:390,height:844});
     await page.waitForTimeout(300);
     assert.equal(await page.locator('.brochure-page-frame.is-visible').count(),1);
+    await page.getByRole('button', { name: 'Back to planner' }).click();
+    assert.equal(await page.locator('button button').count(), 0);
+    if (plan.outfits.length) {
+      await page.getByRole('button', { name: 'View Garment 1', exact: true }).first().click();
+      await page.getByRole('button', { name: 'View larger image: Garment 1', exact: true }).click();
+      await page.getByRole('dialog', { name: 'Larger view: Garment 1' }).waitFor();
+      await page.getByRole('button', { name: 'Close image preview', exact: true }).click();
+      await page.getByRole('button', { name: 'Close Report', exact: true }).click();
+      await page.getByRole('button', { name: 'View details', exact: true }).first().click();
+      await page.getByRole('button', { name: 'Close Report', exact: true }).click();
+    }
+    assert.deepEqual(errors, []);
+    console.log(`${prefix}: repeated mode switching and garment controls passed`);
     await context.close();
   }
   await browser.close();

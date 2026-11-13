@@ -90,7 +90,10 @@ export default function ItineraryBrochure(props) {
   const blocks = useMemo(() => buildBlocks(props), [planner, mode, props.start, props.end, props.guests]);
   const measure = useRef(null);
   const viewer = useRef(null);
-  const [pages, setPages] = useState([]);
+  const [pagination, setPagination] = useState({ blocks: null, pages: [] });
+  // Page indices belong to the exact blocks that were measured. A mode or
+  // planner change must wait for its own measurements before rendering pages.
+  const pages = pagination.blocks === blocks ? pagination.pages : [];
   const [scale, setScale] = useState(.7);
   const [spread, setSpread] = useState(0);
   const [columns, setColumns] = useState(2);
@@ -111,7 +114,7 @@ export default function ItineraryBrochure(props) {
         page.push(index); used += height;
       });
       if (page.length) result.push(page);
-      setPages(result); setSpread(0);
+      setPagination({ blocks, pages: result }); setSpread(0);
     };
     document.fonts.ready.then(paginate);
     const observer = new ResizeObserver(paginate);

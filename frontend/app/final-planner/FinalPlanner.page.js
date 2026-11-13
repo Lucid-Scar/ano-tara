@@ -921,7 +921,7 @@ export default function FinalPlannerPage() {
                           <div key={item.id} className="relative min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
                             <div className="flex items-start gap-3">
                               <button type="button" onClick={() => setSelectedGarment(item)} aria-label={`View ${item.category}`} className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700">
-                                <GarmentImage src={item.image} alt={item.category} className="h-full w-full object-contain" />
+                                <img src={item.image} alt={item.category} className="h-full w-full object-contain" />
                               </button>
                               <div className="min-w-0 flex-1">
                                 <p className="break-words pr-4 text-xs font-bold leading-relaxed text-slate-700">{item.category}</p>
