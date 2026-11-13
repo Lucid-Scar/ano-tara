@@ -1,26 +1,23 @@
 "use client";
 
-export default function ImageUploader({ onSelect, onError, maxBytes = 20 * 1024 * 1024, className = "", label = "UPLOAD" }) {
-  const handleChange = (event) => {
+import { useState } from "react";
+import { compressOutfitImage } from "../lib/compressOutfitImage";
+
+export default function ImageUploader({ onSelect, onError, onProgress, disabled = false, maxBytes = 20 * 1024 * 1024, className = "", label = "UPLOAD" }) {
+  const [busy, setBusy] = useState(false);
+  const handleChange = async (event) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    if (file.size > maxBytes) {
-      onError?.("Please choose an image smaller than 20MB.");
-      event.target.value = "";
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        onSelect?.(reader.result, file.name);
-      }
-    };
-
-    reader.readAsDataURL(file);
+    event.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const processed = await compressOutfitImage(file, { maxOriginalBytes: maxBytes, onProgress });
+      onSelect?.(processed.dataUrl, file.name, processed);
+      onProgress?.("Image ready.");
+    } catch (error) {
+      onError?.(error.message || "Image compression failed. Try another photograph.");
+      onProgress?.("");
+    } finally { setBusy(false); }
   };
 
   return (
@@ -29,7 +26,7 @@ export default function ImageUploader({ onSelect, onError, maxBytes = 20 * 1024 
       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-lg leading-none shadow-sm">
         ↑
       </span>
-      <input type="file" accept="image/*" onChange={handleChange} className="hidden" />
+      <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || disabled} onChange={handleChange} className="hidden" />
     </label>
   );
 }

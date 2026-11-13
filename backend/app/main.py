@@ -2,6 +2,10 @@
 
 import csv
 import re
+import io
+import logging
+from threading import Lock
+from PIL import Image, UnidentifiedImageError
 from base64 import b64decode
 from binascii import Error as Base64Error
 from datetime import date, datetime
@@ -31,7 +35,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http
 
 class OutfitPayload(BaseModel):
     image_url: str | None = None
-    image_base64: str | None = None
+    image_base64: str | None = Field(default=None, max_length=3 * 1024 * 1024)
 
 
 class PricePayload(BaseModel):
@@ -1228,38 +1232,70 @@ def image_bytes(payload: OutfitPayload) -> bytes:
         try: return b64decode(payload.image_base64.split(",", 1)[-1], validate=True)
         except Base64Error as exc: raise ValueError("Invalid base64 image data") from exc
     if payload.image_url:
-        response = requests.get(payload.image_url, timeout=20); response.raise_for_status(); return response.content
+        raise ValueError("Upload image data instead of a remote URL")
     raise ValueError("Provide either image_url or image_base64")
 
 model = None
+model_state = "not_initialized"
+model_lock = Lock()
+inference_lock = Lock()
 
 # Helper: lazily load the YOLO clothing model on first use.
 def load_outfit_model() -> bool:
-    global model
+    with model_lock:
+        return _initialize_outfit_model()
+
+def _initialize_outfit_model() -> bool:
+    global model, model_state
     if model is not None:
         return True
     if not MODEL_PATH.is_file():
+        model_state = "missing"
+        return False
+    if model_state == "failed":
         return False
     try:
         print("Loading YOLOv8 Model... this might take a few seconds...")
         model = YOLO(str(MODEL_PATH))
+        model_state = "ready"
         return True
     except Exception as error:
+        model_state = "failed"
         print(f"YOLOv8 model unavailable; outfit prediction is disabled: {error}")
         return False
 
+@app.get("/health/outfit")
+def outfit_health():
+    # Initialization is cached; failed initialization is retried after restart.
+    available = load_outfit_model()
+    return {"weights_present": MODEL_PATH.is_file(), "model_status": model_state, "inference_available": available}
+
 @app.post("/predict-outfit")
 def predict_outfit(payload: OutfitPayload):
+    try:
+        raw_image = image_bytes(payload)
+        if len(raw_image) > 2 * 1024 * 1024:
+            raise HTTPException(413, "Image is too large.")
+        with Image.open(io.BytesIO(raw_image)) as probe:
+            if probe.format not in {"JPEG", "PNG", "WEBP"}:
+                raise ValueError("Unsupported image format")
+            if max(probe.size) > 8192 or probe.width * probe.height > 16000000:
+                raise ValueError("Image dimensions are too large")
+            probe.verify()
+        img = cv2.imdecode(np.frombuffer(raw_image, np.uint8), cv2.IMREAD_COLOR)
+        if img is None:
+            raise ValueError("Image cannot be decoded")
+    except (ValueError, UnidentifiedImageError, OSError, Image.DecompressionBombError):
+        raise HTTPException(422, "Upload a valid JPEG, PNG, or WebP image with reasonable dimensions.")
     if not load_outfit_model():
         raise HTTPException(status_code=503, detail="Outfit prediction is unavailable because the YOLO model could not be loaded.")
     
     try:
         # Load image bytes into an OpenCV numpy array
-        image_data = np.frombuffer(image_bytes(payload), np.uint8)
-        img = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
 
         # Run YOLO inference
-        results = model.predict(img, conf=0.25, verbose=False)
+        with inference_lock:
+            results = model.predict(img, conf=0.25, verbose=False)
         result = results[0] # Get the first (and only) image result
 
         if len(result.boxes) == 0:
@@ -1276,6 +1312,13 @@ def predict_outfit(payload: OutfitPayload):
             confidence = float(box.conf[0])
             class_index = int(box.cls[0])
             category = model.names[class_index]
+            normalized_category = category.strip().lower().replace("-", " ").replace("_", " ")
+            if normalized_category not in CLOTHING_WEATHER_MAP:
+                continue
+            x1, x2 = max(0, x1), min(img.shape[1], x2)
+            y1, y2 = max(0, y1), min(img.shape[0], y2)
+            if x2 <= x1 or y2 <= y1:
+                continue
             
             # Crop the bounding box from the original image
             cropped_img = img[y1:y2, x1:x2]
@@ -1296,6 +1339,8 @@ def predict_outfit(payload: OutfitPayload):
                 "cropped_image": cropped_base64
             })
 
+        if not detected_items:
+            return {"status": "error", "message": "No recognized clothing detected."}
         return {
             "status": "success",
             "message": f"Successfully detected {len(detected_items)} items of clothing.",
@@ -1303,7 +1348,8 @@ def predict_outfit(payload: OutfitPayload):
         }
 
     except Exception as exc: 
-        return {"status": "error", "message": str(exc)}
+        logging.exception("Outfit inference failed")
+        raise HTTPException(500, "Garment detection failed. Please try again.") from exc
 
 @app.get("/")
 def read_root(): return {"status": "Ano Tara API is live!"}

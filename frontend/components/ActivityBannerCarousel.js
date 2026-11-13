@@ -39,15 +39,20 @@ export default function ActivityBannerCarousel({ slides }) {
   };
 
   const buttonClass = "flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-black/30 text-white backdrop-blur-md transition hover:bg-black/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
+  const handleImageError = (event) => {
+    if (event.currentTarget.getAttribute("src") !== "/destination-placeholder.svg") {
+      event.currentTarget.src = "/destination-placeholder.svg";
+    }
+  };
 
   return (
     <>
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         {previous !== null && (
-          <Image src={slides[previous].src} alt="" fill sizes="100vw" className="object-cover" />
+          <Image src={slides[previous].src} alt="" fill sizes="100vw" onError={handleImageError} className="object-cover" />
         )}
         <div key={slides[index].src} className="banner-slide absolute inset-0">
-          <Image src={slides[index].src} alt="" fill sizes="100vw" loading="eager" className="object-cover" />
+          <Image src={slides[index].src} alt="" fill sizes="100vw" loading="eager" onError={handleImageError} className="object-cover" />
         </div>
         {slides.length > 1 && (
           <Image
@@ -59,7 +64,10 @@ export default function ActivityBannerCarousel({ slides }) {
             loading="eager"
             className="object-cover opacity-0"
             onLoad={() => setReadySource(nextSlide.src)}
-            onError={() => setReadySource(nextSlide.src)}
+            onError={(event) => {
+              setReadySource(nextSlide.src);
+              handleImageError(event);
+            }}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/35 to-black/65" />
