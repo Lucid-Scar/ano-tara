@@ -167,7 +167,7 @@ def resolved_activity_price_per_pax(
     return dataset_price
 
 try:
-    MLR_BUNDLE = joblib.load(BASE_DIR / "model" / "price_surge_mlr_model.joblib")
+    MLR_BUNDLE = joblib.load(BASE_DIR / "model" / "price_surge_model.joblib")
     if not {"model", "features", "mode", "source_baselines"}.issubset(MLR_BUNDLE):
         raise ValueError("MLR bundle is missing required training metadata")
     if MLR_BUNDLE["mode"] not in {"calendar", "weather"}:
