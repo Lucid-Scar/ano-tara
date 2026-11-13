@@ -346,7 +346,9 @@ function SpecificDestinationsContent() {
     : null;
   const stayNights = Math.max(1, Math.round((new Date(`${endDate}T00:00:00`) - new Date(`${startDate}T00:00:00`)) / 86400000));
 
-  const totalAccommodationCost = hasExactAccommodationRate
+  const totalAccommodationCost = !isAccommodation
+    ? null
+    : hasExactAccommodationRate
     ? accommodationNightlyTotal * stayNights
     : (hotelEstimate?.total_price ?? null);
 
@@ -430,8 +432,9 @@ function SpecificDestinationsContent() {
     ? null
     : selectedActivityIsFree ? 0 : activityTotalPrice;
   const totalActivityAdmissionFees = isAccommodation ? 0 : activityAdmissionTotal;
-  const totalTripCost = totalAccommodationCost != null && totalActivityAdmissionFees != null
-    ? totalAccommodationCost + totalActivityAdmissionFees
+  const tripAccommodationCost = isAccommodation ? totalAccommodationCost : 0;
+  const totalTripCost = tripAccommodationCost != null && totalActivityAdmissionFees != null
+    ? tripAccommodationCost + totalActivityAdmissionFees
     : null;
 
   const perPersonTripCost = totalTripCost != null ? totalTripCost / parsedGuests : null;
@@ -667,6 +670,11 @@ function SpecificDestinationsContent() {
 
   useEffect(() => {
     if (!tripReady || !destinationDetails || !selectedActivityData) return undefined;
+    if (!isAccommodation) {
+      setHotelEstimate(null);
+      setIsEstimatingHotel(false);
+      return undefined;
+    }
 
     let isCurrentRequest = true;
     const predictHotelPrice = async () => {
@@ -723,6 +731,7 @@ function SpecificDestinationsContent() {
     destinationDetails,
     endDate,
     guests,
+    isAccommodation,
     roomType,
     selectedActivityData,
     startDate,
@@ -1104,7 +1113,7 @@ function SpecificDestinationsContent() {
                 ) : null}
 
                 {/* CONDITIONAL ESTIMATION CONTAINER */}
-                {(isEstimatingHotel || accommodationNightlyTotal != null || hotelEstimate) ? (
+                {isAccommodation && (isEstimatingHotel || accommodationNightlyTotal != null || hotelEstimate) ? (
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                       {accommodationNightlyTotal != null ? "Selected Accommodation Cost" : "MLR Accommodation Estimate"}
@@ -1151,7 +1160,7 @@ function SpecificDestinationsContent() {
                 
                 <div>
                   <div className="mt-1">
-                    <label htmlFor="room-type" className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">Room type</label>
+                    <label htmlFor="room-type" className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">{isAccommodation ? "Room type" : "Option"}</label>
                     <select
                       id="room-type"
                       value={roomType}
