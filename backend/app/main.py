@@ -2,6 +2,11 @@
 
 import csv
 import re
+import io
+import logging
+from threading import Lock
+from functools import lru_cache
+from PIL import Image, UnidentifiedImageError
 from base64 import b64decode
 from binascii import Error as Base64Error
 from datetime import date, datetime
@@ -182,7 +187,7 @@ PHILIPPINE_TOURISM_PATH = DATA_DIR / "philippines_tourism_with_coordinates_final
 if not PHILIPPINE_TOURISM_PATH.is_file():
     raise FileNotFoundError(f"Tourism dataset not found at {PHILIPPINE_TOURISM_PATH}")
 
-PHILIPPINE_TOURISM_DATA = pd.read_csv(PHILIPPINE_TOURISM_PATH, encoding="utf-8-sig")
+PHILIPPINE_TOURISM_DATA = pd.read_csv(PHILIPPINE_TOURISM_PATH, encoding="utf-8-sig", usecols=["City_or_Municipality", "Name", "Hotel_Rate_PHP_per_Night", "Price_Per_Pax_PHP", "Price_Unit_or_Basis", "Price_Display"])
 ACTIVITY_SUITABILITY_PATH = DATA_DIR / "activity_suitability.csv"
 if not ACTIVITY_SUITABILITY_PATH.is_file():
     raise FileNotFoundError(f"Activity suitability dataset not found at {ACTIVITY_SUITABILITY_PATH}")
@@ -501,9 +506,9 @@ def load_destinations_from_golden_dataset() -> list[dict]:
         print("WARNING: Golden CSV not found. Ensure it is inside the /data folder.")
         return []
 
-    data = pd.read_csv(dataset_path, encoding="utf-8-sig")
+    chunks = pd.read_csv(dataset_path, encoding="utf-8-sig", chunksize=256)
     destinations_by_city: dict[str, dict] = {}
-    column_names = {str(column).strip().casefold(): column for column in data.columns}
+    column_names = {str(column).strip().casefold(): column for column in pd.read_csv(dataset_path, encoding="utf-8-sig", nrows=0).columns}
 
     def row_value(row: pd.Series, *names: str):
         for name in names:
@@ -514,7 +519,7 @@ def load_destinations_from_golden_dataset() -> list[dict]:
                     return value
         return None
 
-    for _, row in data.iterrows():
+    for row in (row for chunk in chunks for _, row in chunk.iterrows()):
         city_name = str(row.get("City_or_Municipality", "")).strip()
         if not city_name or city_name.casefold() == "nan":
             continue
@@ -793,25 +798,36 @@ def source_url_for_row(row: pd.Series) -> str | None:
                 return candidate
     return None
 
-DESTINATIONS = load_destinations_from_golden_dataset()
+_catalog_lock = Lock()
 
-# Flatten coordinate dictionary so OSRM routing can lookup any specific activity name or city
-DESTINATION_COORDINATES = {}
-for d in DESTINATIONS:
-    DESTINATION_COORDINATES[d["name"].lower()] = (d["latitude"], d["longitude"])
-    DESTINATION_COORDINATES[d["id"]] = (d["latitude"], d["longitude"])
-    for act in d["activities"]:
-        DESTINATION_COORDINATES[act["name"].lower()] = (act["exact_latitude"], act["exact_longitude"])
+@lru_cache(maxsize=1)
+def _cached_destinations():
+    return load_destinations_from_golden_dataset()
+
+def tourism_destinations():
+    # First use builds the catalog once; concurrent first requests share it.
+    with _catalog_lock:
+        return _cached_destinations()
+
+@lru_cache(maxsize=1)
+def tourism_coordinates():
+    coordinates = {}
+    for destination in tourism_destinations():
+        coordinates[destination["name"].lower()] = (destination["latitude"], destination["longitude"])
+        coordinates[destination["id"]] = (destination["latitude"], destination["longitude"])
+        for activity in destination["activities"]:
+            coordinates[activity["name"].lower()] = (activity["exact_latitude"], activity["exact_longitude"])
+    return coordinates
 
 # Helper: resolve a destination or activity name to latitude and longitude.
 def destination_coordinates(destination: str) -> tuple[float, float]:
     key = destination.strip().lower()
-    if key in DESTINATION_COORDINATES:
-        return DESTINATION_COORDINATES[key]
-    if key.endswith(" city") and key[:-5] in DESTINATION_COORDINATES:
-        return DESTINATION_COORDINATES[key[:-5]]
-    if f"{key} city" in DESTINATION_COORDINATES:
-        return DESTINATION_COORDINATES[f"{key} city"]
+    if key in tourism_coordinates():
+        return tourism_coordinates()[key]
+    if key.endswith(" city") and key[:-5] in tourism_coordinates():
+        return tourism_coordinates()[key[:-5]]
+    if f"{key} city" in tourism_coordinates():
+        return tourism_coordinates()[f"{key} city"]
         
     # If not found, return Manila center so the API never crashes
     return 14.6042, 120.9822
@@ -864,14 +880,15 @@ FORECAST_WINDOW_CACHE: dict[str, dict] = {}
 DESTINATION_LIST_FORECAST_CACHE: dict[str, dict[str, dict]] = {}
 
 
-def fetch_destination_list_forecasts(target_date: date) -> dict[str, dict]:
+def fetch_destination_list_forecasts(target_date: date, selected_destinations=None) -> dict[str, dict]:
     """Fetch one forecast window for all destination coordinates used by the listing."""
-    cache_key = target_date.isoformat()
+    selected_destinations = tourism_destinations() if selected_destinations is None else selected_destinations
+    cache_key = target_date.isoformat() + ":" + ",".join(item["id"] for item in selected_destinations)
     if cache_key in DESTINATION_LIST_FORECAST_CACHE:
         return DESTINATION_LIST_FORECAST_CACHE[cache_key]
 
     coordinates = [
-        destination for destination in DESTINATIONS
+        destination for destination in selected_destinations
         if destination.get("latitude") is not None and destination.get("longitude") is not None
     ]
     days_diff = (target_date - date.today()).days
@@ -1306,9 +1323,14 @@ def get_destinations(
     check_out: date | None = None,
     guests: int = 1,
     room_type: str = "Standard Room",
+    offset: int = 0,
+    limit: int | None = None,
 ):
     if guests < 1:
         raise HTTPException(422, "guests must be at least one.")
+
+    if offset < 0 or (limit is not None and not 1 <= limit <= 50):
+        raise HTTPException(422, "Invalid pagination parameters.")
 
     target_date = check_in or date.today()
     if check_out and check_out < target_date:
@@ -1316,8 +1338,9 @@ def get_destinations(
     length_of_stay = max(1, (check_out - target_date).days) if check_out else 1
 
     destinations = []
-    list_forecasts = fetch_destination_list_forecasts(target_date)
-    for destination in DESTINATIONS:
+    selected = tourism_destinations()[offset:offset + limit] if limit is not None else tourism_destinations()[offset:]
+    list_forecasts = fetch_destination_list_forecasts(target_date, selected)
+    for destination in selected:
         forecast = list_forecasts.get(destination["id"], {})
         estimated_prices = {}
         for hotel_type in ("City Hotel", "Resort Hotel"):
@@ -1336,19 +1359,20 @@ def get_destinations(
             "weather_forecast": forecast,
             "estimated_prices": estimated_prices,
         })
-    return {"destinations": destinations}
+    next_offset = offset + len(destinations)
+    return {"destinations": destinations, "total": len(tourism_destinations()), "next_offset": next_offset if next_offset < len(tourism_destinations()) else None}
 
 
 @app.get("/destinations/{destination_id}")
 def get_destination(destination_id: str):
-    destination = next((item for item in DESTINATIONS if item["id"] == destination_id), None)
+    destination = next((item for item in tourism_destinations() if item["id"] == destination_id), None)
     if destination is None: raise HTTPException(404, "Destination not found")
     return destination
 
 
 @app.get("/destinations/{destination_id}/forecast")
 def get_destination_forecast(destination_id: str, date_str: str | None = None):
-    destination = next((item for item in DESTINATIONS if item["id"] == destination_id or item["name"].lower() == destination_id.lower()), None)
+    destination = next((item for item in tourism_destinations() if item["id"] == destination_id or item["name"].lower() == destination_id.lower()), None)
     if destination is None:
         raise HTTPException(404, "Destination not found")
 
@@ -1421,7 +1445,7 @@ def predict_price(payload: PricePayload):
     destination_name = payload.destination or payload.destination_name
     if not destination_name and payload.destination_id:
         destination_record = next(
-            (item for item in DESTINATIONS if item["id"] == payload.destination_id),
+            (item for item in tourism_destinations() if item["id"] == payload.destination_id),
             None,
         )
         destination_name = destination_record["name"] if destination_record else None
@@ -1636,7 +1660,7 @@ def generate_itinerary(payload: ItineraryPayload):
         activity_coords = (
             (activity.exact_latitude, activity.exact_longitude)
             if activity.exact_latitude is not None and activity.exact_longitude is not None
-            else DESTINATION_COORDINATES.get(
+            else tourism_coordinates().get(
                 activity.name.strip().lower(),
                 destination_coordinates(destination),
             )
