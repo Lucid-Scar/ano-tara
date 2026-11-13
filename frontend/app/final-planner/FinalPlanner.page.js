@@ -1224,7 +1224,7 @@ export default function FinalPlannerPage() {
                 )}
               </div>
               <p className="document-trip-name">{planner.name || "Your next adventure"}</p>
-            </header>
+            <Header/>
             {documentView === "overview" ? (
               <PlannerOverview days={itineraryDays} formatPrice={formatActivityPrice} getWeather={getActivityWeather} guests={initialGuestCount} />
             ) : (
