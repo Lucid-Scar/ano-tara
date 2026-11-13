@@ -400,7 +400,9 @@ function SpecificDestinationsContent() {
     : operatingHoursNote || "Not published - please verify locally."}`;
   const activityDurationLabel = selectedActivityData?.activity_duration || (
     selectedActivityData?.duration_hours ? `${selectedActivityData.duration_hours} hrs` : ""
-  );
+  ) || (isAccommodation
+    ? "Overnight stay; excluded from activity hours"
+    : "1 hour (planning estimate; duration not listed)");
   const amenities = splitRichValues(selectedPricingTier?.amenities_or_inclusions || selectedActivityData?.amenities_or_inclusions);
   const promos = splitRichValues(selectedPricingTier?.promos_or_discounts || selectedActivityData?.promos_or_discounts);
 

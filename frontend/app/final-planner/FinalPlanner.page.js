@@ -12,6 +12,13 @@ import Header from "../header/Header";
 import { useTravel, isCalendarDate, validateActivitySchedules, archivePlanKey } from "../TravelContext";
 import ItineraryBrochure from "../../components/ItineraryBrochure";
 import {
+  formatClockMinutes,
+  formatDurationMinutes,
+  getActivityDurationMinutes,
+  getDayDurationSummary,
+  isAccommodationActivity,
+} from "../../lib/itineraryDuration";
+import {
   getGuestWarning,
   getMinSelectableDate,
   isPastOrTodayDate,
@@ -489,6 +496,16 @@ export default function FinalPlannerPage() {
     (maxDay, activity) => Math.max(maxDay, getAssignedDayNumber(activity)),
     0
   ) || dates.length;
+  const durationSummaries = dates.map((date, dayIndex) => {
+    const dayActivities = activities.filter((activity) => getAssignedDay(activity) === `Day ${dayIndex + 1}`);
+    return {
+      dayLabel: `Day ${dayIndex + 1}`,
+      dateLabel: new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      ...getDayDurationSummary(dayActivities),
+      hasActivities: dayActivities.some((activity) => !isAccommodationActivity(activity)),
+    };
+  }).filter((day) => day.hasActivities);
+  const hasDurationOverrun = durationSummaries.some((day) => day.exceedsClosing);
 
   return (
     <main className="final-planner min-h-screen bg-[#FFFDFB] text-slate-900 flex flex-col">
@@ -701,7 +718,37 @@ export default function FinalPlannerPage() {
 
             <section className="planner-editor-section">
               <div className="flex items-end justify-between pb-2 z-10 border-b border-slate-100 mb-4">
-                <h2 className="text-lg font-black text-slate-900">Activities</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-black text-slate-900">Activities</h2>
+                  <div className="group/duration relative">
+                    <button
+                      type="button"
+                      aria-label={hasDurationOverrun ? "Activity duration warning" : "Activity duration information"}
+                      aria-describedby="itinerary-duration-note"
+                      className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-black ${hasDurationOverrun ? "border-amber-500 bg-amber-100 text-amber-800" : "border-slate-300 bg-white text-slate-500"}`}
+                    >i</button>
+                    <div
+                      id="itinerary-duration-note"
+                      role={hasDurationOverrun ? "status" : undefined}
+                      className="invisible absolute left-0 top-full z-40 mt-2 w-72 max-w-[80vw] rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium leading-relaxed text-slate-700 opacity-0 shadow-xl transition group-hover/duration:visible group-hover/duration:opacity-100 group-focus-within/duration:visible group-focus-within/duration:opacity-100"
+                    >
+                      <p className="font-bold text-slate-900">Estimated activity time by day</p>
+                      <p className="mt-1">Durations use the listed visit estimate; activities without one are estimated at 1 hour. Hotel stays are excluded. The day is checked against venue closing times, or 11:00 PM when no closing time is listed.</p>
+                      {durationSummaries.length ? (
+                        <ul className="mt-2 space-y-1">
+                          {durationSummaries.map((day) => (
+                            <li key={day.dayLabel} className={day.exceedsClosing ? "font-bold text-amber-800" : ""}>
+                              {day.dayLabel} · {day.dateLabel}: {formatDurationMinutes(day.totalMinutes)}
+                              {day.endMinutes != null ? `, estimated to ${formatClockMinutes(day.endMinutes)}` : ""}
+                              {day.exceedsClosing ? ` — may exceed ${formatClockMinutes(day.closingMinutes)} closing` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : <p className="mt-1">Add activities to see the daily duration estimate.</p>}
+                    </div>
+                  </div>
+                  {hasDurationOverrun ? <span className="text-xs font-semibold text-amber-800">Daily hours may exceed closing time</span> : null}
+                </div>
                 <Link
                   href="/destinations"
                   className="text-xs font-bold text-slate-600 hover:text-slate-900 transition underline underline-offset-4"
@@ -798,6 +845,12 @@ export default function FinalPlannerPage() {
                                   <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                   {isValidActivityTime(activity.time) ? activity.time : "Time needs attention"}
                                 </span>
+                                {!isAccommodationActivity(activity) ? (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9" strokeWidth={2} /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 7v5l3 2" /></svg>
+                                    {formatDurationMinutes(getActivityDurationMinutes(activity))} estimated
+                                  </span>
+                                ) : null}
                                 <span className="flex items-center gap-1">
                                   <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                                   {activity.guests || guests || 1} Pax
