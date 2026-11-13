@@ -1,0 +1,532 @@
+destination,weather_condition
+Adams,Clear / Sunny
+Adams,Extreme Heat / Danger
+Adams,Fair / Partly Cloudy
+Adams,Heavy Rain / Rainy
+Adams,Light Rain / Drizzle
+Adams,Windy / Stormy
+Alegria / Badian,Clear / Sunny
+Alegria / Badian,Extreme Heat / Danger
+Alegria / Badian,Fair / Partly Cloudy
+Alegria / Badian,Heavy Rain / Rainy
+Alegria / Badian,Light Rain / Drizzle
+Alegria / Badian,Windy / Stormy
+Bacarra,Clear / Sunny
+Bacarra,Extreme Heat / Danger
+Bacarra,Fair / Partly Cloudy
+Bacarra,Heavy Rain / Rainy
+Bacarra,Light Rain / Drizzle
+Bacarra,Windy / Stormy
+Baclayon,Clear / Sunny
+Baclayon,Extreme Heat / Danger
+Baclayon,Fair / Partly Cloudy
+Baclayon,Heavy Rain / Rainy
+Baclayon,Light Rain / Drizzle
+Baclayon,Windy / Stormy
+Bacolod City,Clear / Sunny
+Bacolod City,Extreme Heat / Danger
+Bacolod City,Fair / Partly Cloudy
+Bacolod City,Heavy Rain / Rainy
+Bacolod City,Light Rain / Drizzle
+Bacolod City,Windy / Stormy
+Badian,Clear / Sunny
+Badian,Extreme Heat / Danger
+Badian,Fair / Partly Cloudy
+Badian,Heavy Rain / Rainy
+Badian,Light Rain / Drizzle
+Badian,Windy / Stormy
+Badian / Alegria,Clear / Sunny
+Badian / Alegria,Extreme Heat / Danger
+Badian / Alegria,Fair / Partly Cloudy
+Badian / Alegria,Heavy Rain / Rainy
+Badian / Alegria,Light Rain / Drizzle
+Badian / Alegria,Windy / Stormy
+Badoc,Clear / Sunny
+Badoc,Extreme Heat / Danger
+Badoc,Fair / Partly Cloudy
+Badoc,Heavy Rain / Rainy
+Badoc,Light Rain / Drizzle
+Badoc,Windy / Stormy
+Baguio City,Clear / Sunny
+Baguio City,Heavy Rain / Rainy
+Baguio City,Light Rain / Drizzle
+Baguio City,Windy / Stormy
+Banaue,Clear / Sunny
+Banaue,Heavy Rain / Rainy
+Banaue,Light Rain / Drizzle
+Banaue,Windy / Stormy
+Bangui,Clear / Sunny
+Bangui,Extreme Heat / Danger
+Bangui,Fair / Partly Cloudy
+Bangui,Heavy Rain / Rainy
+Bangui,Light Rain / Drizzle
+Bangui,Windy / Stormy
+Bantay,Clear / Sunny
+Bantay,Extreme Heat / Danger
+Bantay,Fair / Partly Cloudy
+Bantay,Heavy Rain / Rainy
+Bantay,Light Rain / Drizzle
+Bantay,Windy / Stormy
+Batac City,Clear / Sunny
+Batac City,Extreme Heat / Danger
+Batac City,Fair / Partly Cloudy
+Batac City,Heavy Rain / Rainy
+Batac City,Light Rain / Drizzle
+Batac City,Windy / Stormy
+Bislig City,Clear / Sunny
+Bislig City,Extreme Heat / Danger
+Bislig City,Fair / Partly Cloudy
+Bislig City,Heavy Rain / Rainy
+Bislig City,Light Rain / Drizzle
+Bislig City,Windy / Stormy
+Biñan City,Clear / Sunny
+Biñan City,Extreme Heat / Danger
+Biñan City,Fair / Partly Cloudy
+Biñan City,Heavy Rain / Rainy
+Biñan City,Light Rain / Drizzle
+Biñan City,Windy / Stormy
+Boracay,Clear / Sunny
+Boracay,Extreme Heat / Danger
+Boracay,Fair / Partly Cloudy
+Boracay,Heavy Rain / Rainy
+Boracay,Light Rain / Drizzle
+Boracay,Windy / Stormy
+Burgos,Clear / Sunny
+Burgos,Extreme Heat / Danger
+Burgos,Fair / Partly Cloudy
+Burgos,Heavy Rain / Rainy
+Burgos,Light Rain / Drizzle
+Burgos,Windy / Stormy
+Cagayan de Oro City,Clear / Sunny
+Cagayan de Oro City,Extreme Heat / Danger
+Cagayan de Oro City,Fair / Partly Cloudy
+Cagayan de Oro City,Heavy Rain / Rainy
+Cagayan de Oro City,Light Rain / Drizzle
+Cagayan de Oro City,Windy / Stormy
+Calamba City,Clear / Sunny
+Calamba City,Extreme Heat / Danger
+Calamba City,Fair / Partly Cloudy
+Calamba City,Heavy Rain / Rainy
+Calamba City,Light Rain / Drizzle
+Calamba City,Windy / Stormy
+Carles,Clear / Sunny
+Carles,Extreme Heat / Danger
+Carles,Fair / Partly Cloudy
+Carles,Heavy Rain / Rainy
+Carles,Light Rain / Drizzle
+Carles,Windy / Stormy
+Carmen,Clear / Sunny
+Carmen,Extreme Heat / Danger
+Carmen,Fair / Partly Cloudy
+Carmen,Heavy Rain / Rainy
+Carmen,Light Rain / Drizzle
+Catarman,Clear / Sunny
+Catarman,Extreme Heat / Danger
+Catarman,Fair / Partly Cloudy
+Catarman,Heavy Rain / Rainy
+Catarman,Light Rain / Drizzle
+Catarman,Windy / Stormy
+Cebu City,Clear / Sunny
+Cebu City,Extreme Heat / Danger
+Cebu City,Fair / Partly Cloudy
+Cebu City,Heavy Rain / Rainy
+Cebu City,Light Rain / Drizzle
+Cebu City,Windy / Stormy
+Cebu City / Lapu-Lapu City,Clear / Sunny
+Cebu City / Lapu-Lapu City,Extreme Heat / Danger
+Cebu City / Lapu-Lapu City,Fair / Partly Cloudy
+Cebu City / Lapu-Lapu City,Heavy Rain / Rainy
+Cebu City / Lapu-Lapu City,Light Rain / Drizzle
+Cebu City / Lapu-Lapu City,Windy / Stormy
+Corella,Clear / Sunny
+Corella,Extreme Heat / Danger
+Corella,Fair / Partly Cloudy
+Corella,Heavy Rain / Rainy
+Corella,Light Rain / Drizzle
+Corella,Windy / Stormy
+Coron,Clear / Sunny
+Coron,Extreme Heat / Danger
+Coron,Fair / Partly Cloudy
+Coron,Heavy Rain / Rainy
+Coron,Light Rain / Drizzle
+Coron,Windy / Stormy
+Dauin / Apo Island,Clear / Sunny
+Dauin / Apo Island,Extreme Heat / Danger
+Dauin / Apo Island,Fair / Partly Cloudy
+Dauin / Apo Island,Heavy Rain / Rainy
+Dauin / Apo Island,Light Rain / Drizzle
+Dauin / Apo Island,Windy / Stormy
+Dauis,Clear / Sunny
+Dauis,Extreme Heat / Danger
+Dauis,Fair / Partly Cloudy
+Dauis,Heavy Rain / Rainy
+Dauis,Light Rain / Drizzle
+Dauis,Windy / Stormy
+Davao City,Clear / Sunny
+Davao City,Extreme Heat / Danger
+Davao City,Fair / Partly Cloudy
+Davao City,Heavy Rain / Rainy
+Davao City,Light Rain / Drizzle
+Del Carmen,Clear / Sunny
+Del Carmen,Extreme Heat / Danger
+Del Carmen,Fair / Partly Cloudy
+Del Carmen,Heavy Rain / Rainy
+Del Carmen,Light Rain / Drizzle
+Del Carmen,Windy / Stormy
+Dingras,Clear / Sunny
+Dingras,Extreme Heat / Danger
+Dingras,Fair / Partly Cloudy
+Dingras,Heavy Rain / Rainy
+Dingras,Light Rain / Drizzle
+Dingras,Windy / Stormy
+Dumaguete City,Clear / Sunny
+Dumaguete City,Extreme Heat / Danger
+Dumaguete City,Fair / Partly Cloudy
+Dumaguete City,Heavy Rain / Rainy
+Dumaguete City,Light Rain / Drizzle
+Dumaguete City,Windy / Stormy
+El Nido,Clear / Sunny
+El Nido,Extreme Heat / Danger
+El Nido,Fair / Partly Cloudy
+El Nido,Heavy Rain / Rainy
+El Nido,Light Rain / Drizzle
+El Nido,Windy / Stormy
+From Cebu City,Clear / Sunny
+From Cebu City,Extreme Heat / Danger
+From Cebu City,Fair / Partly Cloudy
+From Cebu City,Heavy Rain / Rainy
+From Cebu City,Light Rain / Drizzle
+From Cebu City,Windy / Stormy
+From Cebu City / Oslob,Clear / Sunny
+From Cebu City / Oslob,Extreme Heat / Danger
+From Cebu City / Oslob,Fair / Partly Cloudy
+From Cebu City / Oslob,Heavy Rain / Rainy
+From Cebu City / Oslob,Light Rain / Drizzle
+From Cebu City / Oslob,Windy / Stormy
+From Panglao,Clear / Sunny
+From Panglao,Extreme Heat / Danger
+From Panglao,Fair / Partly Cloudy
+From Panglao,Heavy Rain / Rainy
+From Panglao,Light Rain / Drizzle
+From Panglao,Windy / Stormy
+From Tagbilaran,Clear / Sunny
+From Tagbilaran,Extreme Heat / Danger
+From Tagbilaran,Fair / Partly Cloudy
+From Tagbilaran,Heavy Rain / Rainy
+From Tagbilaran,Light Rain / Drizzle
+From Tagbilaran,Windy / Stormy
+General Luna,Clear / Sunny
+General Luna,Extreme Heat / Danger
+General Luna,Fair / Partly Cloudy
+General Luna,Heavy Rain / Rainy
+General Luna,Light Rain / Drizzle
+General Luna,Windy / Stormy
+General Luna area,Clear / Sunny
+General Luna area,Extreme Heat / Danger
+General Luna area,Fair / Partly Cloudy
+General Luna area,Heavy Rain / Rainy
+General Luna area,Light Rain / Drizzle
+General Luna area,Windy / Stormy
+Hinatuan,Clear / Sunny
+Hinatuan,Extreme Heat / Danger
+Hinatuan,Fair / Partly Cloudy
+Hinatuan,Heavy Rain / Rainy
+Hinatuan,Light Rain / Drizzle
+Hinatuan,Windy / Stormy
+Iligan City,Clear / Sunny
+Iligan City,Extreme Heat / Danger
+Iligan City,Fair / Partly Cloudy
+Iligan City,Heavy Rain / Rainy
+Iligan City,Light Rain / Drizzle
+Iloilo City,Clear / Sunny
+Iloilo City,Extreme Heat / Danger
+Iloilo City,Fair / Partly Cloudy
+Iloilo City,Heavy Rain / Rainy
+Iloilo City,Light Rain / Drizzle
+Iloilo City,Windy / Stormy
+Island Garden City of Samal,Clear / Sunny
+Island Garden City of Samal,Extreme Heat / Danger
+Island Garden City of Samal,Fair / Partly Cloudy
+Island Garden City of Samal,Heavy Rain / Rainy
+Island Garden City of Samal,Light Rain / Drizzle
+Island Garden City of Samal,Windy / Stormy
+Laoag City,Clear / Sunny
+Laoag City,Extreme Heat / Danger
+Laoag City,Fair / Partly Cloudy
+Laoag City,Heavy Rain / Rainy
+Laoag City,Light Rain / Drizzle
+Laoag City,Windy / Stormy
+Lapu-Lapu City,Clear / Sunny
+Lapu-Lapu City,Extreme Heat / Danger
+Lapu-Lapu City,Fair / Partly Cloudy
+Lapu-Lapu City,Heavy Rain / Rainy
+Lapu-Lapu City,Light Rain / Drizzle
+Lapu-Lapu City,Windy / Stormy
+Las Piñas City,Clear / Sunny
+Las Piñas City,Extreme Heat / Danger
+Las Piñas City,Fair / Partly Cloudy
+Las Piñas City,Heavy Rain / Rainy
+Las Piñas City,Light Rain / Drizzle
+Las Piñas City,Windy / Stormy
+Loboc,Clear / Sunny
+Loboc,Extreme Heat / Danger
+Loboc,Fair / Partly Cloudy
+Loboc,Heavy Rain / Rainy
+Loboc,Light Rain / Drizzle
+Loboc,Windy / Stormy
+Mahatao / Basco area,Clear / Sunny
+Mahatao / Basco area,Extreme Heat / Danger
+Mahatao / Basco area,Fair / Partly Cloudy
+Mahatao / Basco area,Heavy Rain / Rainy
+Mahatao / Basco area,Light Rain / Drizzle
+Mahatao / Basco area,Windy / Stormy
+Makati City,Clear / Sunny
+Makati City,Extreme Heat / Danger
+Makati City,Fair / Partly Cloudy
+Makati City,Heavy Rain / Rainy
+Makati City,Light Rain / Drizzle
+Makati City,Windy / Stormy
+Mambajao,Clear / Sunny
+Mambajao,Extreme Heat / Danger
+Mambajao,Fair / Partly Cloudy
+Mambajao,Heavy Rain / Rainy
+Mambajao,Light Rain / Drizzle
+Mambajao,Windy / Stormy
+Manila,Clear / Sunny
+Manila,Extreme Heat / Danger
+Manila,Fair / Partly Cloudy
+Manila,Heavy Rain / Rainy
+Manila,Light Rain / Drizzle
+Manila,Windy / Stormy
+Manolo Fortich,Clear / Sunny
+Manolo Fortich,Heavy Rain / Rainy
+Manolo Fortich,Light Rain / Drizzle
+Manolo Fortich,Windy / Stormy
+Marikina City,Clear / Sunny
+Marikina City,Extreme Heat / Danger
+Marikina City,Fair / Partly Cloudy
+Marikina City,Heavy Rain / Rainy
+Marikina City,Light Rain / Drizzle
+Marikina City,Windy / Stormy
+Miagao,Clear / Sunny
+Miagao,Extreme Heat / Danger
+Miagao,Fair / Partly Cloudy
+Miagao,Heavy Rain / Rainy
+Miagao,Light Rain / Drizzle
+Miagao,Windy / Stormy
+Moalboal,Clear / Sunny
+Moalboal,Extreme Heat / Danger
+Moalboal,Fair / Partly Cloudy
+Moalboal,Heavy Rain / Rainy
+Moalboal,Light Rain / Drizzle
+Moalboal,Windy / Stormy
+Muntinlupa City,Clear / Sunny
+Muntinlupa City,Extreme Heat / Danger
+Muntinlupa City,Fair / Partly Cloudy
+Muntinlupa City,Heavy Rain / Rainy
+Muntinlupa City,Light Rain / Drizzle
+Muntinlupa City,Windy / Stormy
+Nagcarlan,Clear / Sunny
+Nagcarlan,Extreme Heat / Danger
+Nagcarlan,Fair / Partly Cloudy
+Nagcarlan,Heavy Rain / Rainy
+Nagcarlan,Light Rain / Drizzle
+Nagcarlan,Windy / Stormy
+Oslob,Clear / Sunny
+Oslob,Extreme Heat / Danger
+Oslob,Fair / Partly Cloudy
+Oslob,Heavy Rain / Rainy
+Oslob,Light Rain / Drizzle
+Oslob,Windy / Stormy
+Pagsanjan,Clear / Sunny
+Pagsanjan,Extreme Heat / Danger
+Pagsanjan,Fair / Partly Cloudy
+Pagsanjan,Heavy Rain / Rainy
+Pagsanjan,Light Rain / Drizzle
+Pagsanjan,Windy / Stormy
+Pagudpud,Clear / Sunny
+Pagudpud,Extreme Heat / Danger
+Pagudpud,Fair / Partly Cloudy
+Pagudpud,Heavy Rain / Rainy
+Pagudpud,Light Rain / Drizzle
+Pagudpud,Windy / Stormy
+Panglao,Clear / Sunny
+Panglao,Extreme Heat / Danger
+Panglao,Fair / Partly Cloudy
+Panglao,Heavy Rain / Rainy
+Panglao,Light Rain / Drizzle
+Panglao,Windy / Stormy
+Panglao / Abatan River area,Clear / Sunny
+Panglao / Abatan River area,Extreme Heat / Danger
+Panglao / Abatan River area,Fair / Partly Cloudy
+Panglao / Abatan River area,Heavy Rain / Rainy
+Panglao / Abatan River area,Light Rain / Drizzle
+Panglao / Abatan River area,Windy / Stormy
+Panglao / Balicasag Island,Clear / Sunny
+Panglao / Balicasag Island,Extreme Heat / Danger
+Panglao / Balicasag Island,Fair / Partly Cloudy
+Panglao / Balicasag Island,Heavy Rain / Rainy
+Panglao / Balicasag Island,Light Rain / Drizzle
+Panglao / Balicasag Island,Windy / Stormy
+Paoay,Clear / Sunny
+Paoay,Extreme Heat / Danger
+Paoay,Fair / Partly Cloudy
+Paoay,Heavy Rain / Rainy
+Paoay,Light Rain / Drizzle
+Paoay,Windy / Stormy
+Parañaque City,Clear / Sunny
+Parañaque City,Extreme Heat / Danger
+Parañaque City,Fair / Partly Cloudy
+Parañaque City,Heavy Rain / Rainy
+Parañaque City,Light Rain / Drizzle
+Parañaque City,Windy / Stormy
+Pasay City,Clear / Sunny
+Pasay City,Extreme Heat / Danger
+Pasay City,Fair / Partly Cloudy
+Pasay City,Heavy Rain / Rainy
+Pasay City,Light Rain / Drizzle
+Pasay City,Windy / Stormy
+Pasig City,Clear / Sunny
+Pasig City,Extreme Heat / Danger
+Pasig City,Fair / Partly Cloudy
+Pasig City,Heavy Rain / Rainy
+Pasig City,Light Rain / Drizzle
+Pasig City,Windy / Stormy
+Pila,Clear / Sunny
+Pila,Extreme Heat / Danger
+Pila,Fair / Partly Cloudy
+Pila,Heavy Rain / Rainy
+Pila,Light Rain / Drizzle
+Pila,Windy / Stormy
+Pilar,Clear / Sunny
+Pilar,Extreme Heat / Danger
+Pilar,Fair / Partly Cloudy
+Pilar,Heavy Rain / Rainy
+Pilar,Light Rain / Drizzle
+Pilar,Windy / Stormy
+"Port Barton, San Vicente",Clear / Sunny
+"Port Barton, San Vicente",Extreme Heat / Danger
+"Port Barton, San Vicente",Fair / Partly Cloudy
+"Port Barton, San Vicente",Heavy Rain / Rainy
+"Port Barton, San Vicente",Light Rain / Drizzle
+"Port Barton, San Vicente",Windy / Stormy
+Puerto Princesa,Clear / Sunny
+Puerto Princesa,Extreme Heat / Danger
+Puerto Princesa,Fair / Partly Cloudy
+Puerto Princesa,Heavy Rain / Rainy
+Puerto Princesa,Light Rain / Drizzle
+Puerto Princesa,Windy / Stormy
+Puerto Princesa City,Clear / Sunny
+Puerto Princesa City,Extreme Heat / Danger
+Puerto Princesa City,Fair / Partly Cloudy
+Puerto Princesa City,Heavy Rain / Rainy
+Puerto Princesa City,Light Rain / Drizzle
+Puerto Princesa City,Windy / Stormy
+Quezon City,Clear / Sunny
+Quezon City,Extreme Heat / Danger
+Quezon City,Fair / Partly Cloudy
+Quezon City,Heavy Rain / Rainy
+Quezon City,Light Rain / Drizzle
+Quezon City,Windy / Stormy
+Sagada,Clear / Sunny
+Sagada,Heavy Rain / Rainy
+Sagada,Light Rain / Drizzle
+Sagada,Windy / Stormy
+San Juan City,Clear / Sunny
+San Juan City,Extreme Heat / Danger
+San Juan City,Fair / Partly Cloudy
+San Juan City,Heavy Rain / Rainy
+San Juan City,Light Rain / Drizzle
+San Juan City,Windy / Stormy
+San Nicolas,Clear / Sunny
+San Nicolas,Extreme Heat / Danger
+San Nicolas,Fair / Partly Cloudy
+San Nicolas,Heavy Rain / Rainy
+San Nicolas,Light Rain / Drizzle
+San Nicolas,Windy / Stormy
+Sarrat,Clear / Sunny
+Sarrat,Extreme Heat / Danger
+Sarrat,Fair / Partly Cloudy
+Sarrat,Heavy Rain / Rainy
+Sarrat,Light Rain / Drizzle
+Sarrat,Windy / Stormy
+Sibonga,Clear / Sunny
+Sibonga,Extreme Heat / Danger
+Sibonga,Fair / Partly Cloudy
+Sibonga,Heavy Rain / Rainy
+Sibonga,Light Rain / Drizzle
+Sibonga,Windy / Stormy
+Taal,Clear / Sunny
+Taal,Extreme Heat / Danger
+Taal,Fair / Partly Cloudy
+Taal,Heavy Rain / Rainy
+Taal,Light Rain / Drizzle
+Taal,Windy / Stormy
+Tagaytay City,Clear / Sunny
+Tagaytay City,Heavy Rain / Rainy
+Tagaytay City,Light Rain / Drizzle
+Tagaytay City,Windy / Stormy
+Tagbilaran / Bohol countryside,Clear / Sunny
+Tagbilaran / Bohol countryside,Extreme Heat / Danger
+Tagbilaran / Bohol countryside,Fair / Partly Cloudy
+Tagbilaran / Bohol countryside,Heavy Rain / Rainy
+Tagbilaran / Bohol countryside,Light Rain / Drizzle
+Tagbilaran / Bohol countryside,Windy / Stormy
+Tagbilaran / Panglao,Clear / Sunny
+Tagbilaran / Panglao,Extreme Heat / Danger
+Tagbilaran / Panglao,Fair / Partly Cloudy
+Tagbilaran / Panglao,Heavy Rain / Rainy
+Tagbilaran / Panglao,Light Rain / Drizzle
+Tagbilaran / Panglao,Windy / Stormy
+Tagbilaran City,Clear / Sunny
+Tagbilaran City,Extreme Heat / Danger
+Tagbilaran City,Fair / Partly Cloudy
+Tagbilaran City,Heavy Rain / Rainy
+Tagbilaran City,Light Rain / Drizzle
+Tagbilaran City,Windy / Stormy
+Taguig City,Clear / Sunny
+Taguig City,Extreme Heat / Danger
+Taguig City,Fair / Partly Cloudy
+Taguig City,Heavy Rain / Rainy
+Taguig City,Light Rain / Drizzle
+Taguig City,Windy / Stormy
+Talisay / Bacolod area,Clear / Sunny
+Talisay / Bacolod area,Extreme Heat / Danger
+Talisay / Bacolod area,Fair / Partly Cloudy
+Talisay / Bacolod area,Heavy Rain / Rainy
+Talisay / Bacolod area,Light Rain / Drizzle
+Talisay / Bacolod area,Windy / Stormy
+Talisay City,Clear / Sunny
+Talisay City,Extreme Heat / Danger
+Talisay City,Fair / Partly Cloudy
+Talisay City,Heavy Rain / Rainy
+Talisay City,Light Rain / Drizzle
+Talisay City,Windy / Stormy
+Tanauan City,Clear / Sunny
+Tanauan City,Extreme Heat / Danger
+Tanauan City,Fair / Partly Cloudy
+Tanauan City,Heavy Rain / Rainy
+Tanauan City,Light Rain / Drizzle
+Tanauan City,Windy / Stormy
+Tuba,Clear / Sunny
+Tuba,Heavy Rain / Rainy
+Tuba,Light Rain / Drizzle
+Tuba,Windy / Stormy
+Valenzuela City,Clear / Sunny
+Valenzuela City,Extreme Heat / Danger
+Valenzuela City,Fair / Partly Cloudy
+Valenzuela City,Heavy Rain / Rainy
+Valenzuela City,Light Rain / Drizzle
+Valenzuela City,Windy / Stormy
+Vigan City,Clear / Sunny
+Vigan City,Extreme Heat / Danger
+Vigan City,Fair / Partly Cloudy
+Vigan City,Heavy Rain / Rainy
+Vigan City,Light Rain / Drizzle
+Vigan City,Windy / Stormy
+Vintar,Clear / Sunny
+Vintar,Extreme Heat / Danger
+Vintar,Fair / Partly Cloudy
+Vintar,Heavy Rain / Rainy
+Vintar,Light Rain / Drizzle
+Vintar,Windy / Stormy
