@@ -313,7 +313,7 @@ function OutfitPlannerContent() {
   const sourceButtonClass = (value) => `rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-sm ${source === value ? "bg-slate-900 text-white border-transparent" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300"}`;
 
   return (
-    <main className="outfit-planner-shell min-h-screen bg-[#f5f7fa] text-slate-900">
+    <main className="outfit-planner-shell min-h-screen bg-[#FFFDFB] text-slate-900 flex flex-col font-sans">
       <Header />
       
       <div className="w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 mx-auto flex-grow">
@@ -332,7 +332,17 @@ function OutfitPlannerContent() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,4fr)] lg:items-start">
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
+          
+          {/* Step 1: Destination & Weather */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-black text-white">1</span>
+              <h2 className="text-lg font-black text-slate-900">Destination Context</h2>
+            </div>
+            
+            <div className={`grid gap-3 ${fromPlanner || hasCurrentPlanner ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
+              <button type="button" onClick={useSavedPlanner} className={sourceButtonClass("saved")}>Saved Archive</button>
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
             <p className="text-xs font-black uppercase tracking-wider text-slate-500">01 / Outfit source</p>
             <h2 className="mt-2 text-2xl font-black">Where is this outfit for?</h2>
             <div className={`mt-5 grid gap-2 ${fromPlanner || hasCurrentPlanner ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
@@ -342,6 +352,103 @@ function OutfitPlannerContent() {
               ) : null}
               <button type="button" onClick={useNewLocation} className={sourceButtonClass("new")}>New Destination</button>
             </div>
+
+            {source === "saved" && savedItineraries.length ? (
+              <label className="mt-6 flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Archived Itinerary
+                <select 
+                  value={selectedSavedPlanner?.createdAt || ""} 
+                  onChange={(event) => { 
+                    const planner = savedItineraries.find((item) => item.createdAt === event.target.value); 
+                    setSelectedPlannerId(event.target.value); 
+                    const saved = readFromItinerary(planner); 
+                    setPlannerDates(saved.dates); 
+                    setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate())); 
+                    setDestination(saved.destination); 
+                    setWeather(null); 
+                  }} 
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                >
+                  {savedItineraries.map((planner) => <option key={planner.createdAt} value={planner.createdAt}>{planner.name || "Saved itinerary"} · {planner.itinerary?.length || 0} days</option>)}
+                </select>
+              </label>
+            ) : null}
+
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Location
+                <select 
+                  value={destination} 
+                  onChange={(event) => { setDestination(event.target.value); setWeather(null); }} 
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                >
+                  {locationOptions.map((name) => <option key={name}>{name}</option>)}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Timeline Date
+                {(source === "saved" || source === "current") && plannerDates.length ? (
+                  <select 
+                    value={date} 
+                    onChange={(event) => {
+                      const nextDate = event.target.value;
+                      setDate(nextDate);
+                      if (source === "saved") setDestination(locationsForDate(selectedSavedPlanner, nextDate)[0] || destination);
+                      if (source === "current") setDestination(locationsForCurrentDate(nextDate)[0] || currentPlannerDestination || destination);
+                      setWeather(null);
+                    }} 
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                  >
+                    {plannerDates.map((plannerDate, index) => <option key={plannerDate} value={plannerDate}>Day {index + 1} · {formatDate(plannerDate)}</option>)}
+                  </select>
+                ) : (
+                  <input 
+                    type="date" 
+                    min={getMinSelectableDate()} 
+                    value={date} 
+                    onChange={(event) => {
+                      const nextDate = event.target.value;
+                      setDate(nextDate);
+                      setPlannerDates([nextDate]);
+                      setWeather(null);
+                    }} 
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900" 
+                  />
+                )}
+              </label>
+            </div>
+
+            <button 
+              type="button" 
+              onClick={getWeather} 
+              disabled={loadingWeather} 
+              className="mt-6 w-full rounded-xl bg-slate-900 px-4 py-3 text-xs font-black tracking-wide text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            >
+              {loadingWeather ? "Checking Forecast..." : "Fetch Weather Conditions"}
+            </button>
+
+            {weather ? (
+              <div className="mt-6 rounded-xl border border-emerald-100 bg-emerald-50 p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-black text-emerald-900">{destination} Forecast</span>
+                  <span className="rounded bg-emerald-200/50 px-2 py-1 text-[10px] font-bold text-emerald-800 uppercase tracking-wider">{weather.condition}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-4 text-emerald-800">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70">Average Temp</span>
+                    <span className="text-lg font-black">{weather.temperature}°C</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70">Rainfall</span>
+                    <span className="text-lg font-black">{weather.rainfall} <span className="text-xs font-bold">mm</span></span>
+                  </div>
+                </div>
+                <p className="mt-4 text-[10px] font-semibold text-emerald-700/80 leading-relaxed border-t border-emerald-200/50 pt-3">
+                  Garment recommendations will be matched against these {weather.condition.toLowerCase()} conditions for Day {dayNumberForDate(date, dayOptions)}.
+                </p>
+              </div>
+            ) : null}
             {source === "saved" && savedItineraries.length ? <label className="mt-4 block text-sm font-bold">Saved planner
               <select value={selectedSavedPlanner?.createdAt || ""} onChange={(event) => { const planner = savedItineraries.find((item) => item.createdAt === event.target.value); setSelectedPlannerId(event.target.value); const saved = readFromItinerary(planner); setPlannerDates(saved.dates); setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate())); setDestination(saved.destination); setWeather(null); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3">
                 {savedItineraries.map((planner) => <option key={planner.createdAt} value={planner.createdAt}>{planner.name || "Saved itinerary"} · {planner.itinerary?.length || 0} days</option>)}
@@ -372,7 +479,7 @@ function OutfitPlannerContent() {
                 }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3" />
               )}
             </label>
-            <button type="button" onClick={getWeather} disabled={loadingWeather} className="mt-4 w-full rounded-lg bg-slate-900 px-4 py-3 font-bold text-white disabled:opacity-50">{loadingWeather ? "Checking weather..." : "Check predicted weather"}</button>
+            <button type="button" onClick={getWeather} disabled={loadingWeather} className="mt-4 w-full rounded-xl bg-[#58a573] px-4 py-3 font-bold text-white transition-colors hover:bg-[#4d9064] disabled:opacity-50">{loadingWeather ? "Checking weather..." : "Check predicted weather"}</button>
             {weather ? <div className="mt-4 border-t border-slate-200 pt-4">
               <p className="font-bold">{destination}: {weather.condition}</p>
               <p className="mt-1 text-sm">{weather.temperature}°C average · {weather.rainfall} mm rain</p>
@@ -381,13 +488,30 @@ function OutfitPlannerContent() {
             </div> : null}
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
-            <p className="text-xs font-black uppercase tracking-wider text-slate-500">02 / Capture</p>
-            <h2 className="mt-2 text-2xl font-black">Add one garment</h2>
-            <p className="mt-2 text-sm text-slate-600">JPG and image files up to 20MB are supported.</p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <ImageUploader maxBytes={MAX_IMAGE_BYTES} onError={setMessage} onSelect={(dataUrl) => { setCaptureSource(dataUrl); setCaptureMode("image"); }} label="Upload garment" />
-              <button type="button" onClick={() => { setCaptureSource(""); setCaptureMode("camera"); }} className="rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white">Use camera</button>
+          {/* Step 2: Upload & Capture */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-black text-white">2</span>
+              <h2 className="text-lg font-black text-slate-900">Add Garment</h2>
+            </div>
+            
+            <div className="flex flex-col-2 gap-4">
+              <div className="flex-1 min-w-[200px] ">
+                <ImageUploader 
+                  maxBytes={MAX_IMAGE_BYTES} 
+                  onError={setMessage} 
+                  onSelect={(dataUrl) => { setCaptureSource(dataUrl); setCaptureMode("image"); }} 
+                  label="Upload File" 
+                />
+              </div>
+              <button 
+                type="button" 
+                onClick={() => { setCaptureSource(""); setCaptureMode("camera"); }} 
+                className="flex-1 min-w-[200px] flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              >
+                <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Use Camera
+              </button>
             </div>
 
             <div className="mt-8 rounded-xl border border-slate-100 bg-slate-50 p-4">
