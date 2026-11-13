@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import DestinationGridSkeleton from "../../components/DestinationGridSkeleton";
 import Footer from "../footer/Footer";
 import Header from '../header/Header';
 import { useTravel } from "../TravelContext";
@@ -65,12 +66,14 @@ function ActivityDestinationCard({ item }) {
 
   return (
     <Link
+      prefetch={false}
       href={`/specific-destinations?id=${item.destinationId}&activity=${encodeURIComponent(item.activityName)}`}
       className="group flex flex-col overflow-hidden rounded-3xl bg-white shadow-sm border border-slate-100 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl"
     >
       <div className="relative h-56 w-full overflow-hidden bg-slate-100">
         <img
-          src={item.image}
+          src={activityImage(item.imageActivity, item.imageDestination)}
+          decoding="async"
           alt={`${item.activityName} in ${item.cityName}`}
           onError={(event) => { if (event.currentTarget.src !== item.fallbackImage) event.currentTarget.src = item.fallbackImage; else event.currentTarget.style.visibility = "hidden"; }}
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
@@ -352,31 +355,44 @@ export default function DestinationsPage() {
   useEffect(() => {
     if (!tripReady) return;
     let isMounted = true;
+    const controller = new AbortController();
+    setIsLoadingDestinations(true);
+    setDestinationError("");
+    setDestinations([]);
 
     const loadDestinations = async () => {
       try {
-        const params = new URLSearchParams({
-          check_in: checkIn,
-          check_out: endDate || checkIn,
-          guests: String(guests),
-          room_type: "Standard Room",
-        });
-        const response = await fetch(`/api/backend/destinations?${params}`);
-        const responseText = await response.text();
-        let data;
-        try {
-          data = responseText ? JSON.parse(responseText) : {};
-        } catch {
-          throw new Error(`Destination service returned an invalid response (${response.status}).`);
-        }
-        if (!response.ok || !Array.isArray(data.destinations) || !data.destinations.length) {
-          throw new Error(data.detail || "The tourism dataset returned no destinations.");
-        }
-        if (isMounted) {
-          setDestinations(data.destinations);
-          setDestinationError("");
-        }
+        let offset = 0;
+        do {
+          const params = new URLSearchParams({
+            offset: String(offset),
+            limit: "8",
+            check_in: checkIn,
+            check_out: endDate || checkIn,
+            guests: String(guests),
+            room_type: "Standard Room",
+          });
+          const response = await fetch(`/api/backend/destinations?${params}`, { signal: controller.signal });
+          const responseText = await response.text();
+          let data;
+          try {
+            data = responseText ? JSON.parse(responseText) : {};
+          } catch {
+            throw new Error(`Destination service returned an invalid response (${response.status}).`);
+          }
+          if (!response.ok || !Array.isArray(data.destinations)) {
+            throw new Error(data.detail || "The tourism dataset returned no destinations.");
+          }
+          if (isMounted) {
+            setDestinations(current => [...current, ...data.destinations]);
+            setDestinationError("");
+          }
+          if (data.next_offset == null) break;
+          if (data.next_offset <= offset) throw new Error("Invalid destination pagination.");
+          offset = data.next_offset;
+        } while (isMounted);
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error("Could not load destinations from the tourism dataset.", error);
         if (isMounted) setDestinationError("Could not load destinations from the tourism dataset. Check that the backend is running and try again.");
       } finally {
@@ -387,6 +403,7 @@ export default function DestinationsPage() {
     loadDestinations();
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [checkIn, endDate, guests, tripReady, refreshVersion]);
 
@@ -431,7 +448,8 @@ export default function DestinationsPage() {
           activityPriceDisplay: activity.price_display || "",
           isFreeActivity: isFreeActivity(activity),
           weatherCondition: activity.weather_condition || dest.weather_condition || dest.main_weather,
-          image: activityImage(activity, dest),
+          imageActivity: activity,
+          imageDestination: dest,
           fallbackImage: activityFallbackImage(activity, dest),
         });
       });
@@ -675,6 +693,8 @@ export default function DestinationsPage() {
           
         </div>
 
+        {isLoadingDestinations && destinations.length > 0 && <p role="status" className="mb-4 text-sm text-slate-500">Loading more destinations. Counts and filters will update as results arrive.</p>}
+        {destinationError && destinations.length > 0 && <p role="alert" className="mb-4 text-sm text-amber-800">Some destinations could not be loaded. Use Refresh to retry.</p>}
         {/* ACTIVITIES GRID */}
         {filteredActivities.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -683,9 +703,7 @@ export default function DestinationsPage() {
             ))}
           </div>
         ) : isLoadingDestinations ? (
-          <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm">
-            <p className="text-sm font-medium text-slate-500">Loading destinations…</p>
-          </div>
+          <DestinationGridSkeleton />
         ) : destinationError ? (
           <div role="alert" className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center shadow-sm">
             <p className="text-sm font-semibold text-amber-900">{destinationError}</p>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import GarmentImage from "../../components/GarmentImage";
+import { getActivityImagePath, DESTINATION_PLACEHOLDER } from "../../lib/resolveActivityImage";
 import { HazardBanner, WeatherCategoryBadge } from "../../components/WeatherSafety";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
 import Footer from "../footer/Footer";
@@ -1181,14 +1182,19 @@ export default function FinalPlannerPage() {
                           {/* Image & Destination Header */}
                           <div className="flex gap-4 items-start">
                             <img
-                              src={dayImage(activity)}
+                              src={getActivityImagePath(activity, activity.destination || activity.location || day.destination)}
                               alt={activity.name}
+                              onError={(event) => {
+                                if (event.currentTarget.getAttribute("src") !== DESTINATION_PLACEHOLDER) {
+                                  event.currentTarget.src = DESTINATION_PLACEHOLDER;
+                                }
+                              }}
                               className="w-16 h-16 object-cover rounded-lg shadow-sm border border-slate-200 shrink-0"
                             />
                             <div className="flex-1 min-w-0 mt-0.5">
                               <span className="font-black text-slate-900 text-base block leading-tight mb-1">{activity.name}</span>
                               <span className="font-bold text-slate-500 text-xs uppercase tracking-wider block mb-1.5">
-                                {clampActivityTime(activity.time) || "10:00 AM"}
+                                {isValidActivityTime(activity.time) ? activity.time : "Time to be confirmed"}
                               </span>
                               {activity.location && (
                                 <span className="flex items-start gap-1 text-[11px] font-semibold text-slate-600 leading-tight">
