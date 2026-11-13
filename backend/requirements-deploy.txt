@@ -1,0 +1,12 @@
+
+fastapi
+uvicorn
+pydantic
+numpy==1.26.4
+requests
+pandas
+holidays
+scikit-learn
+joblib
+ultralytics
+opencv-python-headless

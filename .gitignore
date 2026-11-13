@@ -45,3 +45,5 @@ backend/ground_truth_fixed.csv
 backend/experiment3_output/category_presence_results.csv
 backend/experiment3_output/inference_mapping_results.csv
 backend/experiment3_output/summary.json
+backend/data/activity_suitability_full.csv
+backend/prepare_deployment_data.py
