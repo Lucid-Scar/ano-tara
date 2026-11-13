@@ -49,6 +49,10 @@ const getActivityWeather = (activity) =>
   activity?.weather_forecast?.condition || activity?.weather || activity?.weather_condition || "";
 
 const getAssignedDay = (activity) => activity?.assignedDay || activity?.assigned_day || "";
+const getAssignedDayNumber = (activity) => {
+  const match = /^Day ([1-9]\d*)$/.exec(getAssignedDay(activity));
+  return match ? Number(match[1]) : 0;
+};
 
 const parsePriceToPhp = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -211,7 +215,6 @@ export default function FinalPlannerPage() {
     setGuests,
     currentActivities,
     setCurrentActivities,
-    hasActivityConflict,
     outfits,
     setOutfits,
     savedItineraries,
@@ -295,21 +298,11 @@ export default function FinalPlannerPage() {
         : activity
     );
 
-    if (nextChanges.assignedDay && hasActivityConflict(next[index], index)) {
-      const otherIndex = next.findIndex(
-        (activity, activityIndex) => activityIndex !== index && getAssignedDay(activity) === changes.assignedDay
-      );
-      if (otherIndex >= 0 && getAssignedDay(activities[index])) {
-        const previousDay = getAssignedDay(activities[index]);
-        next[otherIndex] = { ...next[otherIndex], assignedDay: previousDay, assigned_day: previousDay };
-      }
-    }
-
     const ordered = next
       .map((activity, originalIndex) => ({
         activity,
         originalIndex,
-        day: Number(String(getAssignedDay(activity)).replace("Day ", "")) || Number.MAX_SAFE_INTEGER,
+        day: getAssignedDayNumber(activity) || Number.MAX_SAFE_INTEGER,
       }))
       .sort((left, right) => left.day - right.day || left.originalIndex - right.originalIndex)
       .map(({ activity }) => activity);
@@ -543,6 +536,10 @@ export default function FinalPlannerPage() {
     const parsed = getActivityPricePhp(activity);
     return sum + (Number.isFinite(parsed) ? parsed : 0);
   }, 0);
+  const timelineSpan = activities.reduce(
+    (maxDay, activity) => Math.max(maxDay, getAssignedDayNumber(activity)),
+    0
+  ) || dates.length;
 
   return (
     <main className="final-planner min-h-screen bg-[#FFFDFB] text-slate-900 flex flex-col">
@@ -1018,7 +1015,7 @@ export default function FinalPlannerPage() {
               <dl className="trip-glance-stats grid grid-cols-3 gap-3 text-xs">
                 <div className="flex items-center justify-between">
                   <dt className="text-slate-400 font-medium">Timeline span</dt>
-                  <dd className="font-bold">{dates.length ? `${dates.length} Days` : "—"}</dd>
+                  <dd className="font-bold">{timelineSpan ? `${timelineSpan} ${timelineSpan === 1 ? "Day" : "Days"}` : "—"}</dd>
                 </div>
                 <div className="flex items-center justify-between">
                   <dt className="text-slate-400 font-medium">Activities</dt>
