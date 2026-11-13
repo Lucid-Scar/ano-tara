@@ -1233,6 +1233,7 @@ export default function FinalPlannerPage() {
             <footer className="document-footer">ANO TARA? <span>{documentView === "overview" ? "Your journey at a glance" : "Your daily travel companion"} · Prices and weather may change</span></footer>
           </div>
         </div>
+        </div>
       ) : null}
 
       <div className="print:hidden mt-4">
