@@ -1,10 +1,10 @@
 ﻿# Ano Tara
 
-Ano Tara is a full-stack travel-planning application for Philippine destinations. It combines a Next.js web application, a FastAPI service, tourism and pricing data, weather services, and three model-assisted workflows:
+Ano Tara is a full-stack travel-planning application for Philippine destinations. It combines a Next.js web application, a FastAPI service, tourism and pricing data, weather services, and these assisted workflows:
 
 - **YOLOv8 object detection:** detects garments in an uploaded image. The backend maps detected garment classes to weather-suitability guidance; this suitability mapping is application logic, not a second learned classifier.
 - **Multiple Linear Regression (MLR):** estimates hotel accommodation prices by predicting a log price multiplier and applying it to a local or configured baseline rate.
-- **Decision Tree:** when the optional trained artifact is supplied, classifies weather hazard/safety from temperature, rainfall, wind, heat index, and hotel context. Activity-type recommendations are rule-based and remain available without this artifact.
+- **Rule-based weather planning:** labels forecasts using configured weather thresholds, recommends indoor or outdoor activities by condition, schedules activities on suitable dates, and flags severe conditions. There is no Decision Tree workflow.
 
 The browser never loads Python models directly. It calls Next.js rewrite routes, which proxy requests to FastAPI. FastAPI loads the data and available model artifacts, performs inference and planning, and returns JSON for the React pages to render.
 
@@ -23,7 +23,7 @@ FastAPI backend (:8000)
   ├─ Open-Meteo → forecast and archive weather
   ├─ YOLOv8 + OpenCV → clothing detection and cropped garment images
   ├─ MLR/joblib → accommodation price multiplier
-  ├─ Decision Tree/joblib, when supplied → hazard classification
+  ├─ Weather and itinerary rules → activity recommendations and hazard flags
   └─ OSRM → road routes between itinerary activities
 ```
 
@@ -92,7 +92,7 @@ FastAPI backend (:8000)
     └── cross_referencing_matrix.png
 ```
 
-The tracked fallback MLR bundle and evaluation report are in `backend/app/model/`. The YOLO weights and preferred MLR export may exist in a developer's working copy but are excluded by `.gitignore`; they are not available in a fresh clone. The weather Decision Tree artifact is not present in this repository. The activity-suitability CSV is also ignored, despite being required during backend startup.
+The tracked fallback MLR bundle and evaluation report are in `backend/app/model/`. The YOLO weights and preferred MLR export may exist in a developer's working copy but are excluded by `.gitignore`; they are not available in a fresh clone. The activity-suitability CSV is also ignored, despite being required during backend startup.
 
 ## Local development
 
@@ -103,7 +103,7 @@ The backend requires both CSV files at startup:
 - `backend/data/philippines_tourism_with_coordinates_final.csv` (tracked).
 - `backend/data/activity_suitability.csv` (ignored; supply separately in a fresh clone). It must have `destination` and `weather_condition` columns.
 
-`backend/data/README.md` describes a preparation script at `backend/scripts/prepare_decision_tree_data.py`, but that script and its source CSV inputs are not present in this repository. The ignored suitability CSV therefore cannot be regenerated using the documented command from a fresh clone alone.
+`backend/data/README.md` describes a legacy weather-data preparation script at `backend/scripts/prepare_decision_tree_data.py`, but that script and its source CSV inputs are not present in this repository. The ignored suitability CSV therefore cannot be regenerated using the documented command from a fresh clone alone.
 
 ```powershell
 cd backend
@@ -164,7 +164,7 @@ Weather labels are normalized through `get_pagasa_condition()` using application
 | Fair / Partly Cloudy | Temperature ≥ 31°C with rainfall ≤ 2 mm |
 | Clear / Sunny | Remaining conditions |
 
-These are application labels and thresholds, not an official PAGASA forecast. The destination forecast endpoint recommends outdoor activity for Clear / Sunny or Fair / Partly Cloudy, and indoor activity for other conditions. The optional `weather_decision_tree.joblib` is used for hazard classification; it does not select the activity recommendation. Without the tree, itinerary hazard flags use deterministic severe-weather rules.
+These are application labels and thresholds, not an official PAGASA forecast. The destination forecast endpoint recommends outdoor activity for Clear / Sunny or Fair / Partly Cloudy, and indoor activity for other conditions. Itinerary hazard flags use deterministic rules for severe outdoor conditions: Heavy Rain / Rainy, Windy / Stormy, and Extreme Heat / Danger.
 
 ### 3. Outfit detection workflow
 
@@ -225,29 +225,11 @@ For a request, the API:
 
 The runtime currently uses configured inflation values; it does not fetch a live inflation rate. If no trained model loads, the endpoint remains usable with a rule-based multiplier based on guests, peak season, and configured inflation. All accommodation prices are estimates, not live booking quotes.
 
-### 5. Decision Tree workflow
+#### Current price diagnostic
 
-The optional weather Decision Tree is loaded from:
+The saved Experiment 4 diagnostic (`backend/experiment4_output/summary.json`) completed 8 of 8 scenarios with the trained model, no errors, no fallback cases, and all arithmetic and cap checks passing. Against the 8 supplied independent reference prices, it reports MAE **₱1,133.21**, RMSE **₱1,657.63**, and MAPE **27.68%**. These are results for this diagnostic scenario set, not a general guarantee of market accuracy.
 
-```text
-backend/app/model/weather_decision_tree.joblib
-```
-
-When supplied, the API passes five input columns:
-
-```text
-average_temperature_c
-precipitation_mm
-wind_speed_kmh
-heat_index_c
-hotel_is_resort
-```
-
-The classifier returns `1` for safe/suitable and `0` for unsafe/hazardous conditions. In destination forecast and itinerary responses, the tree contributes hazard metadata. The destination page's indoor/outdoor recommendation and itinerary's preferred-date selection remain rule-based. The itinerary also flags severe outdoor conditions (Heavy Rain, Windy/Stormy, Extreme Heat) even if a tree prediction is safe; without the tree, those severe-weather rules determine the hazard flag.
-
-The artifact is not present or tracked in this repository. `backend/data/README.md` describes prototype training labels generated from rules (`prototype_rule_label`), not independent ground truth. It also refers to source CSVs and a preparation script that are not present here, so its documented preparation workflow is not reproducible from a fresh clone alone.
-
-### 6. Generate the final itinerary
+### 5. Generate the final itinerary
 
 `FinalPlanner.page.js` performs two sequential requests:
 
@@ -276,7 +258,7 @@ The frontend stores the generated planner in `TravelContext`, supports saved pla
 | `GET` | `/destinations/{destination_id}` | One destination and its activities |
 | `GET` | `/destinations/{destination_id}/forecast` | Forecast, historical comparison, and activity recommendations |
 | `POST` | `/predict-outfit` | YOLO clothing detection and weather-suitability guidance |
-| `POST` | `/predict-price` | MLR/rule-based accommodation estimate and weather summary |
+| `POST` | `/predict-price` | Trained MLR or rule-based accommodation estimate and weather summary |
 | `POST` | `/api/generate-itinerary` | Weather-aware schedule, costs, hazards, and routes |
 
 FastAPI also provides its standard interactive documentation at `http://127.0.0.1:8000/docs` while the server is running. Frontend calls use `/api/backend/` before backend paths.
@@ -290,7 +272,7 @@ FastAPI also provides its standard interactive documentation at `http://127.0.0.
 - OSRM supplies road routes between activity coordinates when reachable.
 - `price_model_bundle.joblib` and `mlr_evaluation_report.csv` are tracked MLR artifacts.
 - `best.pt`, `price_surge_mlr_model.joblib`, and `model_features.joblib` are ignored local artifacts; they are not included in a fresh clone.
-- `weather_decision_tree.joblib` is not present/tracked.
+- Weather-based activity recommendations and hazard flags use application rules; there is no weather classifier artifact or Decision Tree workflow.
 
 Do not commit large model files or generated historical datasets without checking the repository's data policy. Keep the MLR feature order synchronized between the training export and inference feature construction in `main.py`.
 
@@ -298,7 +280,6 @@ Do not commit large model files or generated historical datasets without checkin
 
 - Open-Meteo and OSRM calls can fail; weather uses a configured monthly fallback, and failed routing returns no geometry and zero distance/duration.
 - Outfit inference requires `backend/app/model/best.pt`; a fresh clone does not include this ignored file.
-- Decision-tree hazard inference requires `weather_decision_tree.joblib`; without it, severe-weather rules provide the fallback hazard flag.
 - The backend also requires ignored `backend/data/activity_suitability.csv` at startup. The data README's referenced generator is absent from this repository.
 - MLR prices are estimates, not live booking quotes. The tracked bundle is the runtime fallback; training inputs are external and not included.
 - The backend performs startup data loading and model loading in one FastAPI module; deploy it with a process manager and monitor model/data load errors.

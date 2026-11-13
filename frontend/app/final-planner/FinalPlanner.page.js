@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 import GarmentImage from "../../components/GarmentImage";
+import { HazardBanner, WeatherCategoryBadge } from "../../components/WeatherSafety";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
@@ -12,7 +13,6 @@ import {
   clampActivityTime,
   getGuestWarning,
   getMinSelectableDate,
-  getPAGASABadgeColor,
   isPastOrTodayDate,
   isValidActivityTime,
   toDateString,
@@ -656,6 +656,14 @@ export default function FinalPlannerPage() {
                 </Link>
               </div>
 
+              {itineraryDays.map((day) => (
+                <div key={day.dayNumber}>
+                  <p className="text-sm font-bold text-slate-950">{day.dayNumber} — {day.dateLabel}</p>
+                  <WeatherCategoryBadge item={day} />
+                  <HazardBanner item={day} />
+                </div>
+              ))}
+
               <div className="relative ml-2">
                 {activities.length ? (
                   <div className="border-l-2 border-slate-200 pl-5 space-y-4 pb-6">
@@ -700,9 +708,7 @@ export default function FinalPlannerPage() {
                                     {dayLabel}
                                   </span>
                                   {matchedDay ? (
-                                    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold ${getPAGASABadgeColor(matchedDay.expected_weather)}`}>
-                                      {matchedDay.expected_weather}
-                                    </span>
+                                    <WeatherCategoryBadge item={matchedActivity || matchedDay} />
                                   ) : null}
                                 </div>
                                 <h3 className="truncate text-sm font-black text-slate-900">{activity.name}</h3>
@@ -1029,12 +1035,9 @@ export default function FinalPlannerPage() {
                     {/* Day Header Row */}
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-lg font-black uppercase tracking-wider text-slate-900">Day {index + 1}</span>
-                      {day.expected_weather && (
-                        <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-bold ${getPAGASABadgeColor(day.expected_weather)} max-w-[100px] text-center leading-tight`}>
-                          {day.expected_weather}
-                        </span>
-                      )}
+                      <WeatherCategoryBadge item={day} />
                     </div>
+                    <HazardBanner item={day} />
                     
                     {/* Full Weather Description */}
                     {day.weatherDescription && (

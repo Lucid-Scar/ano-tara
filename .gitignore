@@ -40,3 +40,8 @@ backend/experiment4_local.py
 backend/reference_prices.csv
 backend/experiment4_output/price_diagnostic_results.csv
 backend/experiment4_output/summary.json
+backend/experiment3_images/
+backend/ground_truth_fixed.csv
+backend/experiment3_output/category_presence_results.csv
+backend/experiment3_output/inference_mapping_results.csv
+backend/experiment3_output/summary.json
