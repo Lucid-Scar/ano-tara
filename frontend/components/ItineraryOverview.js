@@ -4,6 +4,7 @@ import React from "react";
 import { HazardBanner, WeatherCategoryBadge } from "./WeatherSafety";
 import Image from "next/image";
 import { MapPin, Sun, CloudRain, CloudSun, Shirt, DollarSign, TrendingUp, Sparkles, Clock } from "lucide-react";
+import { getActivityImagePath, DESTINATION_PLACEHOLDER } from "../lib/resolveActivityImage";
 
 export const SAMPLE_ACTIVITIES = [
   {
@@ -237,9 +238,12 @@ export default function ItineraryOverview({
               >
                 <div className="relative w-full h-full overflow-hidden bg-slate-200 rounded-[2px]">
                   <img
-                    src={activity.image || "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80"}
+                    src={getActivityImagePath(activity.activityName || activity.name || activity, activity.destination)}
                     alt={activity.imageAlt || activity.activityName || "Activity photo"}
                     className="w-full h-full object-cover object-center"
+                    onError={(event) => {
+                      if (event.currentTarget.getAttribute("src") !== DESTINATION_PLACEHOLDER) event.currentTarget.src = DESTINATION_PLACEHOLDER;
+                    }}
                   />
                 </div>
               </div>

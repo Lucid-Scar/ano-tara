@@ -47,3 +47,4 @@ backend/experiment3_output/inference_mapping_results.csv
 backend/experiment3_output/summary.json
 backend/data/activity_suitability_full.csv
 backend/prepare_deployment_data.py
+backend/OUTFIT_DEPLOYMENT.md

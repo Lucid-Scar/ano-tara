@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "predev": "node scripts/generate-activity-image-manifest.js",
     "dev": "next dev",
+    "prebuild": "node scripts/generate-activity-image-manifest.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ."

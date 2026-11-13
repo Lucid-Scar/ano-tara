@@ -6,7 +6,9 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
+import { compressOutfitImage } from "../../lib/compressOutfitImage";
 import ImageUploader from "../../components/ImageUploader";
+import { uploadOutfitImage, readOutfitResponse } from "../../lib/outfitUpload";
 import GarmentImage from "../../components/GarmentImage";
 import OutfitImageCapture from "../../components/OutfitImageCapture";
 import { useTravel } from "../TravelContext";
@@ -53,6 +55,23 @@ function OutfitPlannerContent() {
   const [plannerDates, setPlannerDates] = useState([]);
   const [weather, setWeather] = useState(null);
   const [image, setImage] = useState("");
+  const [imageInfo, setImageInfo] = useState(null);
+  const [imageProgress, setImageProgress] = useState("");
+  const preparingImage = imageProgress === "Preparing image\u2026" || imageProgress === "Compressing image\u2026";
+  const prepareCapture = async (source) => {
+    setImage("");
+    setImageInfo(null);
+    setResult(null);
+    setMessage("");
+    setImageProgress("Preparing image\u2026");
+    try {
+      const blob = await (await fetch(source)).blob();
+      const processed = await compressOutfitImage(blob, { onProgress: setImageProgress });
+      setImage(processed.dataUrl);
+      setImageInfo(processed);
+      setImageProgress("Image ready.");
+    } catch (error) { setMessage(error.message); setImageProgress(""); }
+  };
   const [result, setResult] = useState(null);
   const [source, setSource] = useState(fromPlanner ? "current" : "saved");
   const [message, setMessage] = useState("");
@@ -373,16 +392,8 @@ function OutfitPlannerContent() {
     setLoadingOutfit(true);
 
     try {
-      const response = await fetch("/api/backend/predict-outfit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_base64: dataUrl }),
-      });
-      const data = await response.json();
-
-      if (!response.ok || data.status === "error") {
-        throw new Error(data.message || "Outfit prediction failed.");
-      }
+      const response = await uploadOutfitImage(dataUrl, setImageProgress);
+      const data = await readOutfitResponse(response);
 
       const parsedItems = data.items.map((item) => ({
         ...item,
@@ -393,10 +404,12 @@ function OutfitPlannerContent() {
       }));
 
       setResult(parsedItems);
+      setImageProgress("Analysis complete.");
     } catch (error) {
-      setMessage(error.message || "Could not analyze outfit.");
+      setMessage(error.name === "TimeoutError" ? "Garment detection took too long. Please retry shortly." : error instanceof TypeError ? "Cannot reach garment detection. Check your connection and retry." : error.message || "Could not analyze outfit.");
     } finally {
       setLoadingOutfit(false);
+      setImageProgress(current => current === "Analysis complete." ? current : "");
     }
   };
 
@@ -625,11 +638,13 @@ function OutfitPlannerContent() {
             <div className="mt-5 flex flex-wrap gap-3">
               <ImageUploader
                 maxBytes={MAX_IMAGE_BYTES}
+                disabled={loadingOutfit || preparingImage}
+                onProgress={setImageProgress}
                 onError={setMessage}
-                onSelect={(dataUrl) => {
+                onSelect={(dataUrl, filename, processed) => {
                   setResult(null);
-                  setCaptureSource(dataUrl);
-                  setCaptureMode("image");
+                  setMessage("");
+                  setImageInfo(processed);
                   setImage(dataUrl);
                 }}
                 label="Upload photo"
@@ -637,6 +652,7 @@ function OutfitPlannerContent() {
               />
               <button
                 type="button"
+                disabled={loadingOutfit || preparingImage}
                 onClick={() => {
                   setCaptureSource("");
                   setCaptureMode("camera");
@@ -647,6 +663,12 @@ function OutfitPlannerContent() {
               </button>
             </div>
 
+            <p role="status" aria-live="polite" className="mt-3 text-sm text-slate-600">{imageProgress}</p>
+            {image && imageInfo && (
+              <p className="mt-2 text-xs text-slate-600">
+                Original: {(imageInfo.originalBytes / 1024).toFixed(1)} KB | Compressed: {(imageInfo.compressedBytes / 1024).toFixed(1)} KB | Size reduction: {imageInfo.reduction.toFixed(1)}%
+              </p>
+            )}
             {!image && (
               <div className="mt-5 flex min-h-28 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 px-4 py-5 text-center">
                 <svg aria-hidden="true" className="mb-3 h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.2"><path strokeLinejoin="round" d="m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4c0 3-8 3-8 0Z" /></svg>
@@ -662,11 +684,12 @@ function OutfitPlannerContent() {
                   imageClassName="object-contain"
                   className="h-44 w-full rounded-lg border border-slate-200 bg-slate-100"
                 />
+                <button type="button" disabled={loadingOutfit || preparingImage} onClick={() => { setCaptureSource(image); setCaptureMode("image"); }} className="mt-2 text-xs font-semibold underline disabled:opacity-50">Crop photo</button>
                 {!result && (
                 <button
                   type="button"
                   onClick={() => analyzeOutfit(image)}
-                  disabled={!destination || !weather || loadingOutfit || loadingWeather}
+                  disabled={!destination || !weather || loadingOutfit || loadingWeather || preparingImage}
                   className="mt-4 w-full rounded-lg bg-slate-900 px-4 py-3 text-xs font-black tracking-wide text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 "
                 >
                   {loadingOutfit ? "Scanning garment..." : "Check weather compatibility"}
@@ -930,8 +953,8 @@ function OutfitPlannerContent() {
           onCancel={() => setCaptureMode("")}
           onSelect={(croppedImage) => {
             setCaptureMode("");
-            setImage(croppedImage);
-            setResult(null);
+            setCaptureSource("");
+            prepareCapture(croppedImage);
           }}
         />
       ) : null}

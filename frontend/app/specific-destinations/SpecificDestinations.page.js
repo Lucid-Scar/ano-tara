@@ -9,7 +9,7 @@ import DynamicMap from "../../components/DynamicMap";
 import PageSkeleton from "../../components/PageSkeleton";
 import { useTravel } from "../TravelContext";
 import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString, getPAGASABadgeColor, WeatherIcon } from "../tripUtils";
-import { getActivityImagePath } from "../activityImages";
+import { getActivityImagePath } from "../../lib/resolveActivityImage";
 import { ChevronLeft, Info } from 'lucide-react';
 
 const mainImage =
@@ -32,16 +32,8 @@ const applyImageFallback = (event, fallbackImage) => {
   image.hidden = true;
 };
 
-const activityFallbackImage = (activity, destination) => {
-  const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
-  if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
-  if (/museum|gallery|art|heritage|cultural/.test(name)) return "https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=1200&q=80";
-  if (/boat|island|beach|falls|nature|park|hiking|walking/.test(name)) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
-  return destination?.image || mainImage;
-};
-const activityImage = (activity, destination) => (
-  getActivityImagePath(activity, destination) || activity?.image || activityFallbackImage(activity, destination)
-);
+const activityFallbackImage = () => localImageFallback;
+const activityImage = (activity, destination) => getActivityImagePath(activity, destination);
 const richText = (value) => Array.isArray(value) ? value.filter(Boolean).join(" ") : (value || "").trim();
 const formatDescriptionParagraphs = (rawNotes, fallbackDescription) => {
   const text = Array.isArray(rawNotes) ? rawNotes.filter(Boolean).join("\n") : (rawNotes || fallbackDescription || "").trim();
