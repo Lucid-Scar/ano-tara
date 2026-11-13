@@ -1,5 +1,6 @@
 import ItineraryOverview from "../../components/ItineraryOverview";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 
 export const metadata = {
   title: "Itinerary Overview | Ano Tara",
@@ -14,7 +15,7 @@ export default function ItineraryOverviewPage() {
           href="/final-planner"
           className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors"
         >
-          ← Back to Final Planner
+          <ChevronLeft aria-hidden="true" className="h-4 w-4 shrink-0" /> Back to Final Planner
         </Link>
       </div>
 

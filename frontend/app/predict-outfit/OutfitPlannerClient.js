@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
@@ -157,6 +158,7 @@ function OutfitPlannerContent() {
     }
 
     setWeather(null);
+    setResult(null);
     setMessage("Current planner dates loaded from your itinerary workspace.");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromPlanner, hasCurrentPlanner]);
@@ -175,6 +177,7 @@ function OutfitPlannerContent() {
     setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate()));
     if (saved.destination) setDestination(saved.destination);
     setWeather(null);
+    setResult(null);
   }, [savedItineraries, selectedPlannerId, source]);
 
   const destinationNames = destinations.map((item) => item.name);
@@ -280,6 +283,7 @@ function OutfitPlannerContent() {
     setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate()));
     setDestination(saved.destination || destination);
     setWeather(null);
+    setResult(null);
     setMessage(
       saved.dates.length
         ? "Saved planner dates and destination loaded."
@@ -298,6 +302,7 @@ function OutfitPlannerContent() {
         destination,
     );
     setWeather(null);
+    setResult(null);
     setMessage(
       currentPlannerDates.length
         ? "Current planner dates loaded."
@@ -312,6 +317,7 @@ function OutfitPlannerContent() {
     setDate(nextDate);
     setDestination(destinations[0]?.name || "");
     setWeather(null);
+    setResult(null);
     setResult(null);
     setImage("");
     setMessage("");
@@ -342,6 +348,7 @@ function OutfitPlannerContent() {
       });
     } catch (error) {
       setWeather(null);
+    setResult(null);
       setMessage(error.message || "Weather forecast is unavailable. Please try again.");
     } finally {
       setLoadingWeather(false);
@@ -439,52 +446,56 @@ function OutfitPlannerContent() {
       : [clampToSelectableDate(getMinSelectableDate())];
 
   const sourceButtonClass = (value) =>
-    `rounded-xl px-3 py-2 text-sm font-bold transition-colors ${
+    `rounded-lg px-3 py-2.5 text-xs font-semibold transition-colors ${
       source === value
-        ? "bg-[#58a573] text-white hover:bg-[#4d9064]"
-        : "border border-slate-300 bg-white text-slate-800 hover:bg-[#f5f7f2]"
+        ? "bg-slate-900 text-white hover:bg-slate-800"
+        : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
     }`;
 
   return (
-    <main className="min-h-screen bg-[#FFFDFB] text-slate-900">
+    <main className="wardrobe-workspace flex min-h-screen flex-col bg-[#f7f8fa] text-slate-900">
       <Header />
 
-      <div className="mx-auto w-full max-w-[1400px] flex-grow px-6 py-10 lg:px-12">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div className="mx-auto w-full max-w-7xl flex-grow px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.16em] text-slate-500">Wardrobe workspace</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Attach outfit</h1>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Your travel wardrobe</p>
+            <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Wardrobe workspace</h1>
+            <p className="mt-2 text-sm text-slate-500">Match your clothes to the forecast. Build an outfit for each day.</p>
           </div>
 
           <Link
             href="/final-planner"
-            className="inline-flex items-center justify-center rounded-xl bg-[#D33F40]/100 px-5 py-3 text-xs font-black tracking-wide text-white shadow-md transition hover:bg-red-800"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-transparent px-4 py-2.5 text-xs font-semibold text-slate-800 transition hover:border-slate-600 hover:bg-white"
           >
-            Review Itinerary Planner →
+            Review Itinerary Planner <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0" />
           </Link>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,4fr)] lg:items-start">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
-            <p className="text-xs font-black uppercase tracking-wider text-slate-500">01 / Outfit source</p>
-            <h2 className="mt-2 text-2xl font-black">Where is this outfit for?</h2>
+        <div className="grid gap-0 overflow-hidden rounded-lg border border-slate-200 bg-white md:grid-cols-2 md:items-start">
+          <section className="wardrobe-context min-w-0 p-4 sm:p-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">01 / Trip details</p>
+            <h2 className="mt-2 text-xl font-bold">Plan your outfit</h2>
 
             <div className={`mt-5 grid gap-2 ${fromPlanner || hasCurrentPlanner ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
-              <button type="button" onClick={useSavedPlanner} className={sourceButtonClass("saved")}>
-                Use saved planner
+              <button type="button" onClick={useSavedPlanner} aria-pressed={source === "saved"} className={sourceButtonClass("saved")}>
+                Saved trip
               </button>
               {(fromPlanner || hasCurrentPlanner) ? (
-                <button type="button" onClick={useCurrentPlanner} className={sourceButtonClass("current")}>
+                <button type="button" onClick={useCurrentPlanner} aria-pressed={source === "current"} className={sourceButtonClass("current")}>
                   Current plan
                 </button>
               ) : null}
-              <button type="button" onClick={useNewLocation} className={sourceButtonClass("new")}>
+              <button type="button" onClick={useNewLocation} aria-pressed={source === "new"} className={sourceButtonClass("new")}>
                 New destination
               </button>
             </div>
 
+            {source === "saved" && !savedItineraries.length && (
+              <p className="mt-4 border-l-2 border-slate-400 pl-3 text-xs leading-relaxed text-slate-600">No archived trips yet. Choose a current plan or a new destination to get started.</p>
+            )}
             {source === "saved" && savedItineraries.length ? (
-              <label className="mt-6 flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <label className="mt-4 flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 Archived itinerary
                 <select
                   value={selectedSavedPlanner?.createdAt || ""}
@@ -496,8 +507,9 @@ function OutfitPlannerContent() {
                     setDate(saved.dates[0] || clampToSelectableDate(getMinSelectableDate()));
                     setDestination(saved.destination);
                     setWeather(null);
+    setResult(null);
                   }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                  className="w-full min-w-0 rounded-lg border border-slate-300 bg-transparent px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                 >
                   {savedItineraries.map((planner) => (
                     <option key={planner.createdAt} value={planner.createdAt}>
@@ -508,7 +520,7 @@ function OutfitPlannerContent() {
               </label>
             ) : null}
 
-            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 Location
                 <select
@@ -516,8 +528,9 @@ function OutfitPlannerContent() {
                   onChange={(event) => {
                     setDestination(event.target.value);
                     setWeather(null);
+    setResult(null);
                   }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                  className="w-full min-w-0 rounded-lg border border-slate-300 bg-transparent px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                 >
                   {locationOptions.map((name) => (
                     <option key={name}>{name}</option>
@@ -526,7 +539,7 @@ function OutfitPlannerContent() {
               </label>
 
               <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Timeline date
+                Travel date
                 {(source === "saved" || source === "current") && plannerDates.length ? (
                   <select
                     value={date}
@@ -540,8 +553,9 @@ function OutfitPlannerContent() {
                         setDestination(locationsForCurrentDate(nextDate)[0] || currentPlannerDestination || destination);
                       }
                       setWeather(null);
+    setResult(null);
                     }}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                    className="w-full min-w-0 rounded-lg border border-slate-300 bg-transparent px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   >
                     {plannerDates.map((plannerDate, index) => (
                       <option key={plannerDate} value={plannerDate}>
@@ -559,8 +573,9 @@ function OutfitPlannerContent() {
                       setDate(nextDate);
                       setPlannerDates([nextDate]);
                       setWeather(null);
+    setResult(null);
                     }}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                    className="w-full min-w-0 rounded-lg border border-slate-300 bg-transparent px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 )}
               </label>
@@ -570,53 +585,55 @@ function OutfitPlannerContent() {
               type="button"
               onClick={getWeather}
               disabled={loadingWeather}
-              className="mt-6 w-full rounded-xl bg-slate-900 px-4 py-3 text-xs font-black tracking-wide text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 shadow-md"
+              className="mt-4 w-full rounded-lg bg-slate-900 px-4 py-3 text-xs font-black tracking-wide text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 "
             >
-              {loadingWeather ? "Checking forecast..." : "Fetch weather conditions"}
+              {loadingWeather ? "Checking forecast..." : "Check forecast"}
             </button>
 
             {weather ? (
-              <div className="mt-6 rounded-xl border border-emerald-100 bg-emerald-50 p-5">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm font-black text-emerald-900">{destination} forecast</span>
-                  <span className="rounded bg-emerald-200/50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+              <div className="mt-4 rounded-lg border border-slate-300 bg-transparent p-5">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-black text-slate-900">{destination} forecast</span>
+                  <span className="rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-slate-900 text-white">
                     {weather.condition}
                   </span>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-4 text-emerald-800">
+                <div className="mt-4 grid grid-cols-2 gap-4 text-slate-800">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70">Average temp</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Average temp</span>
                     <span className="text-lg font-black">{weather.temperature}°C</span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70">Rainfall</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Rainfall</span>
                     <span className="text-lg font-black">{weather.rainfall} mm</span>
                   </div>
                 </div>
 
-                <p className="mt-4 border-t border-emerald-200/50 pt-3 text-[10px] font-semibold leading-relaxed text-emerald-700/80">
+                <p className="mt-4 border-t border-slate-300 pt-3 text-[10px] font-semibold leading-relaxed text-slate-600">
                   Garment recommendations will be matched against these {weather.condition.toLowerCase()} conditions for Day {dayNumberForDate(date, dayOptions)}.
                 </p>
               </div>
             ) : null}
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
-            <p className="text-xs font-black uppercase tracking-wider text-slate-500">02 / Capture</p>
-            <h2 className="mt-2 text-2xl font-black">Add one garment</h2>
-            <p className="mt-2 text-sm text-slate-600">JPG and image files up to 20MB are supported.</p>
+          <section className="wardrobe-capture min-w-0 border-t border-slate-200 p-4 sm:p-5 md:border-l md:border-t-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">02 / Add a garment</p>
+            <h2 className="mt-2 text-xl font-bold">Your garment studio</h2>
+            <p className="mt-2 text-sm text-slate-600">Upload a clear photo or use your camera. Images up to 20 MB.</p>
 
             <div className="mt-5 flex flex-wrap gap-3">
               <ImageUploader
                 maxBytes={MAX_IMAGE_BYTES}
                 onError={setMessage}
                 onSelect={(dataUrl) => {
+                  setResult(null);
                   setCaptureSource(dataUrl);
                   setCaptureMode("image");
                   setImage(dataUrl);
                 }}
-                label="Upload garment"
+                label="Upload photo"
+                className="wardrobe-upload"
               />
               <button
                 type="button"
@@ -624,13 +641,59 @@ function OutfitPlannerContent() {
                   setCaptureSource("");
                   setCaptureMode("camera");
                 }}
-                className="rounded-xl bg-[#58a573] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#4d9064]"
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-100"
               >
                 Use camera
               </button>
             </div>
 
-            <div className="mt-8 rounded-xl border border-slate-100 bg-slate-50 p-4">
+            {!image && (
+              <div className="mt-5 flex min-h-28 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 px-4 py-5 text-center">
+                <svg aria-hidden="true" className="mb-3 h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.2"><path strokeLinejoin="round" d="m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4c0 3-8 3-8 0Z" /></svg>
+                <p className="text-sm font-semibold text-slate-800">A place for your next outfit</p>
+                <p className="mt-1 max-w-xs text-xs leading-relaxed text-slate-500">Photograph one garment against a plain background for a clearer result.</p>
+              </div>
+            )}
+            {image ? (
+              <div className="mt-4">
+                <GarmentImage
+                  src={image}
+                  alt="Garment preview"
+                  imageClassName="object-contain"
+                  className="h-44 w-full rounded-lg border border-slate-200 bg-slate-100"
+                />
+                {!result && (
+                <button
+                  type="button"
+                  onClick={() => analyzeOutfit(image)}
+                  disabled={!destination || !weather || loadingOutfit || loadingWeather}
+                  className="mt-4 w-full rounded-lg bg-slate-900 px-4 py-3 text-xs font-black tracking-wide text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 "
+                >
+                  {loadingOutfit ? "Scanning garment..." : "Check weather compatibility"}
+                </button>
+                )}
+                {!weather && <p className="mt-2 text-xs text-slate-500">Check the forecast in Trip details to analyze this garment.</p>}
+              </div>
+            ) : null}
+
+            {message ? (
+              <div role="status" aria-live="polite" className="mt-4 flex items-start gap-2 border-l-2 border-slate-700 py-2 pl-3">
+                <svg className="h-5 w-5 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm font-semibold text-slate-800">{message}</p>
+              </div>
+            ) : null}
+          </section>
+        </div>
+
+            {result && weather && Array.isArray(result) ? (
+              <section className="mt-5 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">03 / Analysis results</p>
+                <h2 className="mt-1 text-lg font-bold text-slate-900">{result.length ? `${result.length} garments detected` : "No garments detected"}</h2>
+                {!result.length && <p className="mt-2 text-sm text-slate-600">Try a clearer photo of one garment against a plain background.</p>}
+                {result.length > 0 && (
+            <div className="mt-5 border-t border-slate-200 pt-4">
               <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                 <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                   Assign to outfit set
@@ -651,50 +714,29 @@ function OutfitPlannerContent() {
                   <button
                     type="button"
                     onClick={createOutfitSet}
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 shadow-sm"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 "
                   >
                     + New set
                   </button>
-                  <button
+                  {availableOutfitSets.length > 1 && <button
                     type="button"
                     onClick={removeActiveOutfitSet}
                     disabled={availableOutfitSets.length <= 1}
                     title="Remove set"
-                    className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                    className="rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 "
                   >
-                    Remove
-                  </button>
+                    Remove set
+                  </button>}
                 </div>
               </div>
             </div>
 
-            {image ? (
-              <div className="mt-6">
-                <GarmentImage
-                  src={image}
-                  alt="Garment preview"
-                  imageClassName="object-contain"
-                  className="h-56 w-full rounded-xl border border-slate-200 bg-slate-100"
-                />
-                <button
-                  type="button"
-                  onClick={() => analyzeOutfit(image)}
-                  disabled={!destination || !weather || loadingOutfit || loadingWeather}
-                  className="mt-4 w-full rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black tracking-wide text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 shadow-md"
-                >
-                  {loadingOutfit ? "Scanning garment..." : "Analyze garment compatibility"}
-                </button>
-              </div>
-            ) : null}
+                )}
 
-            {result && Array.isArray(result) ? (
-              <div className="mt-8 border-t-2 border-slate-900 pt-6">
-                <p className="mb-6 text-sm font-black uppercase tracking-wider text-slate-900">
-                  AI detection results: {result.length} item(s)
-                </p>
 
+                <div className="mt-4 grid items-start gap-3 md:grid-cols-2">
                 {result.map((item, index) => (
-                  <div key={index} className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div key={index} className="mb-4 overflow-hidden rounded-lg border border-slate-200 bg-white ">
                     <div className="flex items-center gap-4 border-b border-slate-100 bg-slate-50 p-4">
                       <GarmentImage
                         src={item.image}
@@ -705,7 +747,7 @@ function OutfitPlannerContent() {
                         <h4 className="text-lg font-black capitalize text-slate-900">{item.category}</h4>
                         <div className="mt-1">
                           {item.matches ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-800">
                               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path
                                   fillRule="evenodd"
@@ -716,7 +758,7 @@ function OutfitPlannerContent() {
                               Weather match
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-transparent border border-slate-400 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-800">
                               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path
                                   fillRule="evenodd"
@@ -743,7 +785,7 @@ function OutfitPlannerContent() {
                         <button
                           type="button"
                           onClick={() => acceptOutfit(index)}
-                          className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm"
+                          className="rounded-lg bg-slate-900 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 "
                         >
                           Save to wardrobe
                         </button>
@@ -751,6 +793,7 @@ function OutfitPlannerContent() {
                     </div>
                   </div>
                 ))}
+                </div>
 
                 <button
                   type="button"
@@ -758,68 +801,57 @@ function OutfitPlannerContent() {
                     setResult(null);
                     setImage("");
                   }}
-                  className="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  className="mt-3 text-xs font-semibold text-slate-600 underline underline-offset-4 hover:text-slate-900"
                 >
                   Clear & try another
                 </button>
-              </div>
+              </section>
             ) : null}
 
-            {message ? (
-              <div className="mt-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
-                <svg className="h-5 w-5 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-sm font-semibold text-rose-800">{message}</p>
-              </div>
-            ) : null}
-          </section>
-        </div>
 
         {outfits.length > 0 && (
-          <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 sm:p-10 shadow-sm">
-            <div className="mb-8 flex flex-col justify-between gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-end">
+          <section className="mt-6 border-t border-slate-300 pt-6">
+            <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
               <div>
                 <div className="mb-2 flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-black text-white">3</span>
-                  <h2 className="text-2xl font-black text-slate-900">Wardrobe collections</h2>
+                  <h2 className="text-xl font-bold text-slate-900">Wardrobe collections</h2>
                 </div>
-                <p className="text-sm text-slate-600">Group multiple garments into one outfit and adjust them by travel day.</p>
+                <p className="text-sm text-slate-600">{outfits.length} garments across {groupedOutfits.length} collections. Assign an outfit and travel day below.</p>
               </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {groupedOutfits.map((group) => (
-                <article key={group.key} className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-[#FFFDFB] shadow-sm">
-                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-4">
+                <article key={group.key} className="flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white ">
+                  <div className="flex items-center justify-between border-b border-slate-100 bg-transparent px-4 py-3">
                     <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">{group.name}</h3>
                     <span className="rounded bg-slate-200/60 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
                       Day {dayNumberForDate(group.date, dayOptions)}
                     </span>
                   </div>
 
-                  <div className="flex flex-1 flex-col gap-5 p-5">
+                  <div className="flex flex-1 flex-col gap-4 p-4">
                     {group.items.map((outfit) => {
                       const setId = outfit.outfitSetId || "outfit-set-1";
                       const outfitDate = dayOptions.includes(outfit.date) ? outfit.date : dayOptions[0];
 
                       return (
-                        <div key={outfit.id} className="group relative flex min-w-0 gap-4 border-b border-slate-100 pb-5 last:border-0 last:pb-0">
-                          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div key={outfit.id} className="group relative flex min-w-0 gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
                             <GarmentImage
                               src={outfit.image}
                               alt={`${outfit.category} garment`}
-                              className="h-full w-full object-cover p-1"
+                              className="h-full w-full object-contain p-1"
                             />
                           </div>
 
                           <div className="flex min-w-0 flex-1 flex-col">
-                            <div className="mb-1 flex items-start justify-between">
+                            <div className="mb-1 flex items-start justify-between gap-2 pr-6">
                               <h4 className="truncate text-sm font-black capitalize text-slate-900">{outfit.category}</h4>
                               {outfit.matches ? (
-                                <span title="Matches weather" className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[10px] text-emerald-600">✓</span>
+                                <span title="Matches weather" className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] text-slate-800">✓</span>
                               ) : (
-                                <span title="Review weather match" className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-600">!</span>
+                                <span title="Review weather match" className="flex h-5 w-5 items-center justify-center rounded-full bg-transparent border border-slate-400 text-[10px] font-bold text-slate-700">!</span>
                               )}
                             </div>
 
@@ -838,7 +870,7 @@ function OutfitPlannerContent() {
                                     outfitSetName: nextSet.name,
                                   });
                                 }}
-                                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold text-slate-700 outline-none transition focus:border-slate-400"
+                                className="min-w-0 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-bold text-slate-700 outline-none transition focus:border-slate-400"
                               >
                                 {availableOutfitSets.map((set) => (
                                   <option key={set.id} value={set.id}>
@@ -857,7 +889,7 @@ function OutfitPlannerContent() {
                                     day: `Day ${dayNumberForDate(nextDate, dayOptions)}`,
                                   });
                                 }}
-                                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold text-slate-700 outline-none transition focus:border-slate-400"
+                                className="min-w-0 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-bold text-slate-700 outline-none transition focus:border-slate-400"
                               >
                                 {dayOptions.map((day, index) => (
                                   <option key={day} value={day}>
@@ -871,8 +903,8 @@ function OutfitPlannerContent() {
                           <button
                             type="button"
                             onClick={() => deleteOutfit(outfit.id)}
-                            className="absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-rose-200 bg-rose-100 text-xs font-bold text-rose-600 opacity-0 shadow-sm transition group-hover:opacity-100 hover:bg-rose-600 hover:text-white"
-                            aria-label="Remove item"
+                            className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700"
+                            aria-label={`Remove ${outfit.category}`}
                           >
                             ✕
                           </button>
@@ -899,7 +931,7 @@ function OutfitPlannerContent() {
           onSelect={(croppedImage) => {
             setCaptureMode("");
             setImage(croppedImage);
-            analyzeOutfit(croppedImage);
+            setResult(null);
           }}
         />
       ) : null}

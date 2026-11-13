@@ -8,11 +8,19 @@ import { clampToSelectableDate, getGuestWarning, getMinSelectableDate, WeatherIc
 import { getActivityImagePath } from "../activityImages";
 
 const CARDS_PER_PAGE = 24;
+// Stable order across navigation and reloads; only the refresh button changes the seed.
+const activityOrder = (id, seed) => {
+  let hash = seed | 0;
+  for (const character of id) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+  hash ^= hash >>> 16;
+  hash = Math.imul(hash, 0x45d9f3b);
+  return (hash ^ (hash >>> 16)) >>> 0;
+};
 const parseDisplayPriceAmount = (value) => {
-  const match = String(value || "").match(/(₱|PHP\s*|\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  const match = String(value || "").match(/(₱|PHP\s*|USD|\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
   if (!match) return null;
   const amount = Number(match[2].replace(/,/g, ""));
-  return Number.isFinite(amount) ? (match[1].trim() === "$" ? amount * 56 : amount) : null;
+  return Number.isFinite(amount) ? (/^(USD|\$)$/i.test(match[1].trim()) ? amount * 63.78 : amount) : null;
 };
 const isFreeActivity = (activity) => (
   (parseDisplayPriceAmount(activity?.price_display) || 0) <= 0
@@ -43,13 +51,13 @@ const formatActivityPrice = (displayStr, rawPrice) => {
   if (amount == null) {
     if (/not published|unlisted|tba|n\/a|not cited/i.test(cleaned)) return "";
 
-    const dollarAmount = cleaned.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/);
+    const dollarAmount = cleaned.match(/(?:USD|\$)\s*([\d,]+(?:\.\d{1,2})?)/);
     const pesoAmount = cleaned.match(/(?:₱|PHP\s*)\s*([\d,]+(?:\.\d{1,2})?)/i);
     const displayAmount = dollarAmount?.[1] || pesoAmount?.[1] || cleaned.match(/([\d,]+(?:\.\d{1,2})?)/)?.[1];
     if (!displayAmount) return "";
 
     amount = Number(displayAmount.replace(/,/g, ""));
-    if (dollarAmount) amount *= 56;
+    if (dollarAmount) amount *= 63.78;
   }
 
   return Number.isFinite(amount) && amount > 0
@@ -59,7 +67,7 @@ const formatActivityPrice = (displayStr, rawPrice) => {
 
 function ActivityDestinationCard({ item }) {
   const duration = item.activityDuration?.trim() || "";
-  const durationLabel = duration && !/not published|not cited|not in cited source|planning estimate|as stated in listing title|unknown|n\/a|tba/i.test(duration)
+  const durationLabel = duration && !/not published|not cited|not in cited source|planning estimate|as stated in listing title|not applicable|not available|unavailable|not listed|not specified|unknown|\bn\s*\/\s*a\b|\btba\b|\btbd\b/i.test(duration)
     ? duration
     : "";
 
@@ -81,8 +89,8 @@ function ActivityDestinationCard({ item }) {
         {/* Top Badge: Weather Tag */}
         <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-end gap-2">
           <div className="flex max-w-[75%] flex-wrap justify-end gap-1">
-            <span className="rounded-full p-2 text-white" title={item.weatherCondition}>
-              <WeatherIcon condition={item.weatherCondition} className="h-5 w-5" />
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-lg ring-1 ring-black/10" title={item.weatherCondition} role="img" aria-label={item.weatherCondition || "Weather condition unavailable"}>
+              <WeatherIcon condition={item.weatherCondition} className="h-7 w-7" />
             </span>
           </div>
         </div>
@@ -176,7 +184,7 @@ function TripDetailsSelector({
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="relative inline-block text-left mt-2">
+    <div className="relative inline-block text-left mt-3">
       <button type="button" onClick={() => setIsOpen((prev) => !prev)}
         className="flex items-center gap-3 rounded-2xl border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition hover:border-slate-500 hover:shadow-md active:scale-98"
       >
@@ -301,17 +309,7 @@ function TripDetailsSelector({
 
 export default function DestinationsPage() {
 
-  // Fisher-Yates Shuffle helper to randomize activity card order
-  const shuffleList = (items) => {
-    const shuffled = [...items];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
-
-  const { dateRange, setDateRange, guests, setGuests } = useTravel();
+  const { dateRange, setDateRange, guests, setGuests, tripLoaded } = useTravel();
   const [destinations, setDestinations] = useState([]);
   const [destinationError, setDestinationError] = useState("");
   const [isLoadingDestinations, setIsLoadingDestinations] = useState(true);
@@ -331,8 +329,23 @@ export default function DestinationsPage() {
   const [weatherFilter, setWeatherFilter] = useState(null);
   const [activityTypeFilter, setActivityTypeFilter] = useState(null);
   const [visibleCardCount, setVisibleCardCount] = useState(CARDS_PER_PAGE);
+  const [activitySeed, setActivitySeed] = useState(1);
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   useEffect(() => {
+    if (!tripLoaded) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem("anoTaraDestinationView") || "null");
+      if (saved) {
+        setSearchQuery(saved.searchQuery || "");
+        setWeatherFilter(saved.weatherFilter ?? null);
+        setActivityTypeFilter(saved.activityTypeFilter ?? null);
+        setVisibleCardCount(saved.visibleCardCount || CARDS_PER_PAGE);
+        setActivitySeed(saved.activitySeed || 1);
+        if (saved.checkIn && !dateRange.startDate) setCheckIn(clampToSelectableDate(saved.checkIn));
+        if (saved.endDate && !dateRange.endDate) setEndDate(clampToSelectableDate(saved.endDate));
+      }
+    } catch { /* Keep the default view when storage is unavailable. */ }
     const query = new URLSearchParams(window.location.search);
     const requestedActivityType = query.get("activityType");
     if (requestedActivityType) setActivityTypeFilter(requestedActivityType);
@@ -342,7 +355,7 @@ export default function DestinationsPage() {
     if (nextEndDate) setEndDate(clampToSelectableDate(nextEndDate));
     if (query.get("guests")) setGuests(Number(query.get("guests")) || 1);
     setTripReady(true);
-  }, [setGuests]);
+  }, [setGuests, tripLoaded]);
 
   useEffect(() => {
     if (!tripReady) return;
@@ -383,7 +396,7 @@ export default function DestinationsPage() {
     return () => {
       isMounted = false;
     };
-  }, [checkIn, endDate, guests, tripReady]);
+  }, [checkIn, endDate, guests, tripReady, refreshVersion]);
 
   useEffect(() => {
     if (!tripReady) return;
@@ -431,8 +444,8 @@ export default function DestinationsPage() {
         });
       });
     });
-    return shuffleList(list);
-  }, [destinations]);
+    return list.sort((a, b) => activityOrder(a.id, activitySeed) - activityOrder(b.id, activitySeed) || a.id.localeCompare(b.id));
+  }, [destinations, activitySeed]);
 
   const recordTypeOptions = useMemo(
     () => [...new Set(allActivities.flatMap((item) => item.recordTypes).filter(Boolean))].sort(),
@@ -466,8 +479,17 @@ export default function DestinationsPage() {
   const visibleActivities = filteredActivities.slice(0, visibleCardCount);
 
   useEffect(() => {
-    setVisibleCardCount(CARDS_PER_PAGE);
-  }, [activityTypeFilter, searchQuery, weatherFilter]);
+    if (!tripReady) return;
+    try {
+      const url = new URL(window.location.href);
+      if (activityTypeFilter) url.searchParams.set("activityType", activityTypeFilter);
+      else url.searchParams.delete("activityType");
+      window.history.replaceState(window.history.state, "", url);
+      localStorage.setItem("anoTaraDestinationView", JSON.stringify({
+        searchQuery, weatherFilter, activityTypeFilter, visibleCardCount, activitySeed, checkIn, endDate,
+      }));
+    } catch { /* Browsing still works without storage. */ }
+  }, [tripReady, searchQuery, weatherFilter, activityTypeFilter, visibleCardCount, activitySeed, checkIn, endDate]);
 
   const toggleWeather = (weather) => {
     setWeatherFilter((prev) => (prev === weather ? null : weather));
@@ -477,6 +499,8 @@ export default function DestinationsPage() {
     setSearchQuery("");
     setWeatherFilter(null);
     setActivityTypeFilter(null);
+    setVisibleCardCount(CARDS_PER_PAGE);
+    window.history.replaceState(window.history.state, "", window.location.pathname);
   };
 
   const isAnyFilterActive = searchQuery.trim() !== "" || weatherFilter !== null || activityTypeFilter !== null;
@@ -538,16 +562,13 @@ export default function DestinationsPage() {
 
         {/* INLINE COMPACT SEARCH & FILTERS TOOLBAR */}
         <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-
-          {/* 2. Sleek Filter Badges */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            
             {/* Weather Filter Pill */}
             <div className="relative">
               <select
                 value={weatherFilter || ""}
                 onChange={(e) => setWeatherFilter(e.target.value || null)}
-                className={`appearance-none rounded-xl border py-2 pl-3 pr-8 text-xs font-bold outline-none transition-all cursor-pointer shadow-sm ${
+                className={`appearance-none rounded-xl border py-3 pl-3 pr-8 text-xs font-bold outline-none transition-all cursor-pointer shadow-sm ${
                   weatherFilter
                     ? "border-slate-950 bg-slate-950 text-white"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300 hover:text-slate-900"
@@ -572,7 +593,7 @@ export default function DestinationsPage() {
               <select
                 value={activityTypeFilter || ""}
                 onChange={(e) => setActivityTypeFilter(e.target.value || null)}
-                className={`appearance-none rounded-xl border py-2 pl-3 pr-8 text-xs font-bold outline-none transition-all cursor-pointer shadow-sm ${
+                className={`appearance-none rounded-xl border py-3 pl-3 pr-8 text-xs font-bold outline-none transition-all cursor-pointer shadow-sm ${
                   activityTypeFilter
                     ? "border-slate-950 bg-slate-950 text-white"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300 hover:text-slate-900"
@@ -612,7 +633,8 @@ export default function DestinationsPage() {
           </div>
           
           {/* 1. Compact Search Input */}
-          <div className="relative flex-1 min-w-[260px]">
+          <div className="flex flex-1 min-w-[260px] items-center gap-2">
+            <div className="relative min-w-0 flex-1">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>
@@ -624,7 +646,7 @@ export default function DestinationsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search city or activity..."
-              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-9 text-xs font-semibold text-slate-900 placeholder:text-slate-400 outline-none transition-all hover:border-slate-300 focus:border-slate-900 shadow-sm"
+              className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-9 text-xs font-semibold text-slate-900 placeholder:text-slate-400 outline-none transition-all hover:border-slate-300 focus:border-slate-900 shadow-sm"
             />
             {searchQuery && (
               <button
@@ -637,6 +659,25 @@ export default function DestinationsPage() {
                 </svg>
               </button>
             )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActivitySeed(Date.now());
+                setRefreshVersion((version) => version + 1);
+                setDestinationError("");
+                setIsLoadingDestinations(true);
+              }}
+              disabled={isLoadingDestinations}
+              aria-label={isLoadingDestinations ? "Refreshing activities" : "Refresh activities"}
+              title="Refresh activities"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 disabled:cursor-wait disabled:opacity-50"
+            >
+              <svg className={isLoadingDestinations ? "animate-spin motion-reduce:animate-none" : ""} xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 7v5h-5M4 17v-5h5" />
+                <path d="M6.1 7a7 7 0 0 1 11.5-2L20 8M4 16l2.4 3A7 7 0 0 0 17.9 17" />
+              </svg>
+            </button>
           </div>
 
           

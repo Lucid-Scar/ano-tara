@@ -1,21 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import GarmentImage from "../../components/GarmentImage";
 import ActivityTimePicker from "../../components/ActivityTimePicker";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
-import { useTravel } from "../TravelContext";
+import { useTravel, isCalendarDate, validateActivitySchedules, archivePlanKey } from "../TravelContext";
 import DynamicMap from "../../components/DynamicMap";
 import {
-  clampActivityTime,
   getGuestWarning,
   getMinSelectableDate,
-  getPAGASABadgeColor,
   isPastOrTodayDate,
   isValidActivityTime,
   toDateString,
+  WeatherIcon,
 } from "../tripUtils";
 
 const formatDate = (value) =>
@@ -33,7 +33,7 @@ const formatShortDate = (value) =>
   });
 
 const generateDateRange = (startDate, endDate) => {
-  if (!startDate || !endDate || endDate < startDate) return [];
+  if (!isCalendarDate(startDate) || !isCalendarDate(endDate) || endDate < startDate) return [];
   const dates = [];
   const current = new Date(`${startDate}T00:00:00`);
   const last = new Date(`${endDate}T00:00:00`);
@@ -44,14 +44,8 @@ const generateDateRange = (startDate, endDate) => {
   return dates;
 };
 
-const valueFrom = (item, keys) =>
-  keys.map((key) => item?.[key]).find((value) => value !== undefined && value !== null && value !== "");
-
-const getTime = (activity) => {
-  const start = valueFrom(activity, ["time", "schedule", "start_time"]);
-  const end = valueFrom(activity, ["end_time"]);
-  return start && end ? `${start} - ${end}` : start || "Time to be confirmed";
-};
+const getActivityWeather = (activity) =>
+  activity?.weather_forecast?.condition || activity?.weather || activity?.weather_condition || "";
 
 const getAssignedDay = (activity) => activity?.assignedDay || activity?.assigned_day || "";
 
@@ -62,46 +56,44 @@ const parsePriceToPhp = (value) => {
   if (!text || /^(not listed|tba|n\/a|na|unknown)$/i.test(text)) return null;
   const numeric = Number(text.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/)?.[0]);
   if (!Number.isFinite(numeric)) return null;
-  return text.includes("$") ? numeric * 56 : numeric;
+  return /USD|\$/i.test(text) ? numeric * 63.78 : numeric;
+};
+
+const getActivityPricePhp = (activity) => {
+  const prices = [
+    activity?.price,
+    activity?.estimated_price,
+    activity?.price_per_pax,
+    activity?.real_price_php,
+    activity?.price_display,
+  ].map(parsePriceToPhp);
+  // A zero placeholder must not hide a published paid activity price.
+  return prices.find((price) => price !== null && price > 0)
+    ?? prices.find((price) => price !== null)
+    ?? (/^free(?:\s*\(|$)/i.test(activity?.price_display || "") ? 0 : null);
 };
 
 const formatActivityPrice = (activity) => {
-  const numeric = parsePriceToPhp(
-    activity?.price ??
-      activity?.estimated_price ??
-      activity?.price_per_pax ??
-      activity?.real_price_php ??
-      activity?.price_display
-  );
+  const numeric = getActivityPricePhp(activity);
   if (numeric === 0) return "FREE";
   if (numeric !== null) return `₱${numeric.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
   return activity?.price_display || "Price not listed";
 };
 
-const fallbackDayImage = (activity) => {
-  const name = `${activity?.name || ""} ${activity?.type || ""}`.toLowerCase();
-  if (/food|seafood|culinary|dining|tasting|manokan|oyster/.test(name)) {
-    return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
-  }
-  if (/museum|gallery|art|heritage|cultural/.test(name)) {
-    return "https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=1200&q=80";
-  }
-  return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
-};
-
-const dayImage = (activity) => activity?.image || fallbackDayImage(activity);
-
 const describeWeather = (day) => {
   const forecast = day.weather_forecast || {};
   const historical = day.historical_weather || {};
-  const condition = String(forecast.condition || "unavailable").toLowerCase();
+  if (!forecast.condition && !day.expected_weather) {
+    return "Weather details are unavailable for this day. Check the local forecast before departure.";
+  }
+  const condition = String(forecast.condition || day.expected_weather).toLowerCase();
 
   const tempRange =
     forecast.temperature_min_c != null && forecast.temperature_max_c != null
       ? `${forecast.temperature_min_c}°C to ${forecast.temperature_max_c}°C`
       : forecast.average_temperature != null
       ? `around ${forecast.average_temperature}°C`
-      : "a comfortable temperature";
+      : "temperature data unavailable";
   const rainChance =
     forecast.precipitation_probability != null
       ? `${forecast.precipitation_probability}% chance of rain`
@@ -139,7 +131,7 @@ const extractActivitiesFromPlanner = (item) => {
       assigned_day: activity.assigned_day || activity.assignedDay || `Day ${dayIndex + 1}`,
       destination: activity.destination || activity.location || day.destination,
       guests: Number(activity.guests) || 1,
-      time: activity.time || activity.schedule || activity.start_time || "10:00",
+      time: activity.time || activity.schedule || activity.start_time || "",
     }))
   );
 };
@@ -149,6 +141,66 @@ const assignDaysInOrder = (list) =>
     const day = `Day ${index + 1}`;
     return { ...activity, assignedDay: day, assigned_day: day };
   });
+
+// Print layouts are kept with their owning planner page.
+function PlannerOverview({ days, formatPrice, getWeather, guests }) {
+  return (
+    <div className="overview-day-list">
+      {days.map((day) => {
+        return (
+          <section key={day.dayNumber} className="overview-day-card">
+            <header className="overview-day-heading"><h2>{day.dayNumber}</h2><p>{day.dateLabel}</p></header>
+              <ol className="overview-stops">{day.activities.map((activity, index) => (
+                <li key={index}>
+                  <div className="overview-location"><h3>{activity.name}</h3>
+                  <p>{activity.location || activity.destination || "Location not listed"}</p></div>
+                  <dl className="overview-facts">
+                    <div><dt>Price</dt><dd>{formatPrice(activity)}</dd></div>
+                    <div><dt>Weather</dt><dd>{getWeather(activity) || day.weather_forecast?.condition || day.expected_weather || "Unavailable"}</dd></div>
+                    <div><dt>Pax</dt><dd>{activity.guests || guests}</dd></div>
+                  </dl>
+                </li>
+              ))}</ol>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+
+const hasCoordinates = (activity) =>
+  activity.exact_latitude != null && activity.exact_latitude !== "" &&
+  activity.exact_longitude != null && activity.exact_longitude !== "" &&
+  Number.isFinite(Number(activity.exact_latitude)) && Math.abs(Number(activity.exact_latitude)) <= 90 &&
+  Number.isFinite(Number(activity.exact_longitude)) && Math.abs(Number(activity.exact_longitude)) <= 180;
+
+function PlannerDetails({ days, formatPrice, getWeather, guests, outfitsForDay }) {
+  return <div className="detailed-days">{days.map((day, index) => {
+    const outfits = outfitsForDay(day.date || day.day, Number(day.dayNumber.replace("Day ", "")) - 1);
+    const mappedActivities = day.activities.filter(hasCoordinates);
+    return (
+      <section key={day.dayNumber} className="print-day detailed-day">
+        <header className="print-day-heading"><h2>{day.dayNumber}</h2><p>{day.dateLabel}</p></header>
+        <div className="document-weather"><h3>Weather &amp; what to expect</h3><p>{day.weatherDescription}</p></div>
+        <ol className="document-stops">{day.activities.map((activity, activityIndex) => (
+          <li key={activityIndex}>
+            <div className="document-stop-heading"><span className="stop-number">{String(activityIndex + 1).padStart(2, "0")}</span><div><h3>{activity.name}</h3><p>{activity.location || activity.destination || "Location not listed"}</p></div><strong>{formatPrice(activity)}</strong></div>
+            <p className="document-meta">{activity.time || activity.schedule || activity.start_time || "Time to be confirmed"} · {activity.guests || guests} pax · {getWeather(activity) || day.weather_forecast?.condition || day.expected_weather || "Weather unavailable"}</p>
+            {activity.description && <p>{activity.description}</p>}
+          </li>
+        ))}</ol>
+        <section className="document-outfits"><h3>What to wear</h3>
+          {outfits.length ? <div className="document-outfit-grid">{outfits.map((outfit) => <figure key={outfit.id}><GarmentImage src={outfit.image} alt={outfit.category} className="document-garment" /><figcaption><strong>{outfit.category}</strong><span>{outfit.outfitSetName || "Your outfit"}</span></figcaption></figure>)}</div> : <p>No outfit assigned to this day.</p>}
+        </section>
+        <section className="document-map"><h3>Destination map</h3>
+          {mappedActivities.length ? <DynamicMap activities={mappedActivities} routeSegments={day.route_segments} /> : <p>Map coordinates are unavailable for this day.</p>}
+          <div className="document-map-links">{day.activities.map((activity, activityIndex) => <a key={activityIndex} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hasCoordinates(activity) ? `${activity.exact_latitude},${activity.exact_longitude}` : `${activity.name} ${activity.location || activity.destination || ""}`)}` } target="_blank" rel="noreferrer">{activityIndex + 1}. {activity.name}</a>)}</div>
+        </section>
+      </section>
+    );
+  })}</div>;
+}
 
 export default function FinalPlannerPage() {
   const {
@@ -173,8 +225,12 @@ export default function FinalPlannerPage() {
   const [endDate, setEndDate] = useState("");
   const [activities, setActivities] = useState([]);
   const [planner, setPlanner] = useState(null);
+  const [documentView, setDocumentView] = useState("overview");
+  const [archiveSource, setArchiveSource] = useState(null);
+  const [archiveError, setArchiveError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showScheduleErrors, setShowScheduleErrors] = useState(false);
   const [warningActivityIndex, setWarningActivityIndex] = useState(-1);
   const [showSavedPlanners, setShowSavedPlanners] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
@@ -184,8 +240,25 @@ export default function FinalPlannerPage() {
   const [selectedGarment, setSelectedGarment] = useState(null);
 
   useEffect(() => {
-    if (dateRange.startDate) setStartDate(dateRange.startDate);
-    if (dateRange.endDate) setEndDate(dateRange.endDate);
+    if (!planner && !selectedGarment) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setPlanner(null);
+        setSelectedGarment(null);
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [planner, selectedGarment]);
+
+  useEffect(() => {
+    setStartDate(dateRange.startDate || "");
+    setEndDate(dateRange.endDate || "");
   }, [dateRange.endDate, dateRange.startDate]);
 
   useEffect(() => {
@@ -193,7 +266,15 @@ export default function FinalPlannerPage() {
   }, [currentActivities]);
 
   const dates = generateDateRange(startDate, endDate);
-  const emptyDayCount = Math.max(0, dates.length - activities.length);
+  const scheduleErrors = validateActivitySchedules(activities, dates);
+  const editSchedule = (index) => {
+    setActiveSettingsIndex(index);
+    requestAnimationFrame(() => {
+      const card = document.getElementById(`planner-activity-${index}`);
+      card?.scrollIntoView({ behavior: "smooth", block: "center" });
+      card?.focus({ preventScroll: true });
+    });
+  };
 
   const commitActivities = (nextActivities) => {
     setActivities(nextActivities);
@@ -202,9 +283,7 @@ export default function FinalPlannerPage() {
   };
 
   const changeActivity = (index, changes) => {
-    const nextChanges = Object.prototype.hasOwnProperty.call(changes, "time")
-      ? { ...changes, time: clampActivityTime(changes.time) }
-      : changes;
+    const nextChanges = changes;
     const next = activities.map((activity, activityIndex) =>
       activityIndex === index
         ? {
@@ -236,6 +315,7 @@ export default function FinalPlannerPage() {
 
     setWarningActivityIndex(-1);
     setErrorMessage("");
+    setActiveSettingsIndex(ordered.indexOf(next[index]));
     commitActivities(ordered);
   };
 
@@ -261,10 +341,12 @@ export default function FinalPlannerPage() {
 
   const changeOutfitDay = (id, nextDate) => {
     const dayIndex = dates.indexOf(nextDate);
+    if (nextDate && dayIndex < 0) return;
     const updatedOutfits = outfits.map((outfit) =>
-      outfit.id === id ? { ...outfit, date: nextDate, day: `Day ${dayIndex + 1}` } : outfit
+      outfit.id === id ? { ...outfit, date: nextDate, day: nextDate ? `Day ${dayIndex + 1}` : "" } : outfit
     );
     setOutfits(updatedOutfits);
+    setSelectedGarment((current) => current?.id === id ? updatedOutfits.find((outfit) => outfit.id === id) : current);
     setPlanner((current) => (current ? { ...current, outfits: updatedOutfits } : current));
   };
 
@@ -273,6 +355,8 @@ export default function FinalPlannerPage() {
     activeOutfits.filter((outfit) => outfit.date === date || outfit.day === `Day ${dayIndex + 1}`);
 
   const openSavedPlanner = (item) => {
+    setArchiveSource(item);
+    setArchiveError("");
     const restored = extractActivitiesFromPlanner(item);
     const firstDay = item.itinerary?.[0]?.date || item.itinerary?.[0]?.day || "";
     const lastDay =
@@ -298,8 +382,12 @@ export default function FinalPlannerPage() {
   const generatePlanner = async (event) => {
     event.preventDefault();
     setErrorMessage("");
+    setArchiveError("");
     
-    let targetDates = generateDateRange(startDate, endDate);
+    if (isLoading) return;
+    setShowScheduleErrors(true);
+    const targetDates = generateDateRange(startDate, endDate);
+    const invalidSchedules = validateActivitySchedules(activities, targetDates);
     
     // Prevent generating if dates are invalid
     if (!targetDates.length || isPastOrTodayDate(startDate)) {
@@ -312,33 +400,18 @@ export default function FinalPlannerPage() {
       return;
     }
 
-    // NEW RULE: Require > 1 activity for 1-day itineraries
+    if (invalidSchedules.length) {
+      editSchedule(invalidSchedules[0].index);
+      return;
+    }
+
     if (targetDates.length === 1 && activities.length <= 1) {
       setErrorMessage("A 1-day itinerary must have more than 1 activity.");
       return;
     }
 
-    let scheduledActivities = activities;
-    if (targetDates.length > activities.length) {
-      const confirmed = window.confirm(
-        `You selected ${targetDates.length} days but only ${activities.length} activit${
-          activities.length === 1 ? "y" : "ies"
-        }.\n\nDays without activities will not appear in the generated planner. Activities will keep their current order as Day 1, Day 2, and so on.\n\nContinue?`
-      );
-      if (!confirmed) return;
-      scheduledActivities = assignDaysInOrder(activities);
-      targetDates = targetDates.slice(0, scheduledActivities.length);
-      commitActivities(scheduledActivities);
-    }
-
-    const hasInvalidSchedule = scheduledActivities.some((activity) => {
-      const dayIndex = Number(String(activity.assignedDay || "").replace("Day ", "")) - 1;
-      return !targetDates[dayIndex] || !isValidActivityTime(activity.time);
-    });
-    if (hasInvalidSchedule) {
-      setErrorMessage("Each activity needs a valid trip day and a time between 6:00 AM and 11:00 PM.");
-      return;
-    }
+    // Preserve each selected day; empty days must never shift an activity's date.
+    const scheduledActivities = activities;
 
     setIsLoading(true);
     try {
@@ -381,7 +454,7 @@ export default function FinalPlannerPage() {
           target_dates: targetDates,
           raw_activities: scheduledActivities.map((activity) => ({
             ...activity,
-            assigned_day: activity.assignedDay,
+            assigned_day: getAssignedDay(activity),
             room_type: activity.roomType || activity.room_type || "Standard Room",
           })),
           mlr_price: mlrPrice,
@@ -402,7 +475,7 @@ export default function FinalPlannerPage() {
       const newPlanner = {
         ...data,
         itinerary: filledDays.length ? filledDays : data.itinerary,
-        name: `${primaryActivity.destination || "Travel"} itinerary - ${formatDate(targetDates[0])}`,
+        name: archiveSource?.name || `${primaryActivity.destination || "Travel"} itinerary - ${formatDate(targetDates[0])}`,
         activities: scheduledActivities,
         dateRange: { startDate: targetDates[0], endDate: targetDates[targetDates.length - 1] },
         guests: guestCount,
@@ -413,10 +486,9 @@ export default function FinalPlannerPage() {
           source: priceData.source,
           destination: primaryActivity.destination,
         },
-        createdAt: new Date().toLocaleString(),
+        createdAt: archiveSource?.createdAt || new Date().toISOString(),
       };
       setPlanner(newPlanner);
-      saveItinerary(newPlanner);
     } catch (error) {
       setErrorMessage(error.message || "Could not connect to the backend.");
     } finally {
@@ -424,8 +496,20 @@ export default function FinalPlannerPage() {
     }
   };
 
+  const archivedPlanner = planner ? savedItineraries.find((saved) => archivePlanKey(saved) === archivePlanKey(planner)) : null;
+  const savePlannerToArchive = () => {
+    if (!planner) return;
+    const result = saveItinerary(planner);
+    setArchiveError(result.ok ? "" : result.message);
+    if (result.ok) setArchiveSource(archivedPlanner || planner);
+  };
+
   const printPlanner = () => {
     if (!planner) return;
+    const previousTitle = document.title;
+    document.title = `${planner.name || "Travel itinerary"} - ${documentView}`;
+    const restoreTitle = () => { document.title = previousTitle; };
+    window.addEventListener("afterprint", restoreTitle, { once: true });
     window.print();
   };
 
@@ -433,7 +517,7 @@ export default function FinalPlannerPage() {
     .filter((day) => (day.scheduled_activities || []).length > 0)
     .map((day, index) => ({
       ...day,
-      dayNumber: `Day ${index + 1}`,
+      dayNumber: `Day ${(dates.indexOf(day.date || day.day) >= 0 ? dates.indexOf(day.date || day.day) : index) + 1}`,
       dateLabel: formatDate(day.date || day.day),
       weatherDescription: describeWeather(day),
       scheduled_activities: Array.isArray(day.scheduled_activities) ? day.scheduled_activities : [],
@@ -441,20 +525,12 @@ export default function FinalPlannerPage() {
       activities: (Array.isArray(day.scheduled_activities) ? day.scheduled_activities : []).map((activity) => ({
         ...activity,
         location: activity.location || activity.destination,
-        price: parsePriceToPhp(
-          activity.estimated_price ?? activity.price ?? activity.price_per_pax ?? activity.price_display
-        ),
+        price: getActivityPricePhp(activity),
         guests: Number(activity.guests) || guests,
       })),
     }));
 
-  const totalPrice = itineraryDays.reduce(
-    (tripTotal, day) =>
-      tripTotal + day.activities.reduce((dayTotal, activity) => dayTotal + (Number.isFinite(activity.price) ? activity.price : 0), 0),
-    0
-  );
   const initialGuestCount = Math.max(1, Number(planner?.guests) || guests || 1);
-  const pricePerPerson = totalPrice / initialGuestCount;
   const plannerStart =
     planner?.dateRange?.startDate || itineraryDays[0]?.date || itineraryDays[0]?.day || startDate;
   const plannerEnd =
@@ -462,22 +538,13 @@ export default function FinalPlannerPage() {
     itineraryDays[itineraryDays.length - 1]?.date ||
     itineraryDays[itineraryDays.length - 1]?.day ||
     endDate;
-  const allTripActivities = itineraryDays.flatMap((day) => day.activities);
-  const allTripRoutes = itineraryDays.flatMap((day) => day.route_segments || []);
-
   const estimatedAdmissionsTotal = activities.reduce((sum, activity) => {
-    const parsed = parsePriceToPhp(
-      activity?.price ??
-        activity?.estimated_price ??
-        activity?.price_per_pax ??
-        activity?.real_price_php ??
-        activity?.price_display
-    );
+    const parsed = getActivityPricePhp(activity);
     return sum + (Number.isFinite(parsed) ? parsed : 0);
   }, 0);
 
   return (
-    <main className="min-h-screen bg-[#FFFDFB] text-slate-900 flex flex-col">
+    <main className="final-planner min-h-screen bg-[#FFFDFB] text-slate-900 flex flex-col">
       <div className="planner-controls print:hidden">
         <Header />
       </div>
@@ -490,13 +557,16 @@ export default function FinalPlannerPage() {
             <h1 className="mt-1 text-3xl font-extrabold uppercase text-slate-950 sm:text-4xl">
               Itinerary Planner
             </h1>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-500">Arrange your days, match your outfits, and create a brochure to take with you.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() => setShowSavedPlanners((current) => !current)}
-              title="Archived Plans"
+              title="Saved plans"
+              aria-label="Show saved plans"
+              aria-expanded={showSavedPlanners}
               className={`relative inline-flex items-center justify-center h-10 w-10 rounded-xl border transition-all shadow-sm ${
                 showSavedPlanners
                   ? "border-slate-900 bg-slate-900 text-white"
@@ -515,13 +585,19 @@ export default function FinalPlannerPage() {
 
             <button
               type="button"
-              title="Reset Canvas"
+              title="Reset trip"
+              aria-label="Reset trip"
               onClick={() => {
+                if (!window.confirm("Reset your current trip? This will remove its activities, dates, guest count, and assigned outfits. Your archived trips will remain saved. This cannot be undone.")) return;
                 clearCurrentPlan();
+                setArchiveSource(null);
+                setArchiveError("");
                 setActivities([]);
                 setPlanner(null);
                 setErrorMessage("");
                 setWarningActivityIndex(-1);
+                setShowScheduleErrors(false);
+                setActiveSettingsIndex(null);
               }}
               className="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-rose-200 bg-white text-rose-600 shadow-sm transition hover:bg-rose-50 hover:border-rose-300"
             >
@@ -534,18 +610,19 @@ export default function FinalPlannerPage() {
 
         {/* Saved Planners Drawer */}
         {showSavedPlanners ? (
-          <div className="mb-8 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm animate-in fade-in slide-in-from-top-4">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3">
+          <div className="mb-5 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 animate-in fade-in slide-in-from-top-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
               <div>
-                <p className="text-sm font-black text-slate-900">Your Travel Archives</p>
-                <p className="text-xs text-slate-500">Restore dates, activities, and outfits to edit or reprint.</p>
+                <p className="text-xs font-bold text-slate-900">Saved trips <span className="ml-1 font-medium text-slate-400">({savedItineraries.length})</span></p>
               </div>
               {savedItineraries.length ? (
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm("Clear all saved planners? This cannot be undone.")) {
+                    if (window.confirm(`Delete all ${savedItineraries.length} saved trips from your archive? Your current travel activities will remain. This cannot be undone.`)) {
                       clearSavedItineraries();
+                      setArchiveSource(null);
+                      setArchiveError("");
                       setPlanner(null);
                     }
                   }}
@@ -556,9 +633,15 @@ export default function FinalPlannerPage() {
               ) : null}
             </div>
             {savedItineraries.length ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {savedItineraries.map((item) => (
-                  <div key={item.createdAt} className="flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-[#FFFDFB] p-3 shadow-xs">
+              <div className="mt-2 grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                {savedItineraries.map((item) => {
+                  const savedDates = (item.itinerary || []).map((day) => day.date || day.day).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+                  const savedStart = item.dateRange?.startDate || savedDates[0];
+                  const savedEnd = item.dateRange?.endDate || savedDates[savedDates.length - 1] || savedStart;
+                  const savedDayCount = generateDateRange(savedStart, savedEnd).length;
+                  const activityCount = extractActivitiesFromPlanner(item).length;
+                  return (
+                  <div key={item.createdAt} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-slate-100 px-2.5 py-2 transition hover:border-slate-400">
                     <input
                       aria-label="Saved planner name"
                       value={item.name || ""}
@@ -570,41 +653,65 @@ export default function FinalPlannerPage() {
                         }
                       }}
                       onBlur={() => { if (!item.name?.trim()) renameItinerary(item.createdAt, "Saved itinerary"); }}
-                      className="w-full rounded-lg border border-transparent bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white hover:bg-slate-100"
+                      title={item.name || "Saved itinerary"}
+                      className="w-full min-w-0 truncate rounded border border-transparent bg-transparent px-1 py-1 text-xs font-bold text-slate-900 outline-none transition focus:border-slate-700 hover:bg-slate-50"
                     />
-                    <div className="flex items-center gap-2">
+                    <div className="w-full px-1">
+                      <p className="text-[11px] leading-relaxed text-slate-500">
+                        {savedStart ? `${formatShortDate(savedStart)} - ${formatShortDate(savedEnd)}` : "Dates not set"}
+                      </p>
+                    </div>
+                    <p className="min-w-0 flex-1 px-1 text-[11px] text-slate-500">{savedDayCount} {savedDayCount === 1 ? "day" : "days"} · {activityCount} {activityCount === 1 ? "activity" : "activities"}</p>
+                    <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
                         onClick={() => openSavedPlanner(item)}
-                        className="flex-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-800"
+                        className="rounded-md bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
                       >
-                        Load Canvas
+                        Open
                       </button>
                       <button
                         type="button"
                         onClick={() => {
+                          if (!window.confirm(`Delete "${item.name || "Saved itinerary"}" from your saved trips? This cannot be undone.`)) return;
                           deleteItinerary(item.createdAt);
+                          if (archiveSource?.createdAt === item.createdAt) setArchiveSource(null);
                           if (planner?.createdAt === item.createdAt) setPlanner(null);
                         }}
-                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-50"
+                        className="rounded-md px-2 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
                       >
                         Delete
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <p className="mt-4 text-xs text-slate-500 italic">The archive is currently empty.</p>
+              <p className="mt-2 text-xs text-slate-500">No saved trips yet.</p>
             )}
           </div>
         ) : null}
 
-        <form onSubmit={generatePlanner} className="grid items-start gap-10 lg:grid-cols-[1fr_450px]">
+        {showScheduleErrors && scheduleErrors.length > 0 && (
+          <div role="alert" className="mb-5 rounded-lg border border-slate-400 p-4 text-sm text-slate-800">
+            <p className="font-bold">Fix these activity schedules before creating or saving your itinerary.</p>
+            <ul className="mt-2 space-y-2">
+              {scheduleErrors.map(({ index, name, errors }) => (
+                <li key={index}>
+                  <button type="button" onClick={() => editSchedule(index)} className="font-semibold underline underline-offset-2">{index + 1}. {name}</button>
+                  <span> - {Object.values(errors).join(" ")}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <form noValidate onSubmit={generatePlanner} className="planner-editor grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="space-y-10 min-w-0">
-            <section>
+            <section className="planner-editor-section">
               <div className="flex items-end justify-between border-b-2 border-slate-900 pb-2">
-                <h2 className="text-lg font-black text-slate-900">Itinerary Flow</h2>
+                <h2 className="text-lg font-black text-slate-900">Trip dates</h2>
                 {dates.length > 0 ? (
                   <span className="text-xs font-extrabold text-slate-500 uppercase tracking-widest">{dates.length} Days</span>
                 ) : null}
@@ -645,8 +752,8 @@ export default function FinalPlannerPage() {
               </div>
             </section>
 
-            <section>
-              <div className="flex items-end justify-between pb-2 sticky top-0 bg-[#FFFDFB]/95 backdrop-blur-md z-10 border-b border-slate-100 mb-4">
+            <section className="planner-editor-section">
+              <div className="flex items-end justify-between pb-2 z-10 border-b border-slate-100 mb-4">
                 <h2 className="text-lg font-black text-slate-900">Activities</h2>
                 <Link
                   href="/destinations"
@@ -660,16 +767,20 @@ export default function FinalPlannerPage() {
                 {activities.length ? (
                   <div className="border-l-2 border-slate-200 pl-5 space-y-4 pb-6">
                     {activities.map((activity, index) => {
-                      const dayLabel = getAssignedDay(activity) || `Day ${index + 1}`;
+                      const dayLabel = getAssignedDay(activity) || "Day not selected";
+                      const fieldErrors = showScheduleErrors ? scheduleErrors.find((entry) => entry.index === index)?.errors || {} : {};
                       const matchedDay = itineraryDays.find(
-                        (day, dayIdx) => day.dayNumber === dayLabel || `Day ${dayIdx + 1}` === dayLabel
+                        (day) => day.dayNumber === dayLabel
                       );
-                      const matchedActivity = matchedDay?.activities?.find((item) => item.name === activity.name);
+                      const matchedActivity = matchedDay?.activities?.find((item) => item.name === activity.name && item.destination === activity.destination);
                       const activeItem = matchedActivity || activity;
+                      const activityWeather = getActivityWeather(activeItem);
                       const isEditing = activeSettingsIndex === index;
 
                       return (
                         <article
+                          id={`planner-activity-${index}`}
+                          tabIndex={-1}
                           key={`${activity.name}-${activity.destination}-${index}`}
                           draggable
                           onDragStart={() => setDragIndex(index)}
@@ -685,12 +796,12 @@ export default function FinalPlannerPage() {
                           className={`relative group cursor-grab active:cursor-grabbing transition-all ${dragIndex === index ? "opacity-50 scale-95" : ""}`}
                         >
                           {/* Timeline Node Dot */}
-                          <div className={`absolute -left-[27px] top-4 w-[12px] h-[12px] rounded-full border-2 bg-white transition-colors duration-300 ${dropIndex === index ? 'border-emerald-500 scale-125' : 'border-slate-900 group-hover:border-slate-500'}`} />
+                          <div className={`absolute -left-[27px] top-4 w-[12px] h-[12px] rounded-full border-2 bg-white transition-colors duration-300 ${dropIndex === index ? 'border-slate-700 scale-125' : 'border-slate-900 group-hover:border-slate-500'}`} />
                           
                           {/* Compact Node Card */}
-                          <div className={`rounded-xl border bg-white p-3.5 shadow-sm transition-all duration-300 ${
+                          <div className={`activity-surface border-b py-5 transition-all duration-300 ${
                             dropIndex === index
-                              ? "border-emerald-500 ring-2 ring-emerald-50 translate-x-1"
+                              ? "border-slate-700 ring-2 ring-slate-200 translate-x-1"
                               : "border-slate-200 hover:border-slate-300"
                           }`}>
                             <div className="flex items-start justify-between gap-2">
@@ -699,13 +810,17 @@ export default function FinalPlannerPage() {
                                   <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-600 tracking-wider">
                                     {dayLabel}
                                   </span>
-                                  {matchedDay ? (
-                                    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold ${getPAGASABadgeColor(matchedDay.expected_weather)}`}>
-                                      {matchedDay.expected_weather}
-                                    </span>
-                                  ) : null}
+
                                 </div>
-                                <h3 className="truncate text-sm font-black text-slate-900">{activity.name}</h3>
+                                <h3 className="break-words text-sm font-bold leading-relaxed text-slate-900">{activity.name}</h3>
+                                <p className="mt-1 text-xs text-slate-500">{activity.destination || activity.location || "Location not listed"}</p>
+                              </div>
+                              <div className="activity-highlights ml-auto text-right">
+                                <p className="text-2xl font-extrabold tracking-tight text-slate-900">{formatActivityPrice(activeItem)}</p>
+                                <span className={`mt-2 inline-flex items-center justify-end gap-2 rounded-lg px-2 py-1 text-base font-bold border border-slate-300 text-slate-700`}>
+                                  {activityWeather ? <WeatherIcon condition={activityWeather} className="h-6 w-6 shrink-0" /> : null}
+                                  <span>{activityWeather || "Weather unavailable"}</span>
+                                </span>
                               </div>
                               <button
                                 type="button"
@@ -724,28 +839,34 @@ export default function FinalPlannerPage() {
                               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 font-medium">
                                 <span className="flex items-center gap-1">
                                   <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                  {clampActivityTime(activity.time) || "10:00"}
+                                  {isValidActivityTime(activity.time) ? activity.time : "Time needs attention"}
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                                   {activity.guests || guests || 1} Pax
                                 </span>
-                                <span className="flex items-center gap-1 font-bold text-emerald-700">
-                                  {formatActivityPrice(activeItem)}
-                                </span>
+                              </div>
+                            )}
+
+                            {Object.keys(fieldErrors).length > 0 && (
+                              <div id={`schedule-error-${index}`} className="mt-3 border-l-2 border-slate-900 pl-3 text-xs text-slate-800">
+                                <p className="font-bold">Schedule needs attention</p>
+                                {Object.entries(fieldErrors).map(([field, message]) => <p key={field}>{message}</p>)}
                               </div>
                             )}
 
                             {/* Inline Editor Drawer requested by user */}
                             {isEditing ? (
                               <div className="mt-4 rounded-xl bg-slate-50 p-4 border border-slate-100 animate-in fade-in slide-in-from-top-2">
-                                <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid min-w-0 grid-cols-3 items-end gap-2">
                                   <label className="flex flex-col gap-1.5 text-[10px] font-black uppercase text-slate-500">
                                     Assign Day
                                     <select
+                                      aria-invalid={Boolean(fieldErrors.day)}
+                                      aria-describedby={fieldErrors.day ? `schedule-error-${index}` : undefined}
                                       value={dates.some((_, dayIndex) => getAssignedDay(activity) === `Day ${dayIndex + 1}`) ? getAssignedDay(activity) : ""}
                                       onChange={(event) => changeActivity(index, { assignedDay: event.target.value })}
-                                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                      className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-900 outline-none focus:border-slate-900"
                                     >
                                       <option value="" disabled>Select day</option>
                                       {dates.map((date, dayIndex) => (
@@ -756,20 +877,23 @@ export default function FinalPlannerPage() {
                                     </select>
                                   </label>
 
-                                  <div className="flex flex-col gap-1.5 text-[10px] font-black uppercase text-slate-500">
+                                  <div className="flex min-w-0 flex-col gap-1.5 text-[10px] font-black uppercase text-slate-500">
                                     Time Schedule
                                     <ActivityTimePicker
-                                      value={clampActivityTime(activity.time)}
+                                      value={activity.time}
+                                      aria-invalid={Boolean(fieldErrors.time)}
+                                      aria-describedby={fieldErrors.time ? `schedule-error-${index}` : undefined}
                                       onChange={(time) => changeActivity(index, { time })}
+                                      buttonClassName="flex h-10 w-full min-w-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-left text-xs font-semibold text-slate-900 hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                                     />
                                   </div>
                                   
-                                  <div className="flex items-center justify-between gap-4 rounded-lg bg-white border border-slate-200 p-2 sm:col-span-2">
-                                    <span className="text-xs font-bold text-slate-700 ml-2">Guest Count</span>
-                                    <div className="flex items-center gap-3">
-                                      <button type="button" onClick={() => changeActivityGuests(index, -1)} className="h-7 w-7 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 font-bold text-slate-700">-</button>
-                                      <span className="min-w-[20px] text-center text-sm font-black">{activity.guests || 1}</span>
-                                      <button type="button" onClick={() => changeActivityGuests(index, 1)} className="h-7 w-7 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 font-bold text-slate-700">+</button>
+                                  <div className="flex min-w-0 flex-col gap-1.5 text-[10px] font-black uppercase text-slate-500">
+                                    Guest Count
+                                    <div className="flex h-10 items-center justify-between gap-1 rounded-lg border border-slate-200 bg-white px-1.5">
+                                      <button type="button" aria-label={`Decrease guests for ${activity.name}`} onClick={() => changeActivityGuests(index, -1)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"><ChevronLeft aria-hidden="true" size={14} /></button>
+                                      <span className="min-w-[20px] text-center text-sm font-black text-slate-900">{activity.guests || 1}</span>
+                                      <button type="button" aria-label={`Increase guests for ${activity.name}`} onClick={() => changeActivityGuests(index, 1)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"><ChevronRight aria-hidden="true" size={14} /></button>
                                     </div>
                                   </div>
                                 </div>
@@ -808,7 +932,7 @@ export default function FinalPlannerPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                     </div>
-                    <p className="text-sm font-bold text-slate-800">Your canvas is blank</p>
+                    <p className="text-sm font-bold text-slate-800">Start with a place you want to go</p>
                     <Link href="/destinations" className="mt-4 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm">
                       Browse Destinations
                     </Link>
@@ -818,7 +942,7 @@ export default function FinalPlannerPage() {
             </section>
           </div>
 
-          <aside className="lg:sticky lg:top-8 flex flex-col gap-6 lg:h-[calc(100vh-100px)] lg:overflow-y-auto pr-1">
+          <aside className="planner-sidebar flex min-w-0 flex-col gap-5 lg:sticky lg:top-24">
             
             {/* Wardrobe Module */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs shrink-0">
@@ -835,34 +959,32 @@ export default function FinalPlannerPage() {
                     <div key={group.key} className="space-y-2">
                       <p className="text-[11px] font-black uppercase tracking-wider text-slate-800">{group.name}</p>
                       
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {group.items.map((item) => (
-                          <div
-                            key={item.id}
-                            onClick={() => setSelectedGarment(item)}
-                            className="group relative cursor-pointer rounded-xl border border-slate-100 bg-slate-50 p-1.5 transition hover:border-slate-400 hover:shadow-2xs flex flex-col items-center"
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeOutfit(item.id);
-                              }}
-                              className="absolute -right-1 -top-1 z-10 h-4 w-4 rounded-full bg-rose-100 border border-rose-200 text-[9px] font-black text-rose-600 opacity-0 transition group-hover:opacity-100 hover:bg-rose-600 hover:text-white flex items-center justify-center shadow-xs"
-                              aria-label="Remove garment"
-                            >
-                              ✕
-                            </button>
-                            <div 
-                              className="aspect-square w-14 overflow-hidden rounded-lg bg-white border border-slate-100 mb-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedGarment(item);
-                              }}
-                            >
-                              <GarmentImage src={item.image} alt={item.category} className="h-full w-full object-cover pointer-events-none" />
+                          <div key={item.id} className="relative min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <div className="flex items-start gap-3">
+                              <button type="button" onClick={() => setSelectedGarment(item)} aria-label={`View ${item.category}`} className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-700">
+                                <GarmentImage src={item.image} alt={item.category} className="h-full w-full object-contain" />
+                              </button>
+                              <div className="min-w-0 flex-1">
+                                <p className="break-words pr-4 text-xs font-bold leading-relaxed text-slate-700">{item.category}</p>
+                                <button type="button" onClick={() => setSelectedGarment(item)} className="mt-1 text-[11px] font-semibold text-slate-700 underline underline-offset-2">View details</button>
+                              </div>
+                              <button type="button" onClick={() => removeOutfit(item.id)} aria-label={`Remove ${item.category}`} className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-rose-100 hover:text-rose-600">&times;</button>
                             </div>
-                            <p className="truncate w-full px-0.5 text-[8px] font-bold text-slate-700 text-center">{item.category}</p>
+                            <label className="mt-3 block">
+                              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500">Wear on</span>
+                              <select
+                                aria-label={`Day to wear ${item.category}`}
+                                value={dates.includes(item.date) ? item.date : dates[Number(String(item.day || "").replace("Day ", "")) - 1] || ""}
+                                onChange={(event) => changeOutfitDay(item.id, event.target.value)}
+                                disabled={!dates.length}
+                                className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-slate-700 disabled:opacity-50"
+                              >
+                                <option value="">{dates.length ? "Not assigned" : "Choose trip dates first"}</option>
+                                {dates.map((date, index) => <option key={date} value={date}>Day {index + 1} - {formatShortDate(date)}</option>)}
+                              </select>
+                            </label>
                           </div>
                         ))}
                       </div>
@@ -879,21 +1001,21 @@ export default function FinalPlannerPage() {
             </div>
 
             {/* Checkout / Status Module */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-950 p-5 shadow-lg text-white shrink-0">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Readiness Check</p>
+            <div className="trip-glance rounded-2xl border border-slate-300 bg-transparent p-5 text-slate-900 shrink-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Your trip at a glance</p>
               
-              <dl className="space-y-2.5 text-xs">
+              <dl className="trip-glance-stats grid grid-cols-3 gap-3 text-xs">
                 <div className="flex items-center justify-between">
                   <dt className="text-slate-400 font-medium">Timeline span</dt>
                   <dd className="font-bold">{dates.length ? `${dates.length} Days` : "—"}</dd>
                 </div>
                 <div className="flex items-center justify-between">
-                  <dt className="text-slate-400 font-medium">Plotted nodes</dt>
+                  <dt className="text-slate-400 font-medium">Activities</dt>
                   <dd className="font-bold">{activities.length}</dd>
                 </div>
-                <div className="flex items-center justify-between border-t border-slate-800 pt-2.5 mt-2.5">
+                <div className="min-w-0">
                   <dt className="text-slate-400 font-medium">Admissions Total</dt>
-                  <dd className="font-black text-emerald-400 tracking-wide">
+                  <dd className="font-black text-slate-900 tracking-wide">
                     ₱{estimatedAdmissionsTotal.toLocaleString("en-PH")}
                   </dd>
                 </div>
@@ -910,9 +1032,9 @@ export default function FinalPlannerPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Synthesizing...
+                    Creating brochure...
                   </span>
-                ) : "Publish Travel Brochure"}
+                ) : "Create travel brochure"}
               </button>
               
               {errorMessage && warningActivityIndex < 0 ? (
@@ -974,131 +1096,52 @@ export default function FinalPlannerPage() {
 
       {/* PRINT-FRIENDLY DOWNLOADABLE BROCHURE TEMPLATE */}
       {planner ? (
-        <div className="planner-document fixed inset-0 z-50 flex flex-col bg-[#FFFDFB] overflow-y-auto animate-in slide-in-from-bottom-8 fade-in duration-500 print:relative print:w-full print:inset-auto print:block">
+        <div className="planner-document fixed inset-0 z-[60] flex flex-col bg-slate-100 overflow-y-auto animate-in slide-in-from-bottom-8 fade-in duration-500 print:relative print:w-full print:inset-auto print:block">
           
-          {/* FORCES PORTRAIT PRINTING */}
-          <style>{`
-            @media print {
-              @page { 
-                size: portrait;
-                margin: 0.5in;
-              }
-            }
-          `}</style>
-
-          <div className="sticky top-0 z-40 bg-[#FFFDFB]/90 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between print:hidden shadow-sm">
+          {/* Brochure print styles are defined with the preview in globals.css. */}
+          <div className="brochure-toolbar sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-8 print:hidden">
             <button
               onClick={() => setPlanner(null)}
               className="group flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-slate-900 transition"
             >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 group-hover:bg-slate-200 transition">←</span>
-              Back to Workspace
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 group-hover:bg-slate-200 transition"><ChevronLeft aria-hidden="true" className="h-5 w-5" /></span>
+              Back to planner
+            </button>
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Document version">
+              {["overview", "details"].map((view) => (
+                <button key={view} type="button" aria-pressed={documentView === view} onClick={() => setDocumentView(view)} className={`rounded-lg px-4 py-2 text-sm font-bold ${documentView === view ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+                  {view === "overview" ? "01 Overview" : "02 Detailed"}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={savePlannerToArchive} disabled={Boolean(archivedPlanner)} className="rounded-lg border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-900 transition hover:bg-slate-100 disabled:cursor-default disabled:opacity-50">
+              {archivedPlanner ? "Saved to archive" : savedItineraries.some((saved) => saved.createdAt === planner.createdAt) ? "Update saved trip" : "Save to archive"}
             </button>
             <button
               onClick={printPlanner}
               className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black tracking-wide text-white shadow-md transition hover:bg-slate-800"
             >
-              Print Brochure
+              Print / Save {documentView === "overview" ? "overview" : "details"} PDF
             </button>
           </div>
 
-          {/* The Actual Printed Document Canvas */}
-          <div className="planner-landscape mx-auto w-full max-w-[850px] p-8 sm:p-12 text-slate-900 relative bg-[#FFFDFB] shadow-2xl print:shadow-none min-h-[1100px]">
-            
-            {/* Header Area */}
-            <div className="mb-4 border-b-2 border-slate-900 pb-3 flex justify-between items-end">
-              <span className="text-xs font-black uppercase tracking-widest text-slate-500">Travel Itinerary</span>
-              <span className="text-xs font-black uppercase tracking-widest text-slate-500">
-                {plannerStart && plannerEnd ? `${formatShortDate(plannerStart)} TO ${formatShortDate(plannerEnd)}` : "DATES TBC"}
-              </span>
-            </div>
-            
-            <h1 className="text-5xl md:text-6xl font-black text-slate-950 uppercase mb-10 text-center tracking-tight">
-              ANO TARA?
-            </h1>
-
-            {/* Dynamic Column Grid Area (Adapted for Portrait Layout) */}
-            <div className="relative">
-              <div 
-                className={`grid border-t-2 border-l-2 border-slate-200 bg-[#FFFDFB] ${
-                  itineraryDays.length === 1 ? "grid-cols-1" : "grid-cols-2"
-                }`}
-              >
-                {itineraryDays.map((day, index) => (
-                  <div key={day.dayNumber} className="border-b-2 border-r-2 border-slate-200 p-6 min-h-[260px] relative">
-                    {/* Day Header Row */}
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-lg font-black uppercase tracking-wider text-slate-900">Day {index + 1}</span>
-                      {day.expected_weather && (
-                        <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-bold ${getPAGASABadgeColor(day.expected_weather)} max-w-[100px] text-center leading-tight`}>
-                          {day.expected_weather}
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Full Weather Description */}
-                    {day.weatherDescription && (
-                      <p className="text-[11px] text-slate-500 italic leading-relaxed mb-6 border-b border-slate-100 pb-4">
-                        {day.weatherDescription}
-                      </p>
-                    )}
-                    
-                    {/* Activities List */}
-                    <ul className="space-y-6">
-                      {day.activities.map((activity, actIdx) => (
-                        <li key={actIdx} className="flex flex-col gap-3 border-b border-slate-100 pb-6 last:border-0 last:pb-0">
-                          {/* Image & Destination Header */}
-                          <div className="flex gap-4 items-start">
-                            <img
-                              src={dayImage(activity)}
-                              alt={activity.name}
-                              className="w-16 h-16 object-cover rounded-lg shadow-sm border border-slate-200 shrink-0"
-                            />
-                            <div className="flex-1 min-w-0 mt-0.5">
-                              <span className="font-black text-slate-900 text-base block leading-tight mb-1">{activity.name}</span>
-                              <span className="font-bold text-slate-500 text-xs uppercase tracking-wider block mb-1.5">
-                                {clampActivityTime(activity.time) || "10:00 AM"}
-                              </span>
-                              {activity.location && (
-                                <span className="flex items-start gap-1 text-[11px] font-semibold text-slate-600 leading-tight">
-                                  <svg className="w-3 h-3 shrink-0 mt-0.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                  {activity.location}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Details below image */}
-                          <div className="mt-1 pl-[80px]">
-                            {activity.description && (
-                              <p className="text-[13px] text-slate-700 block mb-3 leading-relaxed">
-                                {activity.description}
-                              </p>
-                            )}
-                            <span className="inline-flex items-center gap-2 rounded bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 border border-slate-200 shadow-xs">
-                              <span>{activity.guests || 1} Pax</span>
-                              <span className="text-slate-300">|</span>
-                              <span className="text-emerald-700">{formatActivityPrice(activity)}</span>
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-                
-                {/* Optional Filler Cell for Odd Number of Days in a 2-Column Grid */}
-                {(itineraryDays.length > 1 && itineraryDays.length % 2 !== 0) && (
-                   <div className="border-b-2 border-r-2 border-slate-200 p-5 min-h-[260px] bg-slate-50/50"></div>
-                )}
+          {archiveError && <div role="alert" className="mx-auto mt-4 w-full max-w-[794px] whitespace-pre-line border border-slate-500 bg-white p-4 text-sm text-slate-900 print:hidden">{archiveError}<p className="mt-2 font-semibold">Go back to the planner to correct these fields, then create the updated itinerary.</p></div>}
+          <div className="brochure-sheet portrait-document modern-itinerary relative mx-auto w-full max-w-[794px] bg-white p-5 text-slate-900 sm:p-10">
+            <header className="document-header">
+              <p className="document-eyebrow">ANO TARA? / {documentView === "overview" ? "Trip overview" : "Detailed itinerary"}</p>
+              <h1>{itineraryDays[0]?.activities[0]?.destination || "Your travel itinerary"}</h1>
+              <div className="document-date-line">
+                <p>{plannerStart && plannerEnd ? `${formatShortDate(plannerStart)} — ${formatShortDate(plannerEnd)}` : "Dates to be confirmed"}</p>
+                <span className="document-format print:hidden">A4 · Portrait</span>
               </div>
-            </div>
-
-            {/* Footer Metrics */}
-            <div className="mt-10 border-t-2 border-slate-900 pt-5 flex justify-between text-xs font-black uppercase tracking-widest text-slate-900">
-               <span>Est. Accommodations: {planner?.priceEstimate?.amount == null ? "TBA" : `₱${Number(planner.priceEstimate.amount).toLocaleString()}`}</span>
-               <span className="text-emerald-700">Total Admissions: ₱{totalPrice.toLocaleString()}</span>
-            </div>
+              <p className="document-trip-name">{planner.name || "Your next adventure"}</p>
+            </header>
+            {documentView === "overview" ? (
+              <PlannerOverview days={itineraryDays} formatPrice={formatActivityPrice} getWeather={getActivityWeather} guests={initialGuestCount} />
+            ) : (
+              <PlannerDetails days={itineraryDays} formatPrice={formatActivityPrice} getWeather={getActivityWeather} guests={initialGuestCount} outfitsForDay={outfitsForDay} />
+            )}
+            <footer className="document-footer">ANO TARA? <span>{documentView === "overview" ? "Your journey at a glance" : "Your daily travel companion"} · Prices and weather may change</span></footer>
           </div>
         </div>
       ) : null}

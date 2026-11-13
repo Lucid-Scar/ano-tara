@@ -1,7 +1,89 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { clampGuestCount, clampToSelectableDate, getMinSelectableDate } from "./tripUtils";
+import { clampGuestCount, clampToSelectableDate, getMinSelectableDate, getTodayDateString } from "./tripUtils";
+
+// Shared schedule validation and archive rules live with travel state.
+export function isCalendarDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+export function validateActivitySchedules(activities, dates) {
+  return activities.map((activity, index) => {
+    const errors = {};
+    const assignedDay = activity.assignedDay || activity.assigned_day || "";
+    const match = /^Day ([1-9]\d*)$/.exec(assignedDay);
+    if (!assignedDay) errors.day = "Select a trip day.";
+    else if (!match || !isCalendarDate(dates[Number(match[1]) - 1])) {
+      errors.day = `${assignedDay} is outside the trip duration. Select a day within the departure and return dates.`;
+    }
+    const time = activity.time;
+    if (time == null || String(time).trim() === "") errors.time = "Select an activity time.";
+    else if (typeof time !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      errors.time = "Select a valid activity time.";
+    } else if (time < "06:00" || time > "23:00") {
+      errors.time = "Time must be between 6:00 AM and 11:00 PM.";
+    } else if (Number(time.slice(3)) % 15 !== 0) {
+      errors.time = "Select a time in 15-minute intervals.";
+    }
+    return { index, name: activity.name || `Activity ${index + 1}`, errors };
+  }).filter(({ errors }) => Object.keys(errors).length > 0);
+}
+
+
+export function archiveActivities(plan) {
+  if (Array.isArray(plan.activities)) return plan.activities;
+  const start = plan.dateRange?.startDate;
+  return (plan.itinerary || []).flatMap((day) => (day.scheduled_activities || []).map((activity) => ({
+    ...activity,
+    assignedDay: activity.assignedDay || activity.assigned_day || (isCalendarDate(start) && isCalendarDate(day.date || day.day)
+      ? `Day ${Math.round((Date.parse(day.date || day.day) - Date.parse(start)) / 86400000) + 1}` : ""),
+    time: activity.time || activity.schedule || activity.start_time || "",
+  })));
+}
+
+export function validateArchivePlan(plan, today) {
+  const start = plan?.dateRange?.startDate;
+  const end = plan?.dateRange?.endDate;
+  if (!isCalendarDate(start) || !isCalendarDate(end) || end < start || start <= today) {
+    return { ok: false, message: "Choose a valid future departure and return date before saving to the archive." };
+  }
+  const dates = [];
+  for (let date = Date.parse(start); date <= Date.parse(end); date += 86400000) dates.push(new Date(date).toISOString().slice(0, 10));
+  const activities = archiveActivities(plan);
+  if (!activities.length) return { ok: false, message: "Add at least one activity before saving to the archive." };
+  const errors = validateActivitySchedules(activities, dates);
+  if (errors.length) return { ok: false, message: errors.map(({ index, name, errors }) => `${index + 1}. ${name}: ${Object.values(errors).join(" ")}`).join("\n") };
+  if (dates.length === 1 && activities.length <= 1) return { ok: false, message: "A 1-day itinerary must have more than 1 activity." };
+  return { ok: true };
+}
+
+const canonical = (value) => {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+  return value;
+};
+
+// Ignore generated forecasts, estimates, names and timestamps when detecting duplicates.
+export function archivePlanKey(plan) {
+  return JSON.stringify(canonical({
+    dateRange: plan.dateRange,
+    guests: plan.guests,
+    activities: archiveActivities(plan).map(({ assigned_day, ...activity }) => ({ ...activity, assignedDay: activity.assignedDay || assigned_day || "" })),
+    outfits: plan.outfits || [],
+  }));
+}
+
+export function upsertArchivedPlan(current, plan) {
+  const key = archivePlanKey(plan);
+  const index = current.findIndex((saved) => saved.createdAt === plan.createdAt || archivePlanKey(saved) === key);
+  if (index < 0) return [plan, ...current];
+  return current.map((saved, savedIndex) => savedIndex === index
+    ? { ...plan, createdAt: saved.createdAt, name: saved.name || plan.name }
+    : saved);
+}
 
 const TravelContext = createContext(null);
 const TRIP_STORAGE_KEY = "anoTaraTrip";
@@ -36,12 +118,27 @@ export function TravelProvider({ children }) {
   const [savedItineraries, setSavedItinerariesState] = useState([]);
   const [savedItinerariesLoaded, setSavedItinerariesLoaded] = useState(false);
 
-  // Working trip state (dates, guests, activities, outfits) is intentionally kept in memory only,
-  // so it clears on every browser refresh. Only generated planners persist across refreshes.
+  const [tripLoaded, setTripLoaded] = useState(false);
+
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.removeItem(TRIP_STORAGE_KEY);
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(TRIP_STORAGE_KEY) || "null");
+      if (saved) {
+        setDateRangeState(sanitizeDateRange(saved.dateRange || {}));
+        setGuestsState(clampGuestCount(saved.guests));
+        setCurrentActivities(Array.isArray(saved.currentActivities) ? saved.currentActivities : []);
+        setOutfits(Array.isArray(saved.outfits) ? saved.outfits : []);
+      }
+    } catch { /* Start with an empty trip if saved data cannot be read. */ }
+    finally { setTripLoaded(true); }
   }, []);
+
+  useEffect(() => {
+    if (!tripLoaded) return;
+    try {
+      window.localStorage.setItem(TRIP_STORAGE_KEY, JSON.stringify({ dateRange, guests, currentActivities, outfits }));
+    } catch { /* The current trip remains usable if storage is full. */ }
+  }, [tripLoaded, dateRange, guests, currentActivities, outfits]);
 
   useEffect(() => {
     try {
@@ -99,7 +196,10 @@ export function TravelProvider({ children }) {
   }, [currentActivities]);
 
   const saveItinerary = useCallback((itinerary) => {
-    setSavedItinerariesState((current) => [itinerary, ...current]);
+    const validation = validateArchivePlan(itinerary, getTodayDateString());
+    if (!validation.ok) return validation;
+    setSavedItinerariesState((current) => upsertArchivedPlan(current, itinerary));
+    return { ok: true };
   }, []);
 
   const deleteItinerary = useCallback((createdAt) => {
@@ -123,6 +223,7 @@ export function TravelProvider({ children }) {
   }, []);
 
   const value = useMemo(() => ({
+    tripLoaded,
     dateRange,
     setDateRange,
     guests,
@@ -141,7 +242,7 @@ export function TravelProvider({ children }) {
     renameItinerary,
     clearSavedItineraries,
     clearCurrentPlan,
-  }), [dateRange, guests, currentActivities, outfits, savedItineraries, setDateRange, setGuests, addActivity, removeActivity, updateActivity, hasActivityConflict, saveItinerary, deleteItinerary, renameItinerary, clearSavedItineraries, clearCurrentPlan]);
+  }), [tripLoaded, dateRange, guests, currentActivities, outfits, savedItineraries, setDateRange, setGuests, addActivity, removeActivity, updateActivity, hasActivityConflict, saveItinerary, deleteItinerary, renameItinerary, clearSavedItineraries, clearCurrentPlan]);
 
   return <TravelContext.Provider value={value}>{children}</TravelContext.Provider>;
 }

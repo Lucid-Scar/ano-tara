@@ -96,6 +96,7 @@ def get_pagasa_condition(temp: float, rain: float, wind: float, heat_index: floa
 
 
 DEFAULT_BASE_PRICES = {"City Hotel": 6625.63, "Resort Hotel": 5999.72}
+USD_TO_PHP = 63.78
 PHILIPPINE_PEAK_MONTHS = {12, 1, 2, 4}
 CURRENT_PSA_INFLATION_RATE = 7.2
 INFLATION_BASELINE_RATE = 4.0
@@ -123,13 +124,20 @@ def activity_price_per_pax(row: pd.Series) -> float | None:
 
 
 def display_price_amount(value: object) -> float | None:
-    """Extract the first PHP numeric amount from a display-price string."""
+    """Extract a display-price amount and normalize it to Philippine pesos."""
     if value is None or pd.isna(value):
         return None
-    match = re.search(r"(?:₱|PHP\s*)\s*([\d,]+(?:\.\d{1,2})?)", str(value), re.IGNORECASE)
+    match = re.search(
+        r"(₱|PHP|USD|\$)\s*([\d,]+(?:\.\d{1,2})?)",
+        str(value),
+        re.IGNORECASE,
+    )
     if not match:
         return None
-    return round(float(match.group(1).replace(",", "")), 2)
+    amount = float(match.group(2).replace(",", ""))
+    if match.group(1).casefold() in {"usd", "$"}:
+        amount *= USD_TO_PHP
+    return round(amount, 2)
 
 
 def resolved_activity_price_per_pax(

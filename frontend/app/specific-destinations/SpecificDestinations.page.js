@@ -1,5 +1,5 @@
 "use client";
-import React, { Suspense, useState, useEffect, useRef } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Footer from "../footer/Footer";
@@ -10,7 +10,7 @@ import PageSkeleton from "../../components/PageSkeleton";
 import { useTravel } from "../TravelContext";
 import { getGuestWarning, getMinSelectableDate, isValidActivityTime, toDateString, getPAGASABadgeColor, WeatherIcon } from "../tripUtils";
 import { getActivityImagePath } from "../activityImages";
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Info } from 'lucide-react';
 
 const mainImage =
   "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1400&q=80";
@@ -98,10 +98,10 @@ const isOpenOnDate = (openDays, dateValue) => {
   return normalized.includes(day.toLowerCase()) || normalized.includes(day.slice(0, 3).toLowerCase());
 };
 const parseDisplayPriceAmount = (value) => {
-  const match = String(value || "").match(/(₱|PHP\s*|\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  const match = String(value || "").match(/(₱|PHP\s*|USD|\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
   if (!match) return null;
   const amount = Number(match[2].replace(/,/g, ""));
-  return Number.isFinite(amount) ? (match[1].trim() === "$" ? amount * 56 : amount) : null;
+  return Number.isFinite(amount) ? (/^(USD|\$)$/i.test(match[1].trim()) ? amount * 63.78 : amount) : null;
 };
 const isFreeActivity = (activity) => {
   const display = activity?.price_display?.trim() || "";
@@ -150,14 +150,6 @@ const getNextAvailableDay = (dates, activities, afterDay = "") => {
   return nextIndex === undefined ? "" : `Day ${nextIndex + 1}`;
 };
 
-const shuffleList = (items) => {
-  const next = [...items];
-  for (let index = next.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
-  }
-  return next;
-};
 
 function NearbyCard({ destination }) {
   const activity = destination.highlightActivity || destination.activities?.[0];
@@ -168,69 +160,64 @@ function NearbyCard({ destination }) {
     <Link key={`${destination.id}-${activity?.name || ""}`} href={`/specific-destinations?id=${destination.id}${activity ? `&activity=${encodeURIComponent(activity.name)}` : ""}`} className="group relative block h-36 overflow-hidden rounded-xl shadow-sm">
       <img src={image} alt={title} onError={(event) => applyImageFallback(event, activityFallbackImage(activity, destination))} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-      <span className="absolute top-2 right-2 rounded-full bg-black/50 p-1.5 text-white" title={weatherCondition}>
-        <WeatherIcon condition={weatherCondition} className="h-4 w-4" />
+      <span className="absolute top-2 right-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-lg ring-1 ring-black/10" title={weatherCondition} role="img" aria-label={weatherCondition}>
+        <WeatherIcon condition={weatherCondition} className="h-6 w-6" />
       </span>
       <div className="absolute bottom-2 left-2 right-2">
         <p className="line-clamp-2 text-xs font-bold leading-snug text-white">{title}</p>
         <p className="text-[10px] text-white/80">{destination.name}</p>
-        {destination.proximityBasis ? (
-          <p className="mt-0.5 truncate text-[9px] font-semibold text-amber-200" title={destination.proximityBasis}>
-            Basis: {destination.proximityBasis}
-          </p>
-        ) : null}
       </div>
     </Link>
   );
 }
 
-function AssignDaySelect({ dates, assignedDay, currentActivities, assignedDayTaken, onChange, formatDate }) {
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef(null);
+function AssignDaySelect({ dates, assignedDay, currentActivities, assignedDayTaken, onChange, formatDate, operatingDayWarning }) {
+  const [showDayWarning, setShowDayWarning] = useState(false);
   const options = dates.map((date, index) => {
     const dayLabel = `Day ${index + 1}`;
     const taken = currentActivities.some((item) => (item.assignedDay || item.assigned_day) === dayLabel);
-    return { date, dayLabel, taken, text: `${dayLabel} · ${formatDate(date)}${taken ? " (selected)" : ""}` };
+    return { date, dayLabel, text: `${dayLabel} - ${formatDate(date)}${taken ? " (selected)" : ""}` };
   });
-  const selected = options.find((option) => option.dayLabel === assignedDay) || options[0];
-
-  useEffect(() => {
-    const close = (event) => {
-      if (!menuRef.current?.contains(event.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
 
   return (
-    <div ref={menuRef} className={`relative mt-3 mb-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${assignedDayTaken ? "border-blue-300 bg-blue-50/60 text-slate-700" : "border-gray-300 text-slate-700"}`}>
-      <span>Assign to{assignedDayTaken ? " · already has activity" : ""}</span>
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className={`max-w-[65%] truncate rounded-lg border bg-white px-2 py-1 text-left text-xs font-semibold outline-none focus:border-gray-400 ${assignedDayTaken ? "border-blue-200 text-slate-700" : "border-gray-200"}`}
+    <div className="mt-3 mb-4">
+      <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <label htmlFor="assigned-day" className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-gray-400">Assigned to</label>
+        {operatingDayWarning ? (
+          <div className="group/day-warning relative">
+            <button
+              type="button"
+              onClick={() => setShowDayWarning((visible) => !visible)}
+              onBlur={() => setShowDayWarning(false)}
+              onKeyDown={(event) => { if (event.key === "Escape") { setShowDayWarning(false); event.currentTarget.blur(); } }}
+              aria-expanded={showDayWarning}
+              aria-label={operatingDayWarning}
+              aria-describedby="assigned-day-warning"
+              className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500"
+            >
+              <Info size={14} aria-hidden="true" />
+            </button>
+            <span
+              id="assigned-day-warning"
+              role="tooltip"
+              className={`absolute bottom-full left-0 z-40 mb-2 w-56 max-w-[65vw] rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold leading-relaxed text-rose-800 shadow-lg ${showDayWarning ? "visible" : "invisible group-hover/day-warning:visible group-focus-within/day-warning:visible"}`}
+            >
+              {operatingDayWarning}
+            </span>
+          </div>
+        ) : null}
+      </div>
+      <select
+        id="assigned-day"
+        aria-describedby={operatingDayWarning ? "assigned-day-warning" : undefined}
+        value={assignedDay || options[0]?.dayLabel || ""}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={!options.length}
+        className={`h-[48px] w-full appearance-none rounded-xl border px-4 text-sm font-medium text-slate-700 outline-none transition-colors hover:border-gray-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-100 disabled:cursor-not-allowed disabled:opacity-50 ${assignedDayTaken ? "border-blue-300 bg-blue-50/60" : "border-gray-300 bg-white"}`}
       >
-        {selected?.text || "Choose a day"}
-      </button>
-      {open ? (
-        <ul role="listbox" className="absolute right-4 top-[calc(100%-0.35rem)] z-30 max-h-56 w-[min(100%-2rem,18rem)] overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-          {options.map((option) => (
-            <li key={option.date}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={option.dayLabel === assignedDay}
-                onClick={() => { onChange(option.dayLabel); setOpen(false); }}
-                className={`flex w-full px-3 py-2 text-left text-xs font-semibold ${option.dayLabel === assignedDay ? "bg-slate-900 text-white" : "text-slate-800 hover:bg-slate-50"} ${option.taken ? "bg-blue-50/50" : ""}`}
-              >
-                {option.text}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+        {!options.length && <option value="">Choose trip dates first</option>}
+        {options.map((option) => <option key={option.date} value={option.dayLabel}>{option.text}</option>)}
+      </select>
     </div>
   );
 }
@@ -246,9 +233,9 @@ const formatActivityPrice = (displayStr, rawPrice) => {
     return "";
   }
 
-  if (cleaned.includes("$")) {
-    cleaned = cleaned.replace(/\$(\d+(?:\.\d+)?)/g, (match, usdVal) => {
-      const phpVal = (parseFloat(usdVal) * 56.0).toLocaleString(undefined, {
+  if (/USD|\$/i.test(cleaned)) {
+    cleaned = cleaned.replace(/(?:USD|\$)\s*([\d,]+(?:\.\d+)?)/gi, (match, usdVal) => {
+      const phpVal = (Number(usdVal.replace(/,/g, "")) * 63.78).toLocaleString(undefined, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       });
@@ -260,7 +247,7 @@ const formatActivityPrice = (displayStr, rawPrice) => {
 };
 
 function SpecificDestinationsContent() {
-  const { dateRange, setDateRange, guests, setGuests, addActivity, currentActivities, hasActivityConflict } = useTravel();
+  const { dateRange, setDateRange, guests, setGuests, addActivity, currentActivities, hasActivityConflict, tripLoaded } = useTravel();
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
   const [tripReady, setTripReady] = useState(false);
@@ -268,6 +255,7 @@ function SpecificDestinationsContent() {
 
   const [hotelEstimate, setHotelEstimate] = useState(null);
   const [isEstimatingHotel, setIsEstimatingHotel] = useState(false);
+  const [showOperatingHours, setShowOperatingHours] = useState(false);
 
   const initialStartDate = dateRange.startDate || minDate;
   const [startDate, setStartDate] = useState(initialStartDate);
@@ -330,7 +318,13 @@ function SpecificDestinationsContent() {
   const parsedGuests = Number(guests) || 1;
   const selectedRecordTypes = selectedActivityData?.record_types || [];
   const isAccommodation = selectedRecordTypes.some((type) => /hotel|room|accommodation|resort/i.test(type));
-  const hotelRatePerNight = Number(selectedPricingTier?.hotel_rate_per_night ?? selectedActivityData?.hotel_rate_per_night);
+  const listedHotelRate = Number(selectedPricingTier?.hotel_rate_per_night ?? selectedActivityData?.hotel_rate_per_night);
+  const displayedHotelRate = parseDisplayPriceAmount(
+    selectedPricingTier?.price_display || selectedActivityData?.price_display,
+  );
+  const hotelRatePerNight = Number.isFinite(listedHotelRate) && listedHotelRate > 0
+    ? listedHotelRate
+    : displayedHotelRate;
   const hotelOccupancyPax = Number(selectedPricingTier?.hotel_occupancy_pax ?? selectedActivityData?.hotel_occupancy_pax);
   const hotelRatePerPaxPerNight = Number(selectedPricingTier?.hotel_rate_per_pax_per_night ?? selectedActivityData?.hotel_rate_per_pax_per_night);
   const hasExactAccommodationRate = isAccommodation
@@ -409,6 +403,9 @@ function SpecificDestinationsContent() {
   const operatingHoursNote = [openingTime, closingTime].find(
     (value) => value && timeToMinutes(value) == null,
   );
+  const operatingHoursDescription = `Operating hours: ${operatingHoursPublished
+    ? `${openingTime} - ${closingTime}`
+    : operatingHoursNote || "Not published - please verify locally."}`;
   const activityDurationLabel = selectedActivityData?.activity_duration || (
     selectedActivityData?.duration_hours ? `${selectedActivityData.duration_hours} hrs` : ""
   );
@@ -449,6 +446,15 @@ function SpecificDestinationsContent() {
   const staticBasePriceText = !isNaN(parsedPricePerGuest) && parsedPricePerGuest > 0
     ? `PHP ${parsedPricePerGuest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
+  const summaryPriceText = isAccommodation
+    ? (Number.isFinite(hotelRatePerNight) && hotelRatePerNight > 0
+      ? `PHP ${hotelRatePerNight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / room / night`
+      : Number(hotelEstimate?.base_price) > 0
+      ? `PHP ${Number(hotelEstimate.base_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / night (estimated base rate)`
+      : isEstimatingHotel ? "Estimating rate?" : "Rate unavailable ? check live dates")
+    : selectedActivityIsFree
+    ? "Free"
+    : staticBasePriceText ? `${staticBasePriceText} / person` : selectedPriceDisplay.trim() || "Not listed";
   const exactAccommodationPerPersonText = perPaxAccommodationCost != null
     ? `PHP ${perPaxAccommodationCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
@@ -457,6 +463,9 @@ function SpecificDestinationsContent() {
     : formatActivityPrice(selectedPriceDisplay, rawPricePerGuest) || activityTotalPriceText;
   const tripTotalText = totalTripCost != null
     ? `PHP ${totalTripCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
+  const nightlyTripText = totalTripCost != null
+    ? `PHP ${(totalTripCost / stayNights).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
   const perPersonTripText = perPersonTripCost != null
     ? `PHP ${perPersonTripCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -507,8 +516,8 @@ function SpecificDestinationsContent() {
   }, [roomType, selectedActivityData]);
 
   useEffect(() => {
-    setTripReady(true);
-  }, []);
+    if (tripLoaded) setTripReady(true);
+  }, [tripLoaded]);
 
   
 
@@ -543,7 +552,7 @@ function SpecificDestinationsContent() {
           : [];
         const picked = [];
         const usedDestinations = new Set();
-        shuffleList([...prioritizedPool, ...pool.filter((item) => !prioritizedPool.includes(item))]).forEach((item) => {
+        [...prioritizedPool, ...pool.filter((item) => !prioritizedPool.includes(item))].forEach((item) => {
           if (usedDestinations.has(item.id) || picked.length >= 3) return;
           usedDestinations.add(item.id);
           picked.push({
@@ -850,13 +859,11 @@ function SpecificDestinationsContent() {
                     </div>
                   ) : null}
 
-                  {/* Base Price */}
-                  {!selectedActivityIsFree && staticBasePriceText ? (
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Base Price</span>
-                      <span className="font-semibold text-slate-800">{staticBasePriceText} / person</span>
-                    </div>
-                  ) : null}
+                  {/* Listed price uses the unit appropriate to the selected record. */}
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Base Price</span>
+                    <span className="font-semibold text-slate-800">{summaryPriceText}</span>
+                  </div>
 
                   {/* Source Data */}
                   {selectedActivityData?.source_url ? (
@@ -1054,7 +1061,7 @@ function SpecificDestinationsContent() {
                     </h3>
                     {tripTotalText && perPersonTripText ? (
                       <span className="text-sm text-gray-500 font-medium">
-                        {perPersonTripText} / person
+                        {isAccommodation ? `${nightlyTripText} / night` : `${perPersonTripText} / person`}
                       </span>
                     ) : !selectedActivityIsFree && activityTotalPrice != null && selectedPriceText ? (
                       <span className="text-sm text-gray-500 font-medium">
@@ -1089,18 +1096,30 @@ function SpecificDestinationsContent() {
                     </div>
 
                     <div className="mt-2 rounded-xl bg-white p-2.5 border border-slate-100">
-                      <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                        <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
-                        {recommendedType === "outdoor" ? "Outdoor Activities Recommended" : "Indoor Activities Recommended"}
-                      </p>
-                      <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-                        {recommendationReason}
-                      </p>
-                      {weatherComparison?.summary ? (
-                        <p className="mt-1.5 text-[10px] italic text-slate-400">
-                          {weatherComparison.summary}
+                      <div className="flex items-center gap-2">
+                        <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
+                          {recommendedType === "outdoor" ? "Outdoor Activities Recommended" : "Indoor Activities Recommended"}
                         </p>
-                      ) : null}
+
+                        {weatherComparison?.summary ? (
+                          <div className="group relative flex items-center">
+                            {/* 'i' Info Icon */}
+                            <span className="flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-slate-100 text-[10px] font-black italic text-slate-500 transition hover:bg-slate-200 hover:text-slate-800">
+                              i
+                            </span>
+
+                            {/* Hover Tooltip Popup */}
+                            <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-48 -translate-x-1/2 translate-y-1 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                              <div className="rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium leading-relaxed text-white shadow-lg">
+                                {weatherComparison.summary}
+                                {/* Tooltip Triangle Arrow */}
+                                <div className="absolute -bottom-1 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 bg-slate-800"></div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 ) : isLoadingWeather ? (
@@ -1114,7 +1133,11 @@ function SpecificDestinationsContent() {
 
                 {/* CONDITIONAL ESTIMATION CONTAINER */}
                 {isAccommodation && (isEstimatingHotel || accommodationNightlyTotal != null || hotelEstimate) ? (
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <details key={selectedActivity} className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <summary className="cursor-pointer text-xs font-bold text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-500">
+                      {accommodationNightlyTotal != null ? "Accommodation pricing details" : "MLR accommodation estimate (optional study display)"}
+                    </summary>
+                    <div className="mt-3">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                       {accommodationNightlyTotal != null ? "Selected Accommodation Cost" : "MLR Accommodation Estimate"}
                     </p>
@@ -1151,7 +1174,8 @@ function SpecificDestinationsContent() {
                         </div>
                       </div>
                     ) : null}
-                  </div>
+                    </div>
+                  </details>
                 ) : null}
               
               </div>
@@ -1159,7 +1183,7 @@ function SpecificDestinationsContent() {
               <div className="mb-2 grid w-full grid-cols-1 gap-6">
                 
                 <div>
-                  <div className="mt-1">
+                  <div className="-mt-2">
                     <label htmlFor="room-type" className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">{isAccommodation ? "Room type" : "Option"}</label>
                     <select
                       id="room-type"
@@ -1176,6 +1200,7 @@ function SpecificDestinationsContent() {
                   <AssignDaySelect
                     dates={generateDateRange(startDate, endDate)}
                     assignedDay={assignedDay}
+                    operatingDayWarning={operatingDayWarning}
                     currentActivities={currentActivities}
                     assignedDayTaken={assignedDayTaken}
                     onChange={handleAssignedDayChange}
@@ -1189,38 +1214,49 @@ function SpecificDestinationsContent() {
                     </p>
                   ) : null}
 
-                  <div className="mt-1 flex flex-col gap-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <ActivityTimePicker
-                        value={selectedTime}
-                        onChange={setSelectedTime}
-                        minTime={operatingHoursPublished ? selectedActivityData.opening_time : undefined}
-                        maxTime={operatingHoursPublished ? selectedActivityData.closing_time : undefined}
-                        className="min-w-0"
-                      />
-                      <div className="flex h-[48px] items-center justify-between rounded-xl border border-gray-300 px-4">
-                        <span className="text-sm font-medium text-slate-700">Guests</span>
-                        <div className="flex items-center gap-2">
-                          <button type="button" onClick={handleMinus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">-</button>
-                          <span className="w-4 text-center font-bold text-slate-800">{guests}</span>
-                          <button type="button" onClick={handlePlus} className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">+</button>
+                  <div className="mt-1 flex flex-col gap-3 mb-2">
+                    <div className="grid grid-cols-2 items-end gap-3">
+                      <div className="min-w-0">
+                        <div className="mb-1 flex h-4 items-center gap-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Time</span>
+                          <div className="group/hours relative">
+                            <button
+                              type="button"
+                              onClick={() => setShowOperatingHours((visible) => !visible)}
+                              onBlur={() => setShowOperatingHours(false)}
+                              aria-expanded={showOperatingHours}
+                              aria-label={operatingHoursDescription}
+                              aria-describedby="operating-hours-note"
+                              className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
+                            >
+                              <Info size={14} aria-hidden="true" />
+                            </button>
+                            <span
+                              id="operating-hours-note"
+                              role="tooltip"
+                              className={`absolute bottom-full left-0 z-40 mb-2 w-56 rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium leading-relaxed text-white shadow-lg ${showOperatingHours ? "visible" : "invisible group-hover/hours:visible group-focus-within/hours:visible"}`}
+                            >
+                              {operatingHoursDescription}
+                            </span>
+                          </div>
+                        </div>
+                        <ActivityTimePicker
+                          value={selectedTime}
+                          onChange={setSelectedTime}
+                          minTime={operatingHoursPublished ? selectedActivityData.opening_time : undefined}
+                          maxTime={operatingHoursPublished ? selectedActivityData.closing_time : undefined}
+                          buttonClassName="flex h-[48px] w-full min-w-0 items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 text-left text-sm font-medium text-slate-700 outline-none transition-colors hover:border-gray-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="mb-1 flex h-4 items-center text-[10px] font-bold uppercase tracking-wide text-gray-400">Guests</span>
+                        <div className="flex h-[48px] items-center justify-between gap-2 rounded-xl border border-gray-300 bg-white px-3 sm:px-4">
+                          <button type="button" aria-label="Decrease guests" onClick={handleMinus} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">-</button>
+                          <span className="min-w-0 text-center font-bold text-slate-800">{guests}</span>
+                          <button type="button" aria-label="Increase guests" onClick={handlePlus} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100">+</button>
                         </div>
                       </div>
                     </div>
-                    {operatingHoursPublished ? (
-                      <p className="text-xs font-semibold text-slate-500">
-                        Operating hours: {openingTime}–{closingTime}
-                      </p>
-                    ) : (
-                      <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-                        Operating hours: {operatingHoursNote || "Not published — please verify locally."}
-                      </p>
-                    )}
-                    {operatingDayWarning ? (
-                      <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
-                        {operatingDayWarning}
-                      </p>
-                    ) : null}
                     {hotelTimeWarning ? (
                       <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
                         {hotelTimeWarning}

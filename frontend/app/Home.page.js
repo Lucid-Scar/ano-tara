@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Footer from "./footer/Footer";
+import ActivityBannerCarousel from "../components/ActivityBannerCarousel";
 import { useTravel } from "./TravelContext";
 import { getGuestWarning, getMinSelectableDate } from "./tripUtils";
 import { ChevronRight } from 'lucide-react';
@@ -69,7 +70,7 @@ function ExperienceCard({ experience }) {
   );
 }
 
-export default function Home() {
+export default function Home({ activitySlides = [] }) {
   const router = useRouter();
   const { dateRange, setDateRange, guests, setGuests } = useTravel();
   const startDate = dateRange.startDate || "";
@@ -145,8 +146,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#FFFDFB]">
-      <section className="relative flex min-h-[500px] w-full flex-col bg-[url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')] bg-cover bg-center">
-        <div className="absolute inset-0 bg-black/40"></div>
+      <section className="relative flex min-h-[500px] w-full flex-col bg-slate-950">
+        <ActivityBannerCarousel slides={activitySlides} />
         <nav className="relative z-20 mx-auto flex w-full items-center justify-between px-6 py-6 sm:px-12">
           <div className="flex-1 hidden md:block"></div>
           <div className="flex flex-1 justify-center">
@@ -167,7 +168,7 @@ export default function Home() {
        <div className="relative z-10 mx-auto flex flex-1 w-full max-w-5xl flex-col items-center justify-center px-6 pb-20 text-center -mt-10">
           <img src="/LOGO-WHITE.svg" alt="Ano Tara Logo" 
             className="w-full max-w-[340px] sm:max-w-[480px] md:max-w-[620px] lg:max-w-[720px] h-auto object-contain drop-shadow-2xl transition-transform duration-300 hover:scale-105"/>
-          <p className="-mt-10 text-xs sm:text-sm md:text-base font-bold uppercase tracking-[0.25em] text-white/90 drop-shadow-md">
+          <p className="-mt-10 mb-5 text-xs sm:text-sm md:text-base font-bold uppercase tracking-[0.25em] text-white/90 drop-shadow-md">
             Smart Itinerary & Dynamic Travel Engine
           </p>
         </div>

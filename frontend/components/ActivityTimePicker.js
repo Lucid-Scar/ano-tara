@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Clock3 } from "lucide-react";
-import { clampActivityTime, formatTimeOption } from "../app/tripUtils";
+import { clampActivityTime, formatTimeOption, isValidActivityTime } from "../app/tripUtils";
 
 const getDraftTime = (value) => {
   const [hourValue, minuteValue] = clampActivityTime(value).split(":").map(Number);
@@ -28,11 +28,12 @@ const toMinutes = (value) => {
   return hour * 60 + minute;
 };
 
-export default function ActivityTimePicker({ value, onChange, className = "", minTime, maxTime }) {
+export default function ActivityTimePicker({ value, onChange, className = "", minTime, maxTime, "aria-invalid": ariaInvalid, "aria-describedby": ariaDescribedBy, buttonClassName = "flex h-10 w-full min-w-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-left text-sm font-semibold text-slate-800 hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200" }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => getDraftTime(value));
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef(null);
+  const timeLabel = isValidActivityTime(value) ? formatTimeOption(value) : value ? "Select a valid time" : "Select time";
   const dialogRef = useRef(null);
   const hours = draft.period === "AM" ? [6, 7, 8, 9, 10, 11] : [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   const minutes = draft.period === "PM" && draft.hour === 11 ? [0] : [0, 15, 30, 45];
@@ -103,14 +104,16 @@ export default function ActivityTimePicker({ value, onChange, className = "", mi
       <button
       ref={buttonRef}
         type="button"
-        aria-label={`Activity time: ${formatTimeOption(clampActivityTime(value))}`}
+        aria-label={`Activity time: ${timeLabel}`}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={openPicker}
-        className="flex h-10 w-full min-w-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-left text-sm font-semibold text-slate-800 hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+        className={buttonClassName}
       >
         <Clock3 aria-hidden="true" size={16} className="shrink-0 text-slate-500" />
-        <span className="truncate">{formatTimeOption(clampActivityTime(value))}</span>
+        <span className="truncate">{timeLabel}</span>
       </button>
       {open && typeof document !== "undefined" ? createPortal(
         <div ref={dialogRef} role="dialog" aria-label="Select activity time" style={{ top: position.top, left: position.left }} className="fixed z-[100] w-56 rounded-md border border-slate-200 bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.18)]">

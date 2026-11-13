@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 :root { color-scheme: light; }
+.wardrobe-workspace .wardrobe-upload { position: relative; gap: 8px; border-radius: 8px; padding: 10px 16px; background: #0f172a; color: #fff; font-size: 12px; font-weight: 600; letter-spacing: normal; text-transform: none; box-shadow: none; }
+.wardrobe-workspace .wardrobe-upload:hover { background: #1e293b; transform: none; }
+.wardrobe-workspace .wardrobe-upload:focus-within { outline: 2px solid #475569; outline-offset: 3px; }
+.wardrobe-workspace .wardrobe-upload > span:last-of-type { width: auto; height: auto; background: transparent; box-shadow: none; font-size: 16px; }
+.wardrobe-workspace .wardrobe-upload input { display: block; position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.wardrobe-workspace .wardrobe-capture button:focus-visible, .wardrobe-workspace .wardrobe-context button:focus-visible { outline: 2px solid #475569; outline-offset: 3px; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-height: 100vh; background: #fcfbf8; }
 * { box-sizing: border-box; }
@@ -62,7 +68,7 @@ body { margin: 0; min-height: 100vh; background: #fcfbf8; }
 }
 
 @media print {
-  @page { size: landscape; margin: 0; }
+  @page { size: A4 portrait; margin: 12mm; }
   body { background: white; }
   .planner-shell { padding: 0; background: white; }
   .planner-shell > div { max-width: none; }
@@ -84,4 +90,126 @@ body { margin: 0; min-height: 100vh; background: #fcfbf8; }
 
 @media (max-width: 560px) {
   .itinerary-day-grid { grid-template-columns: 1fr; }
+}
+/* Final planner workspace and brochure preview. */
+.final-planner { background: #f7f8fa; }
+.final-planner .planner-editor-section { min-width: 0; background: transparent; padding: 0; }
+.final-planner .planner-editor-section > div:first-child { border-bottom: 1px solid #e2e8f0; padding-bottom: .875rem; }
+.final-planner .planner-editor { padding-bottom: 3rem; }
+.final-planner .planner-editor article { overflow-wrap: anywhere; }
+.final-planner .planner-editor article button:focus-visible { outline: 2px solid #334155; outline-offset: 3px; }
+.final-planner .planner-document { overscroll-behavior: contain; }
+.final-planner .brochure-sheet { margin-top: 2rem; margin-bottom: 2rem; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 12px 40px rgb(15 23 42 / .07); }
+.final-planner .brochure-day { overflow-wrap: anywhere; }
+.final-planner .brochure-day img { background: #f1f5f9; }
+.final-planner .activity-highlights { flex: 0 1 45%; min-width: 0; }
+.final-planner .trip-glance > p { color: #1e293b; }
+.final-planner .trip-glance-stats > div { display: block; }
+.final-planner .trip-glance-stats dt { color: #475569; font-size: .65rem; }
+.final-planner .trip-glance-stats dd { margin-top: .5rem; color: #0f172a; font-size: 1.2rem; overflow-wrap: anywhere; }
+.final-planner .trip-glance button[type="submit"] { background: #1e293b; color: white; box-shadow: none; }
+.portrait-document { font-size: 13px; line-height: 1.6; }
+.document-header { border-bottom: 2px solid #1e293b; padding-bottom: 24px; margin-bottom: 28px; }
+.document-eyebrow, .document-edition { color: #334155; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .16em; }
+.document-edition { margin-top: 24px; color: #64748b; }
+.document-header h1 { font-size: 32px; line-height: 1.15; font-weight: 800; letter-spacing: -.04em; margin: 8px 0 14px; overflow-wrap: anywhere; }
+.document-header > p:last-child { color: #64748b; }
+.print-day { margin-bottom: 28px; }
+.print-day-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 10px; margin-bottom: 14px; }
+.print-day-heading h2 { color: #1e293b; font-size: 20px; font-weight: 800; }
+.print-day-heading p { color: #64748b; font-size: 12px; }
+.overview-table { table-layout: fixed; width: 100%; text-align: left; border-collapse: collapse; }
+.overview-table th { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; padding: 10px 8px; background: #f1f5f9; }
+.overview-table th:first-child { width: 42%; }
+.overview-table th:last-child { width: 10%; }
+.overview-table td { padding: 14px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; overflow-wrap: anywhere; }
+.overview-table td span { display: block; color: #64748b; font-size: 11px; margin-top: 4px; }
+.portrait-document h3 { font-weight: 800; color: #0f172a; }
+.document-weather { background: #f1f5f9; padding: 16px; border-radius: 10px; margin-bottom: 20px; }
+.document-weather p { margin-top: 6px; color: #475569; }
+.document-stops { list-style: none; padding: 0; }
+.document-stops li { padding: 0 0 18px; margin-bottom: 18px; border-bottom: 1px solid #e2e8f0; }
+.document-stop-heading { display: flex; gap: 12px; align-items: baseline; }
+.document-stop-heading > div { flex: 1; min-width: 0; }
+.document-stop-heading > strong { color: #1e293b; }
+.stop-number { color: #94a3b8; font-size: 12px; font-weight: 700; }
+.document-stop-heading p, .document-meta { color: #64748b; font-size: 11px; }
+.document-meta { margin: 8px 0; }
+.document-outfits { margin: 22px 0; }
+.document-outfit-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.document-outfit-grid figure { min-width: 0; padding: 10px; background: #f8fafc; border-radius: 8px; }
+.document-garment { width: 100%; height: 100px; object-fit: contain; }
+.document-outfit-grid figcaption { font-size: 11px; margin-top: 8px; overflow-wrap: anywhere; }
+.document-outfit-grid figcaption span { display: block; color: #64748b; }
+.document-map h3 { margin-bottom: 10px; }
+.document-map > div:first-of-type { height: 260px; }
+.document-map-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 11px; color: #334155; }
+.document-footer { border-top: 1px solid #cbd5e1; padding-top: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 9px; color: #64748b; letter-spacing: .04em; }
+/* Modern itinerary documents retain A4 portrait proportions in the preview. */
+.final-planner .modern-itinerary { width: min(100%, 210mm); min-height: min(297mm, 141.43vw); flex-shrink: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; color: #0f172a; box-shadow: 0 8px 32px rgb(15 23 42 / .06); }
+.modern-itinerary .document-header { padding-bottom: 22px; margin-bottom: 24px; border-bottom: 1px solid #cbd5e1; }
+.modern-itinerary .document-header h1 { font-family: inherit; font-size: clamp(28px, 4vw, 38px); font-weight: 800; line-height: 1.15; letter-spacing: -.035em; margin: 12px 0; }
+.document-date-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: #475569; font-size: 12px; }
+.document-format { font-size: 10px; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 8px; }
+.modern-itinerary .document-trip-name { margin-top: 8px; color: #64748b; font-size: 11px; overflow-wrap: anywhere; }
+.overview-day-list { display: flex; flex-direction: column; gap: 16px; }
+.overview-day-card { min-width: 0; border: 1px solid #cbd5e1; border-radius: 10px; }
+.overview-day-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; }
+.overview-day-heading h2 { color: #0f172a; font-size: 14px; font-weight: 800; }
+.overview-day-heading p { font-size: 11px; color: #64748b; }
+.overview-stops { list-style: none; padding: 0 16px; }
+.overview-stops li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; padding: 16px 0; border-bottom: 1px solid #e2e8f0; overflow-wrap: anywhere; }
+.overview-stops li:last-child { border-bottom: 0; }
+.overview-location h3 { font-size: 13px; font-weight: 700; line-height: 1.5; }
+.overview-location p { font-size: 11px; color: #64748b; margin-top: 4px; }
+.overview-facts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, .4fr); gap: 10px; }
+.overview-facts dt { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+.overview-facts dd { font-size: 12px; font-weight: 600; margin-top: 5px; }
+.modern-itinerary .detailed-day { border: 1px solid #cbd5e1; border-radius: 10px; padding: 18px; }
+.modern-itinerary .print-day-heading { padding-bottom: 12px; }
+.modern-itinerary .print-day-heading h2 { font-size: 18px; font-weight: 800; }
+.modern-itinerary .document-weather { background: transparent; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
+.modern-itinerary .document-outfit-grid figure { background: white; border: 1px solid #e2e8f0; border-radius: 8px; }
+.modern-itinerary .document-footer { margin-top: 24px; }
+@media screen and (max-width: 520px) {
+  .overview-stops li { grid-template-columns: 1fr; gap: 12px; }
+  .modern-itinerary .detailed-day { padding: 14px; }
+}
+@media (max-width: 420px) {
+  .final-planner .activity-highlights p { font-size: 1.25rem; }
+  .final-planner .activity-highlights span { font-size: .875rem; }
+  .overview-table th, .overview-table td { padding-left: 4px; padding-right: 4px; }
+}
+@media (max-width: 639px) {
+  .final-planner .planner-editor-section { padding: 0; }
+  .final-planner .brochure-sheet { margin: 0; border: 0; border-radius: 0; }
+  .final-planner .brochure-toolbar button { font-size: .75rem; }
+}
+@media print {
+  @page { size: A4 portrait; margin: 12mm; }
+  html, body { height: auto !important; overflow: visible !important; }
+  .final-planner .planner-document { position: static !important; display: block !important; width: 100% !important; min-height: 0; overflow: visible !important; background: white !important; }
+  .final-planner .brochure-sheet { max-width: none; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .final-planner .brochure-days { display: block; }
+  .final-planner .brochure-day { margin-bottom: 5mm; border-radius: 3mm; break-inside: auto; }
+  .final-planner .brochure-activity, .final-planner .brochure-title, .final-planner .brochure-totals { break-inside: avoid; }
+  .final-planner .brochure-day h3 { break-after: avoid; }
+  .final-planner .brochure-summary { background: #f8fafc !important; }
+  .final-planner .brochure-day img { width: 16mm; height: 16mm; }
+  .portrait-document { font-size: 10pt; }
+  .document-header, .print-day-heading, .document-weather, .document-stops li, .document-outfit-grid figure, .document-map, .document-footer, .overview-table tr { break-inside: avoid; }
+  .print-day-heading, .portrait-document h3 { break-after: avoid; }
+  .detailed-day + .detailed-day { break-before: page; }
+  .overview-table thead { display: table-header-group; }
+  .document-map .leaflet-control-zoom { display: none; }
+  .document-map > div:first-of-type { height: 65mm; }
+  .document-header h1 { font-size: 26pt; }
+  .final-planner .modern-itinerary { width: 100%; min-height: 0; background: #fff !important; border: 0; border-radius: 0; box-shadow: none; }
+  .modern-itinerary .document-header h1 { font-size: 26pt; }
+  .overview-day-card { break-inside: auto; margin-bottom: 4mm; }
+  .overview-day-heading { break-after: avoid; }
+  .overview-day-list { display: block; }
+  .overview-stops li { break-inside: avoid; }
+  .modern-itinerary .detailed-day { border-radius: 3mm; }
+
 }

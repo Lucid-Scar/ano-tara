@@ -17,12 +17,23 @@ const customIcon = L.icon({
   shadowSize: [41, 41]
 });
 
-function MapViewport({ center }) {
+function MapViewport({ center, waypoints }) {
   const map = useMap();
 
   useEffect(() => {
-    map.setView(center, 13);
-  }, [center, map]);
+    const fit = () => {
+      map.invalidateSize();
+      if (waypoints.length > 1) map.fitBounds(waypoints, { padding: [30, 30], maxZoom: 13, animate: false });
+      else map.setView(center, 13, { animate: false });
+    };
+    fit();
+    window.addEventListener("beforeprint", fit);
+    window.addEventListener("afterprint", fit);
+    return () => {
+      window.removeEventListener("beforeprint", fit);
+      window.removeEventListener("afterprint", fit);
+    };
+  }, [center, waypoints, map]);
 
   return null;
 }
@@ -36,7 +47,6 @@ export default function ItineraryMap({ activities = [], routeSegments = [] }) {
     Number(activity.exact_latitude),
     Number(activity.exact_longitude),
   ]);
-  console.log("Itinerary map waypoints:", waypoints);
   const firstActivity = validActivities[0];
   const center = firstActivity
     ? [Number(firstActivity.exact_latitude), Number(firstActivity.exact_longitude)]
@@ -45,7 +55,7 @@ export default function ItineraryMap({ activities = [], routeSegments = [] }) {
   return (
     <div className="h-[450px] w-full overflow-hidden rounded-xl border border-slate-200 shadow-sm z-0 relative">
       <MapContainer center={center} zoom={13} scrollWheelZoom={false} className="h-full w-full z-0">
-        <MapViewport center={center} />
+        <MapViewport center={center} waypoints={waypoints} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
