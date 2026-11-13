@@ -64,22 +64,30 @@ const parsePriceToPhp = (value) => {
   return /USD|\$/i.test(text) ? numeric * 63.78 : numeric;
 };
 
-const getActivityPricePhp = (activity) => {
-  const prices = [
-    activity?.price,
-    activity?.estimated_price,
-    activity?.price_per_pax,
-    activity?.real_price_php,
-    activity?.price_display,
-  ].map(parsePriceToPhp);
-  // A zero placeholder must not hide a published paid activity price.
-  return prices.find((price) => price !== null && price > 0)
-    ?? prices.find((price) => price !== null)
-    ?? (/^free(?:\s*\(|$)/i.test(activity?.price_display || "") ? 0 : null);
+const getActivityPricePerGuestPhp = (activity) => {
+  const pricePerGuest = parsePriceToPhp(activity?.price_per_pax);
+  const prices = [pricePerGuest, activity?.real_price_php, activity?.price_display, activity?.price]
+    .map(parsePriceToPhp);
+  const publishedPrice = prices.find((price) => price !== null && price > 0);
+  if (publishedPrice !== undefined) return publishedPrice;
+
+  const estimatedTotal = parsePriceToPhp(activity?.estimated_price);
+  const guestCount = Math.max(1, Number(activity?.guests) || 1);
+  if (estimatedTotal !== null && estimatedTotal > 0) return estimatedTotal / guestCount;
+  if (pricePerGuest !== null) return pricePerGuest;
+  if (prices.some((price) => price === 0) || /^free(?:\s*\(|$)/i.test(activity?.price_display || "")) return 0;
+  return null;
+};
+
+const getActivityTotalPricePhp = (activity) => {
+  const pricePerGuest = getActivityPricePerGuestPhp(activity);
+  return pricePerGuest === null
+    ? null
+    : pricePerGuest * Math.max(1, Number(activity?.guests) || 1);
 };
 
 const formatActivityPrice = (activity) => {
-  const numeric = getActivityPricePhp(activity);
+  const numeric = getActivityTotalPricePhp(activity);
   if (numeric === 0) return "FREE";
   if (numeric !== null) return `₱${numeric.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
   return activity?.price_display || "Price not listed";
@@ -322,9 +330,22 @@ export default function FinalPlannerPage() {
   };
 
   const changeActivityGuests = (index, amount) => {
-    const nextGuests = Math.max(1, (Number(activities[index]?.guests) || 1) + amount);
+    const activity = activities[index];
+    const currentGuests = Math.max(1, Number(activity?.guests) || 1);
+    const nextGuests = Math.max(1, currentGuests + amount);
+    const changes = { guests: nextGuests };
+    const estimatedTotal = parsePriceToPhp(activity?.estimated_price);
+    const hasUnitPrice = [
+      activity?.price_per_pax,
+      activity?.real_price_php,
+      activity?.price_display,
+      activity?.price,
+    ].some((price) => (parsePriceToPhp(price) ?? 0) > 0);
+    if (!hasUnitPrice && estimatedTotal !== null && estimatedTotal > 0) {
+      changes.estimated_price = (estimatedTotal / currentGuests) * nextGuests;
+    }
     if (index === 0) setGuests(nextGuests);
-    changeActivity(index, { guests: nextGuests });
+    changeActivity(index, changes);
   };
 
   const removeOutfit = (id) => {
@@ -519,7 +540,7 @@ export default function FinalPlannerPage() {
       activities: (Array.isArray(day.scheduled_activities) ? day.scheduled_activities : []).map((activity) => ({
         ...activity,
         location: activity.location || activity.destination,
-        price: getActivityPricePhp(activity),
+        price: getActivityTotalPricePhp(activity),
         guests: Number(activity.guests) || guests,
       })),
     }));
@@ -533,7 +554,7 @@ export default function FinalPlannerPage() {
     itineraryDays[itineraryDays.length - 1]?.day ||
     endDate;
   const estimatedAdmissionsTotal = activities.reduce((sum, activity) => {
-    const parsed = getActivityPricePhp(activity);
+    const parsed = getActivityTotalPricePhp(activity);
     return sum + (Number.isFinite(parsed) ? parsed : 0);
   }, 0);
   const timelineSpan = activities.reduce(
