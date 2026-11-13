@@ -590,16 +590,14 @@ function OutfitPlannerContent() {
           </section>
         </div>
 
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wider text-slate-500">03 / Accepted garments</p>
-          <h2 className="mt-2 text-2xl font-black">Outfits by itinerary day</h2>
-          <p className="mt-2 text-sm text-slate-600">Group multiple garments into one outfit, then create another outfit for the same day.</p>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {groupedOutfits.map((group) => (
-              <article key={group.key} className="border border-slate-200 p-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="font-black">{group.name}</h3>
-                  <p className="text-xs text-slate-500">Day {dayNumberForDate(group.date, dayOptions)} · {formatDate(group.date)}</p>
+        {/* Step 3: Wardrobe Collection Grid - HIDDEN UNTIL ITEMS EXIST */}
+        {outfits.length > 0 && (
+          <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 sm:p-10 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 border-b border-slate-100 pb-5">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-black text-white">3</span>
+                  <h2 className="text-2xl font-black text-slate-900">Wardrobe Collections</h2>
                 </div>
                 <p className="text-sm font-medium text-slate-500 pl-11">Review and organize your assigned garments by travel day.</p>
               </div>
